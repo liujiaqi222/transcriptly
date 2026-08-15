@@ -43,6 +43,7 @@ test("extension loads and popup renders via launchPersistentContext + --load-ext
     `chrome-extension://${extensionId}/${manifest.action.default_popup}`,
   );
   await expect(page.getByRole("heading", { name: "Transcriptly" })).toBeVisible();
+  await expect(page.getByText(/Open a YouTube video and try again/)).toBeVisible();
 
   await context.close();
 });
