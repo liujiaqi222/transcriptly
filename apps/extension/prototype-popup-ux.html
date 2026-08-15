@@ -25,8 +25,6 @@
     --ok-bg: #e9f4ea;
     --err: #c62828;
     --err-bg: #fdeeee;
-    --warn: #8a5a00;
-    --warn-bg: #fdf6e3;
   }
   * { box-sizing: border-box; }
   body {
@@ -61,8 +59,7 @@
   /* ---- filename ---- */
   .fname {
     border: none; background: transparent; padding: 10px 12px 9px;
-    font-size: 14px; font-weight: 600; color: var(--text); width: 100%;
-    outline: none;
+    font-size: 14px; font-weight: 600; color: var(--text); width: 100%; outline: none;
   }
   .fname::placeholder { color: var(--faint); }
   .fname.saved { color: var(--ok); }
@@ -86,7 +83,7 @@
   /* ---- content preview (the transcript) ---- */
   .content {
     flex: 1; overflow-y: auto; border-top: 1px solid var(--line);
-    padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 0;
+    padding: 10px 12px 12px;
   }
   .section-label {
     font-size: 11px; font-weight: 600; letter-spacing: .04em;
@@ -136,7 +133,9 @@
 
   /* ---- footer ---- */
   .footer { border-top: 1px solid var(--line); padding: 9px 12px 11px; background: var(--bg); }
-  .dests { display: flex; align-items: center; gap: 16px; margin-bottom: 9px; }
+  .dest-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; position: relative; }
+  .dest-row .spacer { flex: 1; }
+
   .tgl { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12.5px; color: var(--text); user-select: none; }
   .tgl input { display: none; }
   .tgl .track {
@@ -149,9 +148,35 @@
   }
   .tgl input:checked + .track { background: var(--accent); }
   .tgl input:checked + .track::after { left: 15px; }
-  .tgl .hint { font-size: 10.5px; color: var(--faint); margin-left: -4px; }
+  .tgl .hint { font-size: 10.5px; color: var(--faint); }
+
+  .folder {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: #fff; border-radius: 6px;
+    padding: 3px 9px; font-size: 12px; color: var(--text); cursor: pointer; font-family: inherit;
+    max-width: 170px;
+  }
+  .folder:hover { background: var(--bg-alt); }
+  .folder svg { flex: 0 0 auto; }
+  .folder .fname-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .folder.empty .fname-label { color: var(--faint); }
+  .folder .chev { color: var(--faint); font-size: 10px; }
+
+  .folder-menu {
+    position: absolute; top: 28px; right: 0; z-index: 10;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 8px 22px rgba(0,0,0,.14); min-width: 190px; padding: 4px; display: none;
+  }
+  .folder-menu.open { display: block; }
+  .folder-menu .opt {
+    display: block; width: 100%; text-align: left; border: 0; background: transparent;
+    padding: 7px 9px; font-size: 12px; color: var(--text); cursor: pointer; border-radius: 5px; font-family: inherit;
+  }
+  .folder-menu .opt:hover { background: var(--bg-alt); }
+  .folder-menu .opt.pick { color: var(--muted); border-top: 1px solid var(--line); margin-top: 4px; padding-top: 8px; }
+
   .signin { font-size: 12.5px; color: var(--accent); font-weight: 600; cursor: pointer; }
-  .cloud-err { font-size: 11px; color: var(--err); margin-top: -3px; margin-bottom: 7px; }
+  .cloud-err { font-size: 11px; color: var(--err); margin: -3px 0 7px; }
 
   .save {
     width: 100%; border: 0; border-radius: 7px; cursor: pointer;
@@ -201,7 +226,7 @@ const video = {
   language: "English",
   capturedAt: "2024-08-15 14:32",
   url: "https://youtube.com/watch?v=XXXXXXXXXXX",
-  file: "saved/2024-08-15 · building-reliable-agents.md",
+  file: "2024-08-15 · building-reliable-agents.md",
 };
 const description = "A practical walkthrough of the engineering lessons behind production agent systems — retrieval, tool design, and evaluation.";
 const segments = [
@@ -217,22 +242,25 @@ const segments = [
   { t: 110, text: "and third, keep your prompts boring" },
   { t: 123, text: "the clever prompt is the one that breaks next week" },
 ];
+const FOLDERS = ["Transcriptly", "YouTube clips", "~/Notes/inbox"];
 
 const SCENARIOS = [
+  { key:'firstRun',    label:'First run',       signedIn:true,  transcript:true,  phase:'idle',
+    local:{selected:true,  state:'idle', folder:null}, cloud:{selected:false, state:'idle', remembered:false} },
   { key:'idle',        label:'Ready',           signedIn:true,  transcript:true,  phase:'idle',
-    local:{selected:true,  state:'idle'}, cloud:{selected:false, state:'idle', remembered:false} },
+    local:{selected:true,  state:'idle', folder:'Transcriptly'}, cloud:{selected:false, state:'idle', remembered:false} },
   { key:'capturing',   label:'Capturing',       signedIn:true,  transcript:true,  phase:'capturing',
-    local:{selected:true,  state:'saving'}, cloud:{selected:false, state:'idle', remembered:false} },
+    local:{selected:true,  state:'saving', folder:'Transcriptly'}, cloud:{selected:false, state:'idle', remembered:false} },
   { key:'localDone',   label:'Local saved',     signedIn:true,  transcript:true,  phase:'done',
-    local:{selected:true,  state:'done'},  cloud:{selected:false, state:'idle', remembered:false} },
+    local:{selected:true,  state:'done', folder:'Transcriptly'}, cloud:{selected:false, state:'idle', remembered:false} },
   { key:'bothDone',    label:'Local + cloud',   signedIn:true,  transcript:true,  phase:'done',
-    local:{selected:true,  state:'done'},  cloud:{selected:true,  state:'done',  remembered:true} },
+    local:{selected:true,  state:'done', folder:'Transcriptly'}, cloud:{selected:true,  state:'done',  remembered:true} },
   { key:'cloudFailed', label:'Cloud failed',    signedIn:true,  transcript:true,  phase:'done',
-    local:{selected:true,  state:'done'},  cloud:{selected:true,  state:'error', remembered:true} },
+    local:{selected:true,  state:'done', folder:'Transcriptly'}, cloud:{selected:true,  state:'error', remembered:true} },
   { key:'noTranscript',label:'No transcript',   signedIn:true,  transcript:false, phase:'error',
-    local:{selected:true,  state:'idle'}, cloud:{selected:false, state:'idle', remembered:false} },
+    local:{selected:true,  state:'idle', folder:'Transcriptly'}, cloud:{selected:false, state:'idle', remembered:false} },
   { key:'signedOut',   label:'Signed out',      signedIn:false, transcript:true,  phase:'idle',
-    local:{selected:true,  state:'idle'}, cloud:{selected:false, state:'idle', remembered:false} },
+    local:{selected:true,  state:'idle', folder:'Transcriptly'}, cloud:{selected:false, state:'idle', remembered:false} },
 ];
 
 function ts(t) {
@@ -262,6 +290,18 @@ function errcardHtml() {
   return `<div class="errcard"><b>No transcript found</b>YouTube didn't expose a transcript for this video. Open the Transcript panel on the page, then retry.</div>`;
 }
 
+const folderIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+function folderBtn(s) {
+  const name = s.local.folder;
+  return `<button class="folder ${name?'':'empty'}" data-action="folder">
+    ${folderIcon}<span class="fname-label">${name || 'Choose folder…'}</span><span class="chev">▾</span>
+  </button>
+  <div class="folder-menu">
+    ${FOLDERS.map(f => `<button class="opt" data-folder="${f}">${folderIcon} ${f}</button>`).join('')}
+    <button class="opt pick" data-folder-pick>Choose another folder… <span style="color:var(--faint)">(showDirectoryPicker)</span></button>
+  </div>`;
+}
+
 function toggle(name, checked, hint) {
   return `<label class="tgl"><input type="checkbox" ${checked?'checked':''} disabled><span class="track"></span>${name}${hint?`<span class="hint">${hint}</span>`:''}</label>`;
 }
@@ -271,33 +311,23 @@ function render() {
   const savedLocal = s.local.state === 'done';
   const savedCloud = s.cloud.state === 'done';
 
-  // filename
-  const fname = `<input class="fname ${savedLocal?'saved':''}" value="${video.file.replace('saved/','')}" spellcheck="false" />`;
-
-  // properties
+  const fname = `<input class="fname ${savedLocal?'saved':''}" value="${video.file}" spellcheck="false" />`;
   const props = propsHtml();
 
-  // content
   let content = '';
-  if (!s.transcript) {
-    content = `<div class="content">${errcardHtml()}</div>`;
-  } else if (s.phase === 'capturing') {
-    content = `<div class="content">${skeletonHtml()}</div>`;
-  } else {
-    content = `<div class="content">${transcriptHtml()}</div>`;
-  }
+  if (!s.transcript) content = `<div class="content">${errcardHtml()}</div>`;
+  else if (s.phase === 'capturing') content = `<div class="content">${skeletonHtml()}</div>`;
+  else content = `<div class="content">${transcriptHtml()}</div>`;
 
-  // banners (after content, before footer)
   let banner = '';
   if (s.phase === 'done' && s.cloud.state === 'error') {
-    banner = `<div class="banner ok">✓ Saved locally<span class="retry">Cloud failed — retry</span></div>`;
+    banner = `<div class="banner ok">✓ Saved locally — ${s.local.folder}/${video.file}<span class="retry">Cloud failed — retry</span></div>`;
   } else if (s.phase === 'done' && s.cloud.state === 'done') {
-    banner = `<div class="banner ok">✓ Saved locally · uploaded to private library</div>`;
+    banner = `<div class="banner ok">✓ Saved to ${s.local.folder} · uploaded to private library</div>`;
   } else if (s.phase === 'done') {
-    banner = `<div class="banner ok">✓ Saved locally — ${video.file}</div>`;
+    banner = `<div class="banner ok">✓ Saved to ${s.local.folder} — ${video.file}</div>`;
   }
 
-  // footer
   let cloudEl = '';
   if (!s.signedIn) {
     cloudEl = `<span class="signin">Sign in to save to cloud</span>`;
@@ -308,15 +338,18 @@ function render() {
   if (s.cloud.state === 'error') {
     cloudErr = `<div class="cloud-err">Cloud upload failed — local copy is safe · Retry</div>`;
   }
-  const disabled = (s.phase === 'capturing') || !s.transcript;
-  const saveLabel = savedLocal ? '✓ Saved' : (s.phase === 'capturing' ? 'Capturing…' : 'Save');
+
   const footer = `<div class="footer">
-    <div class="dests">
+    <div class="dest-row">
       ${toggle('Local', s.local.selected, 'default')}
+      <span class="spacer"></span>
+      ${folderBtn(s)}
+    </div>
+    <div class="dest-row">
       ${cloudEl}
     </div>
     ${cloudErr}
-    <button class="save" ${disabled?'disabled':''}>${saveLabel}</button>
+    <button class="save" ${(s.phase === 'capturing' || !s.transcript) ? 'disabled' : ''}>${savedLocal ? '✓ Saved' : (s.phase === 'capturing' ? 'Capturing…' : 'Save')}</button>
   </div>`;
 
   document.getElementById('popup').innerHTML = fname + props + content + banner + footer;
@@ -336,9 +369,10 @@ function renderBar() {
 }
 
 const params = new URLSearchParams(location.search);
-let scenarioKey = params.get('scenario') || 'idle';
-if (!SCENARIOS.find(x => x.key === scenarioKey)) scenarioKey = 'idle';
+let scenarioKey = params.get('scenario') || 'firstRun';
+if (!SCENARIOS.find(x => x.key === scenarioKey)) scenarioKey = 'firstRun';
 
+// scenario switching
 document.getElementById('scenarioBar').addEventListener('click', e => {
   const b = e.target.closest('[data-scenario]');
   if (!b) return;
@@ -358,6 +392,34 @@ document.addEventListener('keydown', e => {
     url.searchParams.set('scenario', scenarioKey);
     history.replaceState(null, '', url);
     render();
+  }
+});
+
+// folder picker (prototype interaction)
+document.getElementById('popup').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="folder"]');
+  if (btn) {
+    const menu = btn.parentElement.querySelector('.folder-menu');
+    menu.classList.toggle('open');
+    return;
+  }
+  const opt = e.target.closest('[data-folder]');
+  if (opt) {
+    const s = SCENARIOS.find(x => x.key === scenarioKey);
+    s.local.folder = opt.dataset.folder;
+    render();
+    return;
+  }
+  const pick = e.target.closest('[data-folder-pick]');
+  if (pick) {
+    const s = SCENARIOS.find(x => x.key === scenarioKey);
+    s.local.folder = 'My New Folder'; // stand-in for showDirectoryPicker() result
+    render();
+  }
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-action="folder"]')) {
+    document.querySelectorAll('.folder-menu.open').forEach(m => m.classList.remove('open'));
   }
 });
 
