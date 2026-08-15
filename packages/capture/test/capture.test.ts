@@ -22,7 +22,7 @@ function loadDocument(name: string): Document {
 }
 
 const WATCH_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-const QUICK = { timeoutMs: 2000, pollIntervalMs: 10 };
+const QUICK_OPTIONS = { timeoutMs: 2000, pollIntervalMs: 10 };
 
 describe("capture", () => {
   it("expands a collapsed transcript panel and returns ordered integer-second segments", async () => {
@@ -43,7 +43,7 @@ describe("capture", () => {
       }, 20);
     });
 
-    const result = await capture(doc, WATCH_URL, QUICK);
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.segments).toHaveLength(4);
     expect(result.segments.map((s) => s.start)).toEqual([0, 5, 61, 3724]);
@@ -61,7 +61,7 @@ describe("capture", () => {
   it("returns title, channel, URL, description, language, and duration when available", async () => {
     const doc = loadDocument("watch-open.html");
 
-    const result = await capture(doc, WATCH_URL, QUICK);
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.source.videoId).toBe("dQw4w9WgXcQ");
     expect(result.source.url).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
@@ -78,7 +78,7 @@ describe("capture", () => {
   it("reads already-rendered segments without opening the panel", async () => {
     const doc = loadDocument("watch-open.html");
 
-    const result = await capture(doc, WATCH_URL, QUICK);
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.segments.map((s) => s.start)).toEqual([0, 9, 42]);
     expect(result.segments[2].text).toBe(
@@ -89,7 +89,7 @@ describe("capture", () => {
   it("captures CJK transcript text in order", async () => {
     const doc = loadDocument("cjk.html");
 
-    const result = await capture(doc, WATCH_URL, QUICK);
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.segments).toHaveLength(8);
     expect(result.segments[0].text).toBe("大家好，今天我们来聊分布式系统");
@@ -101,7 +101,7 @@ describe("capture", () => {
   it("fails explicitly with no-transcript when the panel is unavailable", async () => {
     const doc = loadDocument("no-transcript.html");
 
-    await expect(capture(doc, WATCH_URL, QUICK)).rejects.toMatchObject({
+    await expect(capture(doc, WATCH_URL, QUICK_OPTIONS)).rejects.toMatchObject({
       name: "CaptureError",
       kind: "no-transcript",
     });
@@ -110,7 +110,7 @@ describe("capture", () => {
   it("fails explicitly with malformed-segments on broken timestamps", async () => {
     const doc = loadDocument("malformed-segments.html");
 
-    await expect(capture(doc, WATCH_URL, QUICK)).rejects.toMatchObject({
+    await expect(capture(doc, WATCH_URL, QUICK_OPTIONS)).rejects.toMatchObject({
       name: "CaptureError",
       kind: "malformed-segments",
     });
@@ -120,7 +120,7 @@ describe("capture", () => {
     const doc = loadDocument("watch-open.html");
 
     await expect(
-      capture(doc, "https://www.youtube.com/feed/subscriptions", QUICK),
+      capture(doc, "https://www.youtube.com/feed/subscriptions", QUICK_OPTIONS),
     ).rejects.toMatchObject({
       name: "CaptureError",
       kind: "not-a-watch-page",
@@ -130,7 +130,7 @@ describe("capture", () => {
   it("sanitizes untrusted text into inert plain strings before leaving the boundary", async () => {
     const doc = loadDocument("untrusted.html");
 
-    const result = await capture(doc, WATCH_URL, QUICK);
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.source.title).toBe(
       "Totally <script>alert(1)</script> Normal & Title",
@@ -164,7 +164,7 @@ describe("captureOutcome", () => {
   it("returns an ok outcome for a valid fixture", async () => {
     const doc = loadDocument("watch-open.html");
 
-    const result = await captureOutcome(doc, WATCH_URL, QUICK);
+    const result = await captureOutcome(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.capture.segments).toHaveLength(3);
@@ -173,7 +173,7 @@ describe("captureOutcome", () => {
   it("returns a serializable failure outcome instead of throwing", async () => {
     const doc = loadDocument("no-transcript.html");
 
-    const result = await captureOutcome(doc, WATCH_URL, QUICK);
+    const result = await captureOutcome(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {

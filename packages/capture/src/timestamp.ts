@@ -1,3 +1,8 @@
+function toSeconds(hours: number, minutes: number, seconds: number): number | null {
+  const total = hours * 3600 + minutes * 60 + seconds;
+  return Number.isFinite(total) && total >= 0 ? total : null;
+}
+
 export function parseTimestamp(raw: string | null | undefined): number | null {
   if (raw === null || raw === undefined) return null;
 
@@ -7,16 +12,12 @@ export function parseTimestamp(raw: string | null | undefined): number | null {
   const clock = /^(?:(\d+):)?(\d{1,2}):(\d{2})$/.exec(trimmed);
   if (clock) {
     const hours = clock[1] ? Number(clock[1]) : 0;
-    const minutes = Number(clock[2]);
-    const seconds = Number(clock[3]);
-    const total = hours * 3600 + minutes * 60 + seconds;
-    return Number.isFinite(total) && total >= 0 ? total : null;
+    return toSeconds(hours, Number(clock[2]), Number(clock[3]));
   }
 
   const secondsOnly = /^(\d+)$/.exec(trimmed);
   if (secondsOnly) {
-    const total = Number(secondsOnly[1]);
-    return Number.isFinite(total) && total >= 0 ? total : null;
+    return toSeconds(0, 0, Number(secondsOnly[1]));
   }
 
   return null;
@@ -30,10 +31,9 @@ export function parseDuration(raw: string | null | undefined): number | null {
   );
   if (!match) return null;
 
-  const hours = match[1] ? Number(match[1]) : 0;
-  const minutes = match[2] ? Number(match[2]) : 0;
-  const seconds = match[3] ? Number(match[3]) : 0;
-  const total = hours * 3600 + minutes * 60 + seconds;
-
-  return Number.isFinite(total) && total >= 0 ? total : null;
+  return toSeconds(
+    match[1] ? Number(match[1]) : 0,
+    match[2] ? Number(match[2]) : 0,
+    match[3] ? Number(match[3]) : 0,
+  );
 }

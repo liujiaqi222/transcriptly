@@ -52,6 +52,13 @@ describe("sanitizeText", () => {
     expect(sanitizeText("tab\there")).toBe("tab here");
   });
 
+  it("strips invisible and zero-width characters", () => {
+    expect(sanitizeText("a\u200Bb\u200Cc\u200Dd\uFEFFe")).toBe("abcde");
+    expect(sanitizeText("line\u2028separator\u2029paragraph")).toBe(
+      "lineseparatorparagraph",
+    );
+  });
+
   it("normalizes line endings and collapses horizontal whitespace", () => {
     expect(sanitizeText("line  one\r\nline   two\rline\tthree")).toBe(
       "line one\nline two\nline three",

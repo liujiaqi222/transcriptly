@@ -1,7 +1,7 @@
 import type { Capture, CaptureSegment } from "@transcriptly/schema";
-import { CaptureError, toCaptureFailure } from "./errors";
+import { CaptureError, toCaptureFailure, type CaptureFailure } from "./errors";
 import { sanitizeText } from "./sanitize";
-import { type SiteSelectors, youtubeSelectors } from "./selectors";
+import { type SelectorRule, type SiteSelectors, youtubeSelectors } from "./selectors";
 import { parseDuration, parseTimestamp } from "./timestamp";
 import { canonicalWatchUrl, parseVideoId } from "./video";
 
@@ -17,10 +17,8 @@ export interface CaptureOutcome {
   capture: Capture;
 }
 
-export interface CaptureFailureOutcome {
+export interface CaptureFailureOutcome extends CaptureFailure {
   ok: false;
-  kind: CaptureError["kind"];
-  message: string;
 }
 
 export type CaptureResult = CaptureOutcome | CaptureFailureOutcome;
@@ -45,27 +43,27 @@ function readAttribute(
   return element.textContent;
 }
 
+function readMeta(doc: Document, rule: SelectorRule): string {
+  return sanitizeText(readAttribute(doc, rule) ?? "");
+}
+
 function readSource(
   doc: Document,
   selectors: SiteSelectors,
   url: string,
   videoId: string,
 ): Capture["source"] {
-  const title = sanitizeText(readAttribute(doc, selectors.meta.title) ?? "");
-  const description = sanitizeText(
-    readAttribute(doc, selectors.meta.description) ?? "",
-  );
-  const channelName = sanitizeText(
-    readAttribute(doc, selectors.meta.channelName) ?? "",
-  );
+  const title = readMeta(doc, selectors.meta.title);
+  const description = readMeta(doc, selectors.meta.description);
+  const channelName = readMeta(doc, selectors.meta.channelName);
   const channelUrl = (readAttribute(doc, selectors.meta.channelUrl) ?? "").trim();
 
   const publishedAt = selectors.meta.publishedAt
-    ? sanitizeText(readAttribute(doc, selectors.meta.publishedAt) ?? "") || undefined
+    ? readMeta(doc, selectors.meta.publishedAt) || undefined
     : undefined;
 
   const language = selectors.meta.language
-    ? sanitizeText(readAttribute(doc, selectors.meta.language) ?? "") || undefined
+    ? readMeta(doc, selectors.meta.language) || undefined
     : undefined;
 
   let durationSeconds: number | undefined;
