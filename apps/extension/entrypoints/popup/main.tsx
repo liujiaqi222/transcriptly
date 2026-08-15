@@ -1,5 +1,5 @@
 import React from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { serializeToMarkdown } from "@transcriptly/capture";
 import "./style.css";
 
@@ -13,4 +13,13 @@ function Popup() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<Popup />);
+declare global {
+  interface Window {
+    __transcriptlyRoot?: Root;
+  }
+}
+
+const container = document.getElementById("root")!;
+const root = window.__transcriptlyRoot ?? createRoot(container);
+window.__transcriptlyRoot = root;
+root.render(<Popup />);
