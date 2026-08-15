@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { Capture, CaptureSource, CaptureSegment } from "@transcriptly/schema";
+import type {
+  Capture,
+  CaptureChapter,
+  CaptureSource,
+  CaptureSegment,
+} from "@transcriptly/schema";
 import { formatTimestamp, serializeToMarkdown } from "../src/serialize";
 
 interface Overrides {
   source?: Partial<CaptureSource>;
   capturedAt?: string;
   segments?: CaptureSegment[];
+  chapters?: CaptureChapter[];
 }
 
 function makeCapture(overrides: Overrides = {}): Capture {
@@ -25,6 +31,7 @@ function makeCapture(overrides: Overrides = {}): Capture {
       { start: 61, text: "and you keep hitting the same walls" },
       { start: 3724, text: "that's all for today, thanks for watching" },
     ],
+    ...(overrides.chapters !== undefined ? { chapters: overrides.chapters } : {}),
   };
 }
 
@@ -149,6 +156,44 @@ describe("serializeToMarkdown", () => {
     expect(markdown).toContain('title: "He said \\"no\\""');
     expect(markdown).toContain("> line one");
     expect(markdown).toContain("> line two");
+  });
+
+  it("emits chapter titles as third-level headings before their segments", () => {
+    const markdown = serializeToMarkdown(
+      makeCapture({
+        chapters: [
+          { start: 0, title: "Intro" },
+          { start: 61, title: "The Core Loop" },
+        ],
+        segments: [
+          { start: 0, text: "hello" },
+          { start: 5, text: "world" },
+          { start: 61, text: "core" },
+        ],
+      }),
+    );
+
+    const intro = markdown.indexOf("### Intro");
+    const hello = markdown.indexOf("- [00:00]");
+    const coreHeading = markdown.indexOf("### The Core Loop");
+    const coreSegment = markdown.indexOf("- [01:01]");
+    expect(intro).toBeGreaterThan(-1);
+    expect(hello).toBeGreaterThan(intro);
+    expect(coreHeading).toBeGreaterThan(hello);
+    expect(coreSegment).toBeGreaterThan(coreHeading);
+  });
+
+  it("escapes untrusted chapter titles", () => {
+    const markdown = serializeToMarkdown(
+      makeCapture({
+        chapters: [{ start: 0, title: "Chapter <script>alert(1)</script>" }],
+      }),
+    );
+
+    expect(markdown).toContain(
+      "### Chapter &lt;script&gt;alert(1)&lt;/script&gt;",
+    );
+    expect(markdown).not.toContain("### Chapter <script>");
   });
 });
 

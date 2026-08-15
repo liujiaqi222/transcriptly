@@ -98,6 +98,19 @@ describe("capture", () => {
     expect([...starts].sort((a, b) => a - b)).toEqual(starts);
   });
 
+  it("captures chapter titles and associates them with segment start times", async () => {
+    const doc = loadDocument("watch-chapters.html");
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.chapters).toEqual([
+      { start: 0, title: "Introduction" },
+      { start: 11, title: "Spec & Scope" },
+      { start: 52, title: "Ship It" },
+    ]);
+    expect(result.segments).toHaveLength(6);
+  });
+
   it("fails explicitly with no-transcript when the panel is unavailable", async () => {
     const doc = loadDocument("no-transcript.html");
 

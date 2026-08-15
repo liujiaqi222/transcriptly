@@ -79,15 +79,23 @@ export function serializeToMarkdown(capture: Capture): string {
   parts.push("## Transcript", "");
 
   if (segments.length > 0) {
-    parts.push(
-      segments
-        .map(
-          (segment) =>
-            `- [${formatTimestamp(segment.start)}](${timestampUrl(source.url, segment.start)}) ${escapeInline(segment.text)}`,
-        )
-        .join("\n"),
-      "",
-    );
+    const chapters = capture.chapters ?? [];
+    const lines: string[] = [];
+    let chapterIndex = 0;
+
+    for (const segment of segments) {
+      while (chapterIndex < chapters.length) {
+        const chapter = chapters[chapterIndex];
+        if (chapter === undefined || chapter.start > segment.start) break;
+        lines.push(`### ${escapeInline(chapter.title)}`, "");
+        chapterIndex++;
+      }
+      lines.push(
+        `- [${formatTimestamp(segment.start)}](${timestampUrl(source.url, segment.start)}) ${escapeInline(segment.text)}`,
+      );
+    }
+
+    parts.push(lines.join("\n"), "");
   }
 
   return parts.join("\n");

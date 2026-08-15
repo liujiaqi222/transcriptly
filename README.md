@@ -2,7 +2,7 @@
 
 一个开源 Chrome 浏览器扩展:在 YouTube 观看页一键把 transcript(逐段字幕)保存成本地 Markdown。
 
-无需登录、无云、无上传——保存结果是一份普通 Markdown,可直接放进 Obsidian、用 `rg`/`grep` 搜索、或交给本地 coding agent 读取。
+无需登录、无云、无上传——保存结果是一份普通 Markdown, 用 `rg`/`grep` 搜索、或交给本地 coding agent 读取。
 
 ## 产品环
 
@@ -15,7 +15,7 @@ P1 只做前两环的本地部分:**捕获 YouTube 已渲染的 transcript → �
 | 阶段 | 状态 |
 | --- | --- |
 | #15 脚手架 + 数据契约(monorepo、Capture schema、Markdown 序列化器、WXT 壳、Playwright 加载) | ✅ 已合入 |
-| #16 捕获管线(content script + 环境中立捕获核心) | 待开发 |
+| #16 捕获管线(content script + 环境中立捕获核心) | ✅ 已合入 |
 | #17 本地落盘(File System Access API) | 待开发 |
 | #18 Popup UI(React + Tailwind v4) | 待开发 |
 | #19 端到端 Save + 浏览器契约测试 | 待开发 |
@@ -87,7 +87,7 @@ pnpm run test
 pnpm run e2e
 ```
 
-全部绿即通过:`build` 产出 `chrome-mv3` 产物;`test` 是 10 个序列化器用例;`e2e` 会用 `launchPersistentContext + --load-extension` 把扩展加载进捆绑的 Chromium,并断言 popup 能渲染。
+全部绿即通过:`build` 产出 `chrome-mv3` 产物;`test` 跑序列化器与捕获核心的 vitest 用例(对蒸馏 fixture HTML);`e2e` 会用 `launchPersistentContext + --load-extension` 把扩展加载进捆绑的 Chromium,并断言 popup 能渲染。
 
 ### 方式二:手动加载扩展到 Chrome
 
@@ -134,8 +134,22 @@ capturedAt: "2024-08-15T14:32:00.000Z"
 - [01:01](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=61) and you keep hitting the same walls
 ```
 
+视频有章节(创作者分段)时,章节标题作为三级标题插在对应段之前:
+
+```markdown
+## Transcript
+
+### Introduction
+
+- [00:00](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=0) welcome to the build
+
+### Ship It
+
+- [00:52](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=52) then open the pull request
+```
+
 页面内容一律按不可信输入转义(HTML 与 Markdown 链接/强调语法)。
 
 ## 领域术语
 
-见 [`CONTEXT.md`](./CONTEXT.md):Capture、Source、Segment、capture boundary、Markdown serialization、Destination。架构决策见 [`docs/adr/`](./docs/adr/)。
+见 [`CONTEXT.md`](./CONTEXT.md):Capture、Source、Segment、Chapter、capture boundary、Markdown serialization、Destination。架构决策见 [`docs/adr/`](./docs/adr/)。

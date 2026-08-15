@@ -1,4 +1,9 @@
-export type { Capture, CaptureSegment, CaptureSource } from "@transcriptly/schema";
+export type {
+  Capture,
+  CaptureChapter,
+  CaptureSegment,
+  CaptureSource,
+} from "@transcriptly/schema";
 export { formatTimestamp, serializeToMarkdown } from "./serialize";
 export {
   capture,
