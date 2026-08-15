@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="title" content="Malformed Transcript Video" />
+    <meta name="description" content="Segments with broken timestamps." />
+    <meta itemprop="duration" content="PT1M" />
+    <link itemprop="name" content="Broken Channel" />
+    <link itemprop="url" href="https://www.youtube.com/@brokenchannel" />
+  </head>
+  <body>
+    <ytd-video-description-transcript-section-renderer>
+      <div id="title">
+        <h3>Transcript</h3>
+      </div>
+    </ytd-video-description-transcript-section-renderer>
+
+    <ytd-transcript-renderer>
+      <div id="segments-container">
+        <ytd-transcript-segment-renderer>
+          <div class="segment-timestamp">0:00</div>
+          <yt-formatted-string class="segment-text"
+            >this segment is fine</yt-formatted-string
+          >
+        </ytd-transcript-segment-renderer>
+        <ytd-transcript-segment-renderer>
+          <div class="segment-timestamp">not-a-time</div>
+          <yt-formatted-string class="segment-text"
+            >this segment has a broken timestamp</yt-formatted-string
+          >
+        </ytd-transcript-segment-renderer>
+      </div>
+    </ytd-transcript-renderer>
+  </body>
+</html>
