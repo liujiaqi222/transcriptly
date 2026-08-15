@@ -1,0 +1,16 @@
+{
+  "name": "transcriptly",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "e2e": "pnpm --filter @transcriptly/extension run build && pnpm --filter @transcriptly/extension run e2e"
+  }
+}
