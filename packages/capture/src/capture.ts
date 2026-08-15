@@ -1,4 +1,4 @@
-import type { Capture, CaptureSegment } from "@transcriptly/schema";
+import type { Capture, CaptureChapter, CaptureSegment } from "@transcriptly/schema";
 import { CaptureError, toCaptureFailure, type CaptureFailure } from "./errors";
 import { sanitizeText } from "./sanitize";
 import { type SelectorRule, type SiteSelectors, youtubeSelectors } from "./selectors";
@@ -86,48 +86,76 @@ function readSource(
   };
 }
 
-function readSegments(doc: Document, selectors: SiteSelectors): CaptureSegment[] {
+interface TranscriptBody {
+  segments: CaptureSegment[];
+  chapters: CaptureChapter[];
+}
+
+function readTranscriptBody(
+  doc: Document,
+  selectors: SiteSelectors,
+): TranscriptBody {
   const container = doc.querySelector(selectors.transcript.segmentsContainer);
-  const segmentNodes = container
-    ? Array.from(container.querySelectorAll(selectors.transcript.segment))
-    : [];
+  const nodes = container ? Array.from(container.children) : [];
 
-  return segmentNodes.map((node) => {
-    const timestampElement = node.querySelector(
-      selectors.transcript.segmentTimestamp,
-    );
-    const textElement = node.querySelector(selectors.transcript.segmentText);
+  const segments: CaptureSegment[] = [];
+  const chapters: CaptureChapter[] = [];
+  let currentChapter: string | null = null;
 
-    const rawTimestamp = timestampElement?.textContent ?? null;
-    const start = parseTimestamp(rawTimestamp);
-    if (start === null) {
-      throw new CaptureError(
-        "malformed-segments",
-        `Unparseable segment timestamp: ${JSON.stringify(rawTimestamp ?? null)}`,
+  for (const node of nodes) {
+    if (node.matches(selectors.transcript.chapter)) {
+      const title = sanitizeText(
+        node.querySelector(selectors.transcript.chapterText)?.textContent ?? "",
       );
+      currentChapter = title.length > 0 ? title : null;
+      continue;
     }
 
-    const text = sanitizeText(textElement?.textContent ?? "");
-    if (text.length === 0) {
-      throw new CaptureError("malformed-segments", "Segment has empty text");
-    }
+    if (node.matches(selectors.transcript.segment)) {
+      const timestampElement = node.querySelector(
+        selectors.transcript.segmentTimestamp,
+      );
+      const textElement = node.querySelector(selectors.transcript.segmentText);
 
-    return { start, text };
-  });
+      const rawTimestamp = timestampElement?.textContent ?? null;
+      const start = parseTimestamp(rawTimestamp);
+      if (start === null) {
+        throw new CaptureError(
+          "malformed-segments",
+          `Unparseable segment timestamp: ${JSON.stringify(rawTimestamp ?? null)}`,
+        );
+      }
+
+      const text = sanitizeText(textElement?.textContent ?? "");
+      if (text.length === 0) {
+        throw new CaptureError("malformed-segments", "Segment has empty text");
+      }
+
+      if (currentChapter !== null) {
+        const last = chapters[chapters.length - 1];
+        if (last === undefined || last.title !== currentChapter) {
+          chapters.push({ start, title: currentChapter });
+        }
+      }
+      segments.push({ start, text });
+    }
+  }
+
+  return { segments, chapters };
 }
 
 async function readTranscript(
   doc: Document,
   selectors: SiteSelectors,
   options: CaptureOptions,
-): Promise<CaptureSegment[]> {
+): Promise<TranscriptBody> {
   const section = doc.querySelector(selectors.transcript.section);
   if (!section) {
     throw new CaptureError("no-transcript", "Transcript section not found");
   }
 
-  let segments = readSegments(doc, selectors);
-  if (segments.length > 0) return segments;
+  let body = readTranscriptBody(doc, selectors);
+  if (body.segments.length > 0) return body;
 
   const openButton = section.querySelector<HTMLElement>(
     selectors.transcript.openButton,
@@ -140,8 +168,8 @@ async function readTranscript(
   }
 
   openButton.click();
-  segments = readSegments(doc, selectors);
-  if (segments.length > 0) return segments;
+  body = readTranscriptBody(doc, selectors);
+  if (body.segments.length > 0) return body;
 
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
@@ -149,8 +177,8 @@ async function readTranscript(
 
   while (Date.now() < deadline) {
     await sleep(pollIntervalMs);
-    segments = readSegments(doc, selectors);
-    if (segments.length > 0) return segments;
+    body = readTranscriptBody(doc, selectors);
+    if (body.segments.length > 0) return body;
   }
 
   throw new CaptureError(
@@ -177,12 +205,13 @@ export async function capture(
 
   const url = canonicalWatchUrl(videoId);
   const source = readSource(doc, selectors, url, videoId);
-  const segments = await readTranscript(doc, selectors, options);
+  const { segments, chapters } = await readTranscript(doc, selectors, options);
 
   return {
     source,
     capturedAt: now().toISOString(),
     segments,
+    ...(chapters.length > 0 ? { chapters } : {}),
   };
 }
 

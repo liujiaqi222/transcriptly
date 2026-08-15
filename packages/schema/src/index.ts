@@ -1,1 +1,6 @@
-export type { Capture, CaptureSegment, CaptureSource } from "./capture";
+export type {
+  Capture,
+  CaptureChapter,
+  CaptureSegment,
+  CaptureSource,
+} from "./capture";

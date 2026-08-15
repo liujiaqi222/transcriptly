@@ -10,6 +10,8 @@ export interface TranscriptSelectors {
   segment: string;
   segmentTimestamp: string;
   segmentText: string;
+  chapter: string;
+  chapterText: string;
 }
 
 export interface SiteSelectors {
@@ -64,5 +66,7 @@ export const youtubeSelectors: SiteSelectors = {
     segment: "ytd-transcript-segment-renderer",
     segmentTimestamp: ".segment-timestamp",
     segmentText: ".segment-text",
+    chapter: "ytd-transcript-section-header-renderer",
+    chapterText: "yt-formatted-string",
   },
 };

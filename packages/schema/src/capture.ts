@@ -15,8 +15,14 @@ export interface CaptureSegment {
   text: string;
 }
 
+export interface CaptureChapter {
+  start: number;
+  title: string;
+}
+
 export interface Capture {
   source: CaptureSource;
   capturedAt: string;
   segments: CaptureSegment[];
+  chapters?: CaptureChapter[];
 }
