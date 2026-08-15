@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="title"
+      content="Totally &lt;script&gt;alert(1)&lt;/script&gt; Normal &amp; Title"
+    />
+    <meta
+      name="description"
+      content="Desc &lt;img src=x onerror=alert(1)&gt; injection &amp; more"
+    />
+    <meta itemprop="duration" content="PT1M2S" />
+    <meta itemprop="inLanguage" content="en" />
+    <link itemprop="name" content="Evil &lt;b&gt;Channel&lt;/b&gt;" />
+    <link itemprop="url" href="https://www.youtube.com/@evilchannel" />
+  </head>
+  <body>
+    <ytd-video-description-transcript-section-renderer>
+      <div id="title">
+        <h3>Transcript</h3>
+      </div>
+    </ytd-video-description-transcript-section-renderer>
+
+    <ytd-transcript-renderer>
+      <div id="segments-container">
+        <ytd-transcript-segment-renderer>
+          <div class="segment-timestamp">0:00</div>
+          <yt-formatted-string class="segment-text"
+            >&lt;script&gt;alert(1)&lt;/script&gt; and &lt;img src=x onerror=alert(2)&gt;</yt-formatted-string
+          >
+        </ytd-transcript-segment-renderer>
+        <ytd-transcript-segment-renderer>
+          <div class="segment-timestamp">0:03</div>
+          <yt-formatted-string class="segment-text"
+            >see [this](javascript:alert(3)) and **bold**</yt-formatted-string
+          >
+        </ytd-transcript-segment-renderer>
+      </div>
+    </ytd-transcript-renderer>
+  </body>
+</html>
