@@ -16,11 +16,11 @@ P1 只做前两环的本地部分:**捕获 YouTube 已渲染的 transcript → �
 | --- | --- |
 | #15 脚手架 + 数据契约(monorepo、Capture schema、Markdown 序列化器、WXT 壳、Playwright 加载) | ✅ 已合入 |
 | #16 捕获管线(content script + 环境中立捕获核心) | ✅ 已合入 |
-| #17 本地落盘(File System Access API) | 待开发 |
+| #17 本地落盘(File System Access API) | ✅ 已实现，等待 Popup 接线 |
 | #18 Popup UI(React + Tailwind v4) | 待开发 |
 | #19 端到端 Save + 浏览器契约测试 | 待开发 |
 
-> 目前 popup 是占位 scaffold(只显示「Transcriptly ready」),捕获与保存尚未接线。
+> #17 的保存模块已完成，位于 `apps/extension/local-save.ts`，但当前 popup 仍是占位 scaffold(只显示「Transcriptly ready」)。真实的「捕获 → 预览 → Save」点击流程将在 #18 接线；本轮不能通过 popup 手动触发本地保存。
 
 ## 目录结构
 
@@ -87,7 +87,7 @@ pnpm run test
 pnpm run e2e
 ```
 
-全部绿即通过:`build` 产出 `chrome-mv3` 产物;`test` 跑序列化器与捕获核心的 vitest 用例(对蒸馏 fixture HTML);`e2e` 会用 `launchPersistentContext + --load-extension` 把扩展加载进捆绑的 Chromium,并断言 popup 能渲染。
+全部绿即通过:`build` 产出 `chrome-mv3` 产物;`test` 跑 schema/capture 与扩展本地落盘模块的 vitest 用例;`e2e` 会用 `launchPersistentContext + --load-extension` 把扩展加载进捆绑的 Chromium,并断言 popup 能渲染及 manifest 入口符合 P1 约束。
 
 ### 方式二:手动加载扩展到 Chrome
 
@@ -99,6 +99,30 @@ pnpm --filter @transcriptly/extension run build
 2. 右上角开启「开发者模式」
 3. 点「加载已解压的扩展程序」,选择目录 `apps/extension/.output/chrome-mv3`
 4. 点工具栏的 Transcriptly 图标,应看到 popup 显示「Transcriptly … ready」
+
+当前这一步只能验证扩展能加载、popup scaffold 能渲染，不能验证 #17 的真实保存流程。#17 的 File System Access、IndexedDB、重名后缀和失败清理行为由扩展侧单元测试覆盖:
+
+```bash
+pnpm --filter @transcriptly/extension run test
+```
+
+## #17 人工验收边界
+
+本轮已实现并测试的保存模块行为:
+
+- 首次保存无已存目录句柄时调用 `showDirectoryPicker({ mode: "readwrite" })`,并等待 IndexedDB 事务真正提交后持久化句柄
+- 后续保存复用已持久化目录,不再次打开选择器
+- `changeDirectory()` 重新打开选择器并更新持久化目录
+- 文件名默认使用 `日期 · 标题-slug.md`;同名文件生成 `name (2).md`、`name (3).md` 等后缀,不静默覆盖
+- 写入、权限、选择器和半成品清理失败均返回明确的 `LocalSaveError`
+
+这些行为目前没有 popup 按钮入口。#18 接线后,人工应重点验收:
+
+1. 首次点击 Save 弹目录选择器,保存出包含 frontmatter、来源、描述和时间戳 transcript 的 Markdown。
+2. 再次点击 Save 不弹选择器,直接写入上次目录。
+3. 点击 Change folder 后选择新目录,后续保存写入新目录。
+4. 重复保存同一视频时旧文件保留,新文件使用数字后缀。
+5. 取消选择、拒绝权限或写入失败时显示明确错误,不显示成功状态,不留下可冒充成功结果的半成品文件。
 
 ### 开发模式(HMR)
 
