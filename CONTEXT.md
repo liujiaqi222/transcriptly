@@ -16,6 +16,10 @@ _Avoid_: video metadata, page metadata
 One transcript entry — a text string plus its start time in integer seconds — ordered as rendered.
 _Avoid_: cue, line, caption
 
+**Chapter**:
+A creator-defined section heading inside the transcript (YouTube chapters). Ordered by start time; rendered as a third-level heading in the Markdown output. Optional — most videos have none.
+_Avoid_: section, part
+
 **Capture boundary**:
 The seam that isolates YouTube DOM scraping (the content script, the only code that touches the page) from the environment-neutral capture core.
 _Avoid_: scraper, extractor
