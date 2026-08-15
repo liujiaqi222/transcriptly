@@ -3,256 +3,220 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Transcriptly — extension popup UX prototype (THROWAWAY)</title>
+<title>Transcriptly — popup prototype (THROWAWAY)</title>
 <!--
   PROTOTYPE — THROWAWAY. Do not promote into production.
-  Question (wayfinder ticket #12): what should the extension popup capture state
-  look like? 3 radically different variants, switchable via ?variant= and the
-  bottom bar; drive the capture lifecycle via the top scenario bar.
-
-  Variants:
-    A — Linear checklist (destinations as rows)
-    B — Status-first (parallel destination tiles)
-    C — Minimal one-button + progressive disclosure
-
-  Scenarios (capture lifecycle):
-    Ready → Capturing → Local saved → Local + cloud → Cloud failed → No transcript → Signed out
+  Wayfinder ticket #12: the popup shows the user WHAT they are about to store /
+  have stored — the captured transcript itself — like Obsidian Web Clipper shows
+  the note content. Neutral (no purple / no gradient). Top bar drives the
+  capture lifecycle states.
 -->
 <style>
   :root {
-    --accent: #5b5bd6;
-    --accent-soft: #eef0ff;
-    --ok: #16a34a;
-    --ok-soft: #e7f6ec;
-    --err: #dc2626;
-    --err-soft: #fdecec;
-    --warn: #b45309;
-    --warn-soft: #fdf3e3;
-    --ink: #1a1a2e;
-    --muted: #6b7280;
-    --line: #e5e7eb;
-    --bg: #f3f4f6;
+    --bg: #ffffff;
+    --bg-alt: #f6f6f6;
+    --text: #232323;
+    --muted: #6e6e6e;
+    --faint: #9a9a9a;
+    --line: #ececec;
+    --accent: #2f2f2f;
+    --accent-hover: #1f1f1f;
+    --ok: #2e7d32;
+    --ok-bg: #e9f4ea;
+    --err: #c62828;
+    --err-bg: #fdeeee;
+    --warn: #8a5a00;
+    --warn-bg: #fdf6e3;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: #e8eaee;
-    color: var(--ink);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+    background: #e9eaec;
+    color: var(--text);
     min-height: 100vh;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 96px 16px 120px;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 88px 16px 96px;
+    font-size: 13px;
   }
-  .stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
-  /* ---- popup shell (Chrome popup dimensions) ---- */
+  /* ---- popup shell ---- */
   .popup {
     width: 360px;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+    background: var(--bg);
+    border-radius: 10px;
+    box-shadow: 0 10px 34px rgba(0,0,0,.16);
     overflow: hidden;
+    display: flex; flex-direction: column;
   }
   .appbar {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--line);
-    font-weight: 600; font-size: 13px;
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+    font-size: 12.5px; font-weight: 600; color: var(--text);
   }
-  .logo {
-    width: 20px; height: 20px; border-radius: 6px; flex: 0 0 auto;
-    background: linear-gradient(135deg, #5b5bd6, #9333ea);
-    color: #fff; display: grid; place-items: center;
-    font-size: 11px; font-weight: 700;
-  }
-  .appbar .tag { margin-left: auto; font-size: 10px; font-weight: 500; color: var(--muted); }
-  .popup-body { padding: 12px; }
+  .appbar .tag { margin-left: auto; font-size: 10px; font-weight: 500; color: var(--faint); }
+  .popup-body { display: flex; flex-direction: column; height: 520px; }
 
-  /* ---- shared bits ---- */
-  .thumb {
-    width: 76px; height: 44px; border-radius: 8px; flex: 0 0 auto;
-    background: linear-gradient(135deg, #334155, #0f172a);
-    color: #fff; display: grid; place-items: center; font-size: 16px;
+  /* ---- filename ---- */
+  .fname {
+    border: none; background: transparent; padding: 10px 12px 9px;
+    font-size: 14px; font-weight: 600; color: var(--text); width: 100%;
+    outline: none;
+  }
+  .fname::placeholder { color: var(--faint); }
+  .fname.saved { color: var(--ok); }
+
+  /* ---- properties (collapsible) ---- */
+  .props { border-top: 1px solid var(--line); }
+  .props summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 12px; font-size: 11px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--faint);
+  }
+  .props summary::-webkit-details-marker { display: none; }
+  .props summary .chev { transition: transform .15s; font-size: 10px; }
+  .props[open] summary .chev { transform: rotate(90deg); }
+  .props-grid { padding: 0 12px 9px; }
+  .prop { display: flex; padding: 3px 0; font-size: 12px; }
+  .prop .k { color: var(--muted); flex: 0 0 76px; }
+  .prop .v { color: var(--text); word-break: break-all; }
+
+  /* ---- content preview (the transcript) ---- */
+  .content {
+    flex: 1; overflow-y: auto; border-top: 1px solid var(--line);
+    padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 0;
+  }
+  .section-label {
+    font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--faint); margin: 2px 0 6px;
+  }
+  .desc {
+    font-size: 12px; color: var(--muted); line-height: 1.5;
+    border-left: 2px solid var(--line); padding-left: 9px; margin: 0 0 12px;
+  }
+  .seg { display: flex; gap: 10px; padding: 4px 0; }
+  .seg .ts {
+    flex: 0 0 42px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px; color: var(--faint); padding-top: 1px; user-select: none;
+  }
+  .seg .tx { font-size: 12.5px; line-height: 1.5; color: var(--text); }
+
+  .skeleton { display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
+  .skeleton .line { height: 12px; border-radius: 6px; background: var(--bg-alt); }
+  .skeleton .line.w60 { width: 60%; }
+  .skeleton .line.w80 { width: 80%; }
+  .skeleton .line.w45 { width: 45%; }
+  .capturing-note {
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
+    padding: 4px 0 10px;
   }
   .spinner {
     width: 13px; height: 13px; border-radius: 50%; flex: 0 0 auto;
-    border: 2px solid rgba(0,0,0,.15); border-top-color: currentColor;
+    border: 2px solid var(--line); border-top-color: var(--muted);
     animation: spin .8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .chip {
-    font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px;
-    background: var(--accent-soft); color: var(--accent);
+
+  .errcard {
+    margin: 4px 0; border: 1px solid #f2c9c9; background: var(--err-bg);
+    border-radius: 8px; padding: 11px 12px; font-size: 12.5px; line-height: 1.5; color: #8c1f1f;
   }
-  .btn {
-    width: 100%; border: 0; border-radius: 8px; cursor: pointer;
-    padding: 10px 12px; font-size: 13px; font-weight: 600;
+  .errcard b { display: block; margin-bottom: 3px; font-size: 13px; }
+
+  /* ---- banners ---- */
+  .banner {
+    border-top: 1px solid var(--line); padding: 8px 12px; font-size: 12px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .banner.ok { background: var(--ok-bg); color: #1e5c23; border-top-color: #cfe7d2; }
+  .banner.err { background: var(--err-bg); color: #8c1f1f; border-top-color: #f2c9c9; }
+  .banner .retry { margin-left: auto; color: var(--accent); font-weight: 600; text-decoration: none; }
+
+  /* ---- footer ---- */
+  .footer { border-top: 1px solid var(--line); padding: 9px 12px 11px; background: var(--bg); }
+  .dests { display: flex; align-items: center; gap: 16px; margin-bottom: 9px; }
+  .tgl { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12.5px; color: var(--text); user-select: none; }
+  .tgl input { display: none; }
+  .tgl .track {
+    width: 30px; height: 17px; border-radius: 999px; background: #dcdcdc;
+    position: relative; transition: background .15s; flex: 0 0 auto;
+  }
+  .tgl .track::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px;
+    border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  }
+  .tgl input:checked + .track { background: var(--accent); }
+  .tgl input:checked + .track::after { left: 15px; }
+  .tgl .hint { font-size: 10.5px; color: var(--faint); margin-left: -4px; }
+  .signin { font-size: 12.5px; color: var(--accent); font-weight: 600; cursor: pointer; }
+  .cloud-err { font-size: 11px; color: var(--err); margin-top: -3px; margin-bottom: 7px; }
+
+  .save {
+    width: 100%; border: 0; border-radius: 7px; cursor: pointer;
+    padding: 9px 12px; font-size: 13px; font-weight: 600;
     background: var(--accent); color: #fff;
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }
-  .btn:disabled { background: #c7c9f0; cursor: not-allowed; }
-  .btn.secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
-
-  /* ============ Variant A — linear checklist ============ */
-  .a-video { display: flex; gap: 10px; margin-bottom: 12px; }
-  .a-title { font-size: 13px; font-weight: 600; line-height: 1.35; }
-  .a-sub { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
-  .a-label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 12px 0 6px; }
-  .a-row {
-    display: flex; align-items: center; gap: 10px;
-    border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; margin-bottom: 8px;
-  }
-  .a-row.selected { border-color: var(--accent); background: var(--accent-soft); }
-  .a-check {
-    width: 18px; height: 18px; border-radius: 6px; flex: 0 0 auto;
-    border: 1.5px solid #cbd5e1; display: grid; place-items: center;
-    font-size: 11px; color: #fff; background: #fff;
-  }
-  .a-row.selected .a-check { background: var(--accent); border-color: var(--accent); }
-  .a-row-body { flex: 1; min-width: 0; }
-  .a-row-title { font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-  .a-row-sub { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
-  .a-end { font-size: 11px; font-weight: 600; white-space: nowrap; }
-  .a-end.ok { color: var(--ok); }
-  .a-end.err { color: var(--err); }
-  .a-status { margin-top: 10px; border-radius: 8px; padding: 9px 10px; font-size: 12px; display: none; }
-  .a-status.show { display: flex; align-items: center; gap: 8px; }
-  .a-status.ok { background: var(--ok-soft); color: #14532d; }
-  .a-status.err { background: var(--err-soft); color: #7f1d1d; }
-  .a-status.info { background: var(--accent-soft); color: var(--accent); }
-  .a-status .spinner { margin-right: 2px; }
-  .a-err {
-    background: var(--err-soft); color: #7f1d1d; border: 1px solid #f3c4c4;
-    border-radius: 8px; padding: 10px; font-size: 12px; margin-bottom: 12px; line-height: 1.5;
-  }
-  .a-err b { display: block; margin-bottom: 2px; }
-
-  /* ============ Variant B — status-first, parallel tiles ============ */
-  .b-status {
-    display: flex; align-items: center; gap: 10px;
-    border-radius: 8px; padding: 11px 12px; margin-bottom: 12px;
-  }
-  .b-status.idle { background: var(--accent-soft); color: var(--accent); }
-  .b-status.capturing { background: var(--accent-soft); color: var(--accent); }
-  .b-status.done { background: var(--ok-soft); color: #14532d; }
-  .b-status.error { background: var(--err-soft); color: #7f1d1d; }
-  .b-status .big { font-size: 13px; font-weight: 700; }
-  .b-status .sub { font-size: 11px; opacity: .85; margin-top: 1px; }
-  .b-status .spinner { font-size: 0; }
-  .b-video { display: flex; gap: 10px; margin-bottom: 12px; }
-  .b-title { font-size: 13px; font-weight: 600; line-height: 1.35; }
-  .b-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
-  .b-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .b-tile {
-    border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 88px;
-    display: flex; flex-direction: column; gap: 6px; position: relative;
-  }
-  .b-tile.selected { border-color: var(--accent); background: var(--accent-soft); }
-  .b-tile .t-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; }
-  .b-tile .t-sub { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
-  .b-tile .t-state {
-    margin-top: auto; font-size: 11px; font-weight: 600;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .b-tile .t-state.ok { color: var(--ok); }
-  .b-tile .t-state.err { color: var(--err); }
-  .b-tile .t-state.info { color: var(--accent); }
-  .b-tile .badge {
-    position: absolute; top: -7px; right: 8px; font-size: 9.5px; font-weight: 700;
-    padding: 1px 7px; border-radius: 999px; background: var(--accent); color: #fff;
-  }
-  .b-tile .dot { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #cbd5e1; background:#fff; flex:0 0 auto; display:grid; place-items:center; font-size:10px; color:#fff; }
-  .b-tile.selected .dot { background: var(--accent); border-color: var(--accent); }
-  .b-note { font-size: 11px; color: var(--warn); background: var(--warn-soft); border-radius: 6px; padding: 7px 9px; margin-bottom: 10px; line-height: 1.45; }
-
-  /* ============ Variant C — minimal one-button + disclosure ============ */
-  .c-title { font-size: 13px; font-weight: 600; line-height: 1.35; margin-bottom: 3px; }
-  .c-sub { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
-  .c-save {
-    width: 100%; border: 0; border-radius: 10px; cursor: pointer;
-    padding: 13px 12px; font-size: 14px; font-weight: 700;
-    background: var(--accent); color: #fff;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-  }
-  .c-save:disabled { background: #c7c9f0; cursor: not-allowed; }
-  .c-statusline { text-align: center; font-size: 11.5px; margin-top: 9px; min-height: 16px; }
-  .c-statusline.ok { color: var(--ok); }
-  .c-statusline.err { color: var(--err); }
-  .c-statusline.info { color: var(--accent); }
-  .c-details { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
-  .c-details summary { cursor: pointer; font-size: 11.5px; color: var(--muted); padding: 8px 0; list-style: none; display: flex; align-items: center; gap: 6px; }
-  .c-details summary::before { content: "▸"; transition: transform .15s; }
-  .c-details[open] summary::before { transform: rotate(90deg); }
-  .c-row { display: flex; align-items: center; gap: 9px; padding: 7px 2px; font-size: 12px; }
-  .c-row .r-title { font-weight: 600; }
-  .c-row .r-sub { font-size: 10.5px; color: var(--muted); }
-  .c-row .r-state { margin-left: auto; font-size: 11px; font-weight: 600; }
-  .c-row .r-state.ok { color: var(--ok); }
-  .c-row .r-state.err { color: var(--err); }
-  .c-err {
-    background: var(--err-soft); color: #7f1d1d; border-radius: 8px;
-    padding: 11px; font-size: 12px; margin-bottom: 12px; line-height: 1.5;
-  }
-  .c-err b { display: block; margin-bottom: 2px; }
+  .save:hover:not(:disabled) { background: var(--accent-hover); }
+  .save:disabled { background: #c9c9c9; cursor: not-allowed; }
 
   /* ---- prototype chrome (NOT part of the design) ---- */
   .bar {
-    position: fixed; left: 50%; transform: translateX(-50%);
-    background: #111827; color: #e5e7eb;
-    border-radius: 999px; padding: 6px 8px;
-    display: flex; align-items: center; gap: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.35); z-index: 50;
-    font-size: 12px; max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center;
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    background: #111827; color: #e5e7eb; border-radius: 999px; padding: 6px 8px;
+    display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    z-index: 50; font-size: 12px; max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center;
   }
-  .bar-top { top: 14px; }
-  .bar-bottom { bottom: 14px; }
   .bar .pill {
     border: 1px solid #374151; background: transparent; color: #e5e7eb;
-    border-radius: 999px; padding: 4px 10px; font-size: 11.5px; cursor: pointer;
-    font-family: inherit;
+    border-radius: 999px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; font-family: inherit;
   }
   .bar .pill.active { background: #5b5bd6; border-color: #5b5bd6; color: #fff; font-weight: 600; }
-  .bar .arrow {
-    border: 1px solid #374151; background: #1f2937; color: #fff;
-    border-radius: 999px; width: 26px; height: 26px; cursor: pointer; font-size: 14px; line-height: 1;
-  }
-  .bar .vlabel { font-weight: 700; min-width: 118px; text-align: center; }
-  .bar .vname { font-weight: 400; color: #9ca3af; }
-  .bar .sep { width: 1px; height: 18px; background: #374151; }
   .bar .cap { color: #9ca3af; font-size: 11px; }
   .state-dump {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px; color: #4b5563; background: #fff; border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 10px; max-width: 360px; white-space: pre-wrap; line-height: 1.5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+    color: #4b5563; background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 10px; max-width: 360px; white-space: pre-wrap; line-height: 1.5;
   }
 </style>
 </head>
 <body>
   <div class="stage">
     <div class="popup">
-      <div class="appbar">
-        <span class="logo">T</span> Transcriptly
-        <span class="tag">PROTOTYPE — popup UX</span>
-      </div>
+      <div class="appbar">Transcriptly<span class="tag">PROTOTYPE — popup</span></div>
       <div class="popup-body" id="popup"></div>
     </div>
     <aside class="state-dump" id="dump"></aside>
   </div>
 
-  <div class="bar bar-top" id="scenarioBar"></div>
-  <div class="bar bar-bottom" id="variantBar"></div>
+  <div class="bar" id="scenarioBar"></div>
 
 <script>
 const video = {
-  title: "LangChain in Production: Lessons from 2 Years of Building Agents",
-  channel: "AI Engineering",
+  title: "Building Reliable Agents: Lessons from Production",
+  channel: "Ship It Weekly",
   duration: "34:12",
-  segments: 142,
   language: "English",
-  file: "saved/2024-08-15 · langchain-in-production.md",
+  capturedAt: "2024-08-15 14:32",
+  url: "https://youtube.com/watch?v=XXXXXXXXXXX",
+  file: "saved/2024-08-15 · building-reliable-agents.md",
 };
+const description = "A practical walkthrough of the engineering lessons behind production agent systems — retrieval, tool design, and evaluation.";
+const segments = [
+  { t: 0,   text: "so you've been building agents for a while" },
+  { t: 9,   text: "and you keep hitting the same walls" },
+  { t: 18,  text: "today I want to walk through the lessons that actually matter" },
+  { t: 31,  text: "first, most of your failures are not the model" },
+  { t: 44,  text: "they are the plumbing around it" },
+  { t: 57,  text: "retrieval, tool schemas, and state" },
+  { t: 69,  text: "get those right and the rest follows" },
+  { t: 82,  text: "second, evaluate before you optimize" },
+  { t: 95,  text: "a tiny offline eval set beats intuition every time" },
+  { t: 110, text: "and third, keep your prompts boring" },
+  { t: 123, text: "the clever prompt is the one that breaks next week" },
+];
 
 const SCENARIOS = [
   { key:'idle',        label:'Ready',           signedIn:true,  transcript:true,  phase:'idle',
@@ -271,272 +235,109 @@ const SCENARIOS = [
     local:{selected:true,  state:'idle'}, cloud:{selected:false, state:'idle', remembered:false} },
 ];
 
-const VARIANTS = {
-  A: { name: "Linear checklist", render: renderA },
-  B: { name: "Status-first tiles", render: renderB },
-  C: { name: "Minimal + disclosure", render: renderC },
-};
-
-function metaLine() {
-  return `${video.channel} · ${video.duration} · ${video.segments} segments · ${video.language}`;
+function ts(t) {
+  const m = Math.floor(t / 60), s = t % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
-function thumb() { return `<div class="thumb">▶</div>`; }
-
-function localEnd(state) {
-  if (state === 'done') return `<span class="a-end ok">Saved</span>`;
-  if (state === 'saving') return `<span class="spinner" style="color:var(--accent)"></span>`;
-  return ``;
-}
-function cloudEnd(s) {
-  if (s.selected && s.state === 'done') return `<span class="a-end ok">Saved · private</span>`;
-  if (s.selected && s.state === 'error') return `<span class="a-end err">Failed</span>`;
-  if (!s.selected && s.remembered) return `<span class="chip">remembered</span>`;
-  return ``;
-}
-
-/* ---------- Variant A ---------- */
-function renderA(s) {
-  let body = '';
-  // video header
-  body += `<div class="a-video">${thumb()}
-    <div><div class="a-title">${video.title}</div><div class="a-sub">${metaLine()}</div></div></div>`;
-
-  if (!s.transcript) {
-    body += `<div class="a-err"><b>No transcript found</b>
-      YouTube didn't expose a transcript for this video. Open the Transcript panel on the page and try again.</div>`;
-    body += `<button class="btn" disabled>Save</button>`;
-    body += `<button class="btn secondary" style="margin-top:8px">Retry</button>`;
-    return body;
-  }
-
-  body += `<div class="a-label">Save to</div>`;
-
-  // local row
-  body += `<div class="a-row selected">
-    <span class="a-check">✓</span>
-    <div class="a-row-body">
-      <div class="a-row-title">Local Markdown <span class="chip">default</span></div>
-      <div class="a-row-sub">No account needed${s.local.state==='done' ? ' · '+video.file : ''}</div>
-    </div>
-    ${localEnd(s.local.state)}
-  </div>`;
-
-  // cloud row
-  if (s.signedIn) {
-    const sel = s.cloud.selected || s.cloud.remembered;
-    body += `<div class="a-row ${sel?'selected':''}">
-      <span class="a-check">${sel?'✓':''}</span>
-      <div class="a-row-body">
-        <div class="a-row-title">Cloud library ${s.cloud.remembered?'<span class="chip">remembered</span>':''}</div>
-        <div class="a-row-sub">${s.cloud.state==='error' ? 'Upload failed — local copy is safe' : 'Private by default'}</div>
-      </div>
-      ${cloudEnd(s.cloud)}
-    </div>`;
-  } else {
-    body += `<div class="a-row">
-      <span class="a-check"></span>
-      <div class="a-row-body">
-        <div class="a-row-title">Cloud library</div>
-        <div class="a-row-sub">Sign in to also save to cloud</div>
-      </div>
-      <span class="a-end" style="color:var(--accent)">Sign in</span>
-    </div>`;
-  }
-
-  // save button
-  if (s.phase === 'capturing') {
-    body += `<button class="btn" disabled><span class="spinner"></span> Opening transcript…</button>`;
-  } else {
-    body += `<button class="btn">Save</button>`;
-  }
-
-  // status strip
-  let status = '';
-  if (s.phase === 'capturing') {
-    status = `<div class="a-status info show"><span class="spinner"></span> Opening the Transcript panel and reading segments…</div>`;
-  } else if (s.phase === 'done' && s.cloud.state === 'error') {
-    status = `<div class="a-status ok show">✓ Saved locally — <span style="color:var(--err)">cloud upload failed</span>. Your local copy is safe. <a href="#" style="margin-left:auto;color:var(--accent)">Retry</a></div>`;
-  } else if (s.phase === 'done' && s.cloud.state === 'done') {
-    status = `<div class="a-status ok show">✓ Saved locally and to your private cloud library</div>`;
-  } else if (s.phase === 'done') {
-    status = `<div class="a-status ok show">✓ Saved locally — ${video.file}</div>`;
-  }
-  body += status;
-  return body;
-}
-
-/* ---------- Variant B ---------- */
-function renderB(s) {
-  let body = '';
-  // status header
-  let cls = 'idle', big = 'Ready to capture', sub = 'Transcript found — one click to save';
-  if (!s.transcript) { cls = 'error'; big = "Can't capture this video"; sub = 'No transcript found'; }
-  else if (s.phase === 'capturing') { cls = 'capturing'; big = 'Capturing transcript…'; sub = 'Opening the panel and reading segments'; }
-  else if (s.phase === 'done' && s.cloud.state === 'error') { cls = 'done'; big = 'Saved locally'; sub = 'Cloud upload failed — local copy is safe'; }
-  else if (s.phase === 'done' && s.cloud.state === 'done') { cls = 'done'; big = 'Saved'; sub = 'Local + private cloud library'; }
-  else if (s.phase === 'done') { cls = 'done'; big = 'Saved locally'; sub = video.file; }
-
-  body += `<div class="b-status ${cls}">
-    ${cls==='capturing' ? '<span class="spinner"></span>' : ''}
-    <div><div class="big">${big}</div><div class="sub">${sub}</div></div>
-  </div>`;
-
-  if (s.transcript) {
-    body += `<div class="b-video">${thumb()}
-      <div><div class="b-title">${video.title}</div><div class="b-sub">${metaLine()}</div></div></div>`;
-  }
-
-  if (!s.transcript) {
-    body += `<div class="a-err"><b>What to do</b>Open the Transcript panel on the YouTube page, then retry.</div>`;
-    body += `<button class="btn secondary">Retry</button>`;
-    return body;
-  }
-
-  // parallel destination tiles
-  const lstate = s.local.state;
-  const ltile = `<div class="b-tile selected">
-      <span class="badge">default</span>
-      <div class="t-head"><span class="dot">✓</span> Local</div>
-      <div class="t-sub">Markdown file · no account</div>
-      <div class="t-state ${lstate==='done'?'ok':(lstate==='saving'?'info':'')}">
-        ${lstate==='done' ? '✓ Saved' : lstate==='saving' ? '<span class="spinner"></span> Writing…' : 'Will save'}
-      </div>
-    </div>`;
-
-  let ctile = '';
-  if (!s.signedIn) {
-    ctile = `<div class="b-tile">
-      <div class="t-head"><span class="dot"></span> Cloud</div>
-      <div class="t-sub">Private library</div>
-      <div class="t-state info">Sign in to add</div>
-    </div>`;
-  } else if (s.cloud.state === 'done') {
-    ctile = `<div class="b-tile selected">
-      ${s.cloud.remembered?'<span class="badge">remembered</span>':''}
-      <div class="t-head"><span class="dot">✓</span> Cloud</div>
-      <div class="t-sub">Private library</div>
-      <div class="t-state ok">✓ Uploaded</div>
-    </div>`;
-  } else if (s.cloud.state === 'error') {
-    ctile = `<div class="b-tile selected">
-      ${s.cloud.remembered?'<span class="badge">remembered</span>':''}
-      <div class="t-head"><span class="dot">✓</span> Cloud</div>
-      <div class="t-sub">Private library</div>
-      <div class="t-state err">✗ Failed — retry</div>
-    </div>`;
-  } else {
-    ctile = `<div class="b-tile ${s.cloud.selected?'selected':''}">
-      <div class="t-head"><span class="dot">${s.cloud.selected?'✓':''}</span> Cloud</div>
-      <div class="t-sub">Private library</div>
-      <div class="t-state ${s.cloud.selected?'info':''}">${s.cloud.selected?'Will upload':''}</div>
-    </div>`;
-  }
-
-  body += `<div class="b-tiles">${ltile}${ctile}</div>`;
-
-  if (s.cloud.state === 'error') {
-    body += `<div class="b-note">Local save succeeded — a failed cloud upload never blocks or loses your local copy. Retry when ready.</div>`;
-  }
-
-  body += s.phase === 'capturing'
-    ? `<button class="btn" disabled><span class="spinner"></span> Capturing…</button>`
-    : `<button class="btn">Save</button>`;
-  return body;
-}
-
-/* ---------- Variant C ---------- */
-function renderC(s) {
-  let body = '';
-  body += `<div class="c-title">${video.title}</div>`;
-  body += `<div class="c-sub">${metaLine()}</div>`;
-
-  if (!s.transcript) {
-    body += `<div class="c-err"><b>No transcript found</b>Open the Transcript panel on the page, then retry.</div>`;
-    body += `<button class="c-save" disabled>Save</button>`;
-    body += `<button class="c-save" style="background:#fff;color:var(--accent);border:1px solid var(--accent);margin-top:8px">Retry</button>`;
-    return body;
-  }
-
-  // one big button
-  let btnHtml = '', statusline = '', cls = '';
-  if (s.phase === 'capturing') {
-    btnHtml = `<button class="c-save" disabled><span class="spinner"></span> Capturing…</button>`;
-    statusline = `<div class="c-statusline info">Opening the Transcript panel and reading segments…</div>`;
-  } else if (s.phase === 'done' && s.cloud.state === 'error') {
-    btnHtml = `<button class="c-save">✓ Saved</button>`;
-    statusline = `<div class="c-statusline ok">Saved locally · cloud upload failed</div>`;
-  } else if (s.phase === 'done' && s.cloud.state === 'done') {
-    btnHtml = `<button class="c-save">✓ Saved</button>`;
-    statusline = `<div class="c-statusline ok">Saved locally + private cloud library</div>`;
-  } else if (s.phase === 'done') {
-    btnHtml = `<button class="c-save">✓ Saved</button>`;
-    statusline = `<div class="c-statusline ok">Saved to Markdown — ${video.file}</div>`;
-  } else {
-    btnHtml = `<button class="c-save">Save</button>`;
-    statusline = `<div class="c-statusline"></div>`;
-  }
-  body += btnHtml + statusline;
-
-  // progressive disclosure
-  const cstate = s.cloud.selected || s.cloud.remembered;
-  body += `<details class="c-details" ${cstate || s.phase!=='idle' ? 'open' : ''}>
-    <summary>Destinations &amp; details</summary>
-    <div class="c-row">
-      <div><div class="r-title">Local Markdown</div><div class="r-sub">default · no account</div></div>
-      <span class="r-state ok">${s.local.state==='done' ? '✓ Saved' : s.local.state==='saving' ? 'Saving…' : 'On'}</span>
-    </div>
-    <div class="c-row">
-      <div><div class="r-title">Cloud library</div><div class="r-sub">${s.signedIn ? 'private by default' : 'sign in to enable'}</div></div>
-      ${
-        !s.signedIn
-          ? `<span class="r-state" style="color:var(--accent)">Sign in</span>`
-          : s.cloud.state === 'done'
-            ? `<span class="r-state ok">✓ Uploaded</span>`
-            : s.cloud.state === 'error'
-              ? `<span class="r-state err">✗ Failed — retry</span>`
-              : `<span class="r-state">${cstate ? 'On' : 'Off'}</span>`
-      }
-    </div>
-    ${s.cloud.remembered ? `<div class="c-row" style="color:var(--muted)"><div><div class="r-sub">Cloud preference remembered from your last capture</div></div></div>` : ''}
+function propsHtml() {
+  const rows = [
+    ['Video', video.title], ['Channel', video.channel], ['URL', video.url],
+    ['Language', video.language], ['Duration', video.duration], ['Captured', video.capturedAt],
+  ];
+  return `<details class="props">
+    <summary><span class="chev">▸</span> Properties</summary>
+    <div class="props-grid">${rows.map(([k,v]) => `<div class="prop"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}</div>
   </details>`;
-  return body;
+}
+function transcriptHtml() {
+  return `<div class="section-label">Transcript · ${segments.length} segments</div>
+    <p class="desc">${description}</p>
+    ${segments.map(s => `<div class="seg"><span class="ts">${ts(s.t)}</span><span class="tx">${s.text}</span></div>`).join('')}`;
+}
+function skeletonHtml() {
+  return `<div class="capturing-note"><span class="spinner"></span> Opening the Transcript panel and reading segments…</div>
+    <div class="skeleton"><div class="line w80"></div><div class="line w60"></div><div class="line w45"></div><div class="line w80"></div><div class="line w60"></div></div>`;
+}
+function errcardHtml() {
+  return `<div class="errcard"><b>No transcript found</b>YouTube didn't expose a transcript for this video. Open the Transcript panel on the page, then retry.</div>`;
 }
 
-/* ---------- wiring ---------- */
-const params = new URLSearchParams(location.search);
-let variant = (params.get('variant') || 'A').toUpperCase();
-if (!VARIANTS[variant]) variant = 'A';
-let scenarioKey = params.get('scenario') || 'idle';
-if (!SCENARIOS.find(x => x.key === scenarioKey)) scenarioKey = 'idle';
-
-function currentScenario() { return SCENARIOS.find(x => x.key === scenarioKey); }
+function toggle(name, checked, hint) {
+  return `<label class="tgl"><input type="checkbox" ${checked?'checked':''} disabled><span class="track"></span>${name}${hint?`<span class="hint">${hint}</span>`:''}</label>`;
+}
 
 function render() {
-  const s = currentScenario();
-  document.getElementById('popup').innerHTML = VARIANTS[variant].render(s);
+  const s = SCENARIOS.find(x => x.key === scenarioKey);
+  const savedLocal = s.local.state === 'done';
+  const savedCloud = s.cloud.state === 'done';
+
+  // filename
+  const fname = `<input class="fname ${savedLocal?'saved':''}" value="${video.file.replace('saved/','')}" spellcheck="false" />`;
+
+  // properties
+  const props = propsHtml();
+
+  // content
+  let content = '';
+  if (!s.transcript) {
+    content = `<div class="content">${errcardHtml()}</div>`;
+  } else if (s.phase === 'capturing') {
+    content = `<div class="content">${skeletonHtml()}</div>`;
+  } else {
+    content = `<div class="content">${transcriptHtml()}</div>`;
+  }
+
+  // banners (after content, before footer)
+  let banner = '';
+  if (s.phase === 'done' && s.cloud.state === 'error') {
+    banner = `<div class="banner ok">✓ Saved locally<span class="retry">Cloud failed — retry</span></div>`;
+  } else if (s.phase === 'done' && s.cloud.state === 'done') {
+    banner = `<div class="banner ok">✓ Saved locally · uploaded to private library</div>`;
+  } else if (s.phase === 'done') {
+    banner = `<div class="banner ok">✓ Saved locally — ${video.file}</div>`;
+  }
+
+  // footer
+  let cloudEl = '';
+  if (!s.signedIn) {
+    cloudEl = `<span class="signin">Sign in to save to cloud</span>`;
+  } else {
+    cloudEl = toggle('Cloud', s.cloud.selected || s.cloud.remembered, s.cloud.remembered ? 'remembered' : 'private');
+  }
+  let cloudErr = '';
+  if (s.cloud.state === 'error') {
+    cloudErr = `<div class="cloud-err">Cloud upload failed — local copy is safe · Retry</div>`;
+  }
+  const disabled = (s.phase === 'capturing') || !s.transcript;
+  const saveLabel = savedLocal ? '✓ Saved' : (s.phase === 'capturing' ? 'Capturing…' : 'Save');
+  const footer = `<div class="footer">
+    <div class="dests">
+      ${toggle('Local', s.local.selected, 'default')}
+      ${cloudEl}
+    </div>
+    ${cloudErr}
+    <button class="save" ${disabled?'disabled':''}>${saveLabel}</button>
+  </div>`;
+
+  document.getElementById('popup').innerHTML = fname + props + content + banner + footer;
   document.getElementById('dump').textContent =
-    `variant: ${variant} (${VARIANTS[variant].name})\nscenario: ${s.key} — ${s.label}\n` +
+    `scenario: ${s.key} — ${s.label}\n` +
     `transcript: ${s.transcript} · signedIn: ${s.signedIn} · phase: ${s.phase}\n` +
     `local: ${JSON.stringify(s.local)} · cloud: ${JSON.stringify(s.cloud)}`;
-  renderScenarioBar();
-  renderVariantBar();
+  renderBar();
 }
 
-function renderScenarioBar() {
+function renderBar() {
   const bar = document.getElementById('scenarioBar');
-  bar.innerHTML = `<span class="cap">scenario</span>` +
+  bar.innerHTML = `<span class="cap">capture state</span>` +
     SCENARIOS.map(sc =>
       `<button class="pill ${sc.key===scenarioKey?'active':''}" data-scenario="${sc.key}">${sc.label}</button>`
     ).join('');
 }
-function renderVariantBar() {
-  const bar = document.getElementById('variantBar');
-  const keys = Object.keys(VARIANTS);
-  bar.innerHTML = `
-    <button class="arrow" id="prevV" title="←">‹</button>
-    <span class="vlabel">${variant} <span class="vname">— ${VARIANTS[variant].name}</span></span>
-    <button class="arrow" id="nextV" title="→">›</button>`;
-}
+
+const params = new URLSearchParams(location.search);
+let scenarioKey = params.get('scenario') || 'idle';
+if (!SCENARIOS.find(x => x.key === scenarioKey)) scenarioKey = 'idle';
 
 document.getElementById('scenarioBar').addEventListener('click', e => {
   const b = e.target.closest('[data-scenario]');
@@ -547,31 +348,17 @@ document.getElementById('scenarioBar').addEventListener('click', e => {
   history.replaceState(null, '', url);
   render();
 });
-document.getElementById('variantBar').addEventListener('click', e => {
-  const keys = Object.keys(VARIANTS);
-  let i = keys.indexOf(variant);
-  if (e.target.id === 'prevV') i = (i - 1 + keys.length) % keys.length;
-  else if (e.target.id === 'nextV') i = (i + 1) % keys.length;
-  else return;
-  variant = keys[i];
-  const url = new URL(location);
-  url.searchParams.set('variant', variant);
-  history.replaceState(null, '', url);
-  render();
-});
 document.addEventListener('keydown', e => {
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  const keys = Object.keys(VARIANTS);
-  let i = keys.indexOf(variant);
-  if (e.key === 'ArrowLeft') i = (i - 1 + keys.length) % keys.length;
-  else if (e.key === 'ArrowRight') i = (i + 1) % keys.length;
-  else return;
-  variant = keys[i];
-  const url = new URL(location);
-  url.searchParams.set('variant', variant);
-  history.replaceState(null, '', url);
-  render();
+  const idx = parseInt(e.key, 10);
+  if (idx >= 1 && idx <= SCENARIOS.length) {
+    scenarioKey = SCENARIOS[idx - 1].key;
+    const url = new URL(location);
+    url.searchParams.set('scenario', scenarioKey);
+    history.replaceState(null, '', url);
+    render();
+  }
 });
 
 render();
