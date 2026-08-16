@@ -14,6 +14,13 @@ export interface TranscriptSelectors {
   chapterText: string;
 }
 
+export interface ChapterMarkersSelectors {
+  panel: string;
+  item: string;
+  itemTitle: string;
+  itemTime: string;
+}
+
 export interface SiteSelectors {
   meta: {
     title: SelectorRule;
@@ -25,6 +32,7 @@ export interface SiteSelectors {
     duration?: SelectorRule;
   };
   transcript: TranscriptSelectors;
+  chapters?: ChapterMarkersSelectors;
 }
 
 export const youtubeSelectors: SiteSelectors = {
@@ -68,5 +76,12 @@ export const youtubeSelectors: SiteSelectors = {
     segmentText: ".segment-text",
     chapter: "ytd-transcript-section-header-renderer",
     chapterText: "yt-formatted-string",
+  },
+  chapters: {
+    panel:
+      'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-macro-markers-description-chapters"]',
+    item: "ytd-macro-markers-list-item-renderer",
+    itemTitle: "h3.macro-markers",
+    itemTime: "#time",
   },
 };

@@ -4,6 +4,7 @@ import {
   canonicalWatchUrl,
   formatTimestamp,
   parseVideoId,
+  transcriptBlocks,
 } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 import {
@@ -55,12 +56,21 @@ function segmentUrl(videoId: string, start: number): string {
 }
 
 function transcriptRows(capture: Capture): ReactNode[] {
-  return capture.segments.map((segment, index) => (
-    <p className="segment" key={`segment-${index}`}>
-      [<a href={segmentUrl(capture.source.videoId, segment.start)}>{formatTimestamp(segment.start)}</a>]{" "}
-      {segment.text}
-    </p>
-  ));
+  return transcriptBlocks(capture).map((block, index) => {
+    if (block.kind === "chapter") {
+      return (
+        <h4 className="chapter" key={`block-${index}`}>
+          {block.title}
+        </h4>
+      );
+    }
+    return (
+      <p className="segment" key={`block-${index}`}>
+        [<a href={segmentUrl(capture.source.videoId, block.start)}>{formatTimestamp(block.start)}</a>]{" "}
+        {block.text}
+      </p>
+    );
+  });
 }
 
 function properties(capture: Capture): Array<[string, string]> {

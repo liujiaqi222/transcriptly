@@ -21,6 +21,10 @@ const capture: Capture = {
     description: `Description with <b>markup</b> & <script>alert(3)</script>`,
   },
   capturedAt: "2026-08-15T10:30:00.000Z",
+  chapters: [
+    { start: 0, title: `Intro <script>alert(4)</script>` },
+    { start: 62, title: "Part two" },
+  ],
   segments: [
     { start: 0, text: "Start <script>alert(2)</script> here." },
     { start: 62, text: "Second segment." },
@@ -151,6 +155,10 @@ describe("popup capture flow", () => {
 
     expect(screen.getByText(/Start <script>alert\(2\)<\/script> here\./)).toBeTruthy();
     expect(screen.getByText(/Second segment\./)).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: /Intro <script>alert\(4\)<\/script>/ }),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Part two" })).toBeTruthy();
     expect(
       screen.getByText(/Description with <b>markup<\/b>/),
     ).toBeTruthy();

@@ -144,6 +144,30 @@ function readTranscriptBody(
   return { segments, chapters };
 }
 
+function readChaptersFromMarkers(
+  doc: Document,
+  selectors: SiteSelectors,
+): CaptureChapter[] {
+  if (!selectors.chapters) return [];
+  const panel = doc.querySelector(selectors.chapters.panel);
+  if (!panel) return [];
+
+  const chapters: CaptureChapter[] = [];
+  for (const node of Array.from(
+    panel.querySelectorAll(selectors.chapters.item),
+  )) {
+    const title = sanitizeText(
+      node.querySelector(selectors.chapters.itemTitle)?.textContent ?? "",
+    );
+    const start = parseTimestamp(
+      node.querySelector(selectors.chapters.itemTime)?.textContent ?? null,
+    );
+    if (title.length === 0 || start === null) continue;
+    chapters.push({ start, title });
+  }
+  return chapters;
+}
+
 async function readTranscript(
   doc: Document,
   selectors: SiteSelectors,
@@ -205,7 +229,15 @@ export async function capture(
 
   const url = canonicalWatchUrl(videoId);
   const source = readSource(doc, selectors, url, videoId);
-  const { segments, chapters } = await readTranscript(doc, selectors, options);
+  const { segments, chapters: transcriptChapters } = await readTranscript(
+    doc,
+    selectors,
+    options,
+  );
+  const chapters =
+    transcriptChapters.length > 0
+      ? transcriptChapters
+      : readChaptersFromMarkers(doc, selectors);
 
   return {
     source,

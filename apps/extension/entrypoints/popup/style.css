@@ -197,6 +197,16 @@ h2 {
   margin-bottom: 0;
 }
 
+.chapter {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chapter:first-child {
+  margin-top: 2px;
+}
+
 .segment {
   margin: 0 0 6px;
   line-height: 1.45;

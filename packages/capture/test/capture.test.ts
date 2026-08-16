@@ -111,6 +111,18 @@ describe("capture", () => {
     expect(result.segments).toHaveLength(6);
   });
 
+  it("falls back to the description chapters panel when the transcript has no section headers", async () => {
+    const doc = loadDocument("watch-markers.html");
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.chapters).toEqual([
+      { start: 0, title: "Intro" },
+      { start: 25, title: "How we're used to learning" },
+      { start: 55, title: "One teaches many" },
+    ]);
+  });
+
   it("fails explicitly with no-transcript when the panel is unavailable", async () => {
     const doc = loadDocument("no-transcript.html");
 
