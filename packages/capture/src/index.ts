@@ -4,7 +4,12 @@ export type {
   CaptureSegment,
   CaptureSource,
 } from "@transcriptly/schema";
-export { formatTimestamp, serializeToMarkdown } from "./serialize";
+export {
+  formatTimestamp,
+  serializeToMarkdown,
+  transcriptBlocks,
+  type TranscriptBlock,
+} from "./serialize";
 export {
   capture,
   captureOutcome,

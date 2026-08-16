@@ -5,7 +5,7 @@ import type {
   CaptureSource,
   CaptureSegment,
 } from "@transcriptly/schema";
-import { formatTimestamp, serializeToMarkdown } from "../src/serialize";
+import { formatTimestamp, serializeToMarkdown, transcriptBlocks } from "../src/serialize";
 
 interface Overrides {
   source?: Partial<CaptureSource>;
@@ -194,6 +194,43 @@ describe("serializeToMarkdown", () => {
       "### Chapter &lt;script&gt;alert(1)&lt;/script&gt;",
     );
     expect(markdown).not.toContain("### Chapter <script>");
+  });
+});
+
+describe("transcriptBlocks", () => {
+  it("interleaves chapters before their first segment and drops trailing chapters", () => {
+    const blocks = transcriptBlocks(
+      makeCapture({
+        segments: [
+          { start: 0, text: "intro line" },
+          { start: 10, text: "middle line" },
+          { start: 20, text: "final line" },
+        ],
+        chapters: [
+          { start: 0, title: "Opening" },
+          { start: 10, title: "Deep dive" },
+          { start: 30, title: "After the last segment" },
+        ],
+      }),
+    );
+
+    expect(blocks).toEqual([
+      { kind: "chapter", title: "Opening" },
+      { kind: "segment", start: 0, text: "intro line" },
+      { kind: "chapter", title: "Deep dive" },
+      { kind: "segment", start: 10, text: "middle line" },
+      { kind: "segment", start: 20, text: "final line" },
+    ]);
+  });
+
+  it("returns segments only when a capture has no chapters", () => {
+    const blocks = transcriptBlocks(
+      makeCapture({
+        segments: [{ start: 0, text: "only line" }],
+      }),
+    );
+
+    expect(blocks).toEqual([{ kind: "segment", start: 0, text: "only line" }]);
   });
 });
 

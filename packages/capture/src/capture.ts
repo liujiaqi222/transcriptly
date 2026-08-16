@@ -95,76 +95,106 @@ function readTranscriptBody(
   doc: Document,
   selectors: SiteSelectors,
 ): TranscriptBody {
-  const container = doc.querySelector(selectors.transcript.segmentsContainer);
-  const nodes = container ? Array.from(container.children) : [];
+  const allSegments: CaptureSegment[] = [];
+  const allChapters: CaptureChapter[] = [];
 
-  const segments: CaptureSegment[] = [];
-  const chapters: CaptureChapter[] = [];
-  let currentChapter: string | null = null;
+  for (const container of Array.from(
+    doc.querySelectorAll(selectors.transcript.segmentsContainer),
+  )) {
+    const nodes = Array.from(
+      container.querySelectorAll(
+        `${selectors.transcript.chapter}, ${selectors.transcript.segment}`,
+      ),
+    );
+    const segments: CaptureSegment[] = [];
+    const chapters: CaptureChapter[] = [];
+    let currentChapter: string | null = null;
 
-  for (const node of nodes) {
-    if (node.matches(selectors.transcript.chapter)) {
-      const title = sanitizeText(
-        node.querySelector(selectors.transcript.chapterText)?.textContent ?? "",
-      );
-      currentChapter = title.length > 0 ? title : null;
-      continue;
-    }
-
-    if (node.matches(selectors.transcript.segment)) {
-      const timestampElement = node.querySelector(
-        selectors.transcript.segmentTimestamp,
-      );
-      const textElement = node.querySelector(selectors.transcript.segmentText);
-
-      const rawTimestamp = timestampElement?.textContent ?? null;
-      const start = parseTimestamp(rawTimestamp);
-      if (start === null) {
-        throw new CaptureError(
-          "malformed-segments",
-          `Unparseable segment timestamp: ${JSON.stringify(rawTimestamp ?? null)}`,
+    for (const node of nodes) {
+      if (node.matches(selectors.transcript.chapter)) {
+        const title = sanitizeText(
+          node.querySelector(selectors.transcript.chapterText)?.textContent ?? "",
         );
+        currentChapter = title.length > 0 ? title : null;
+        continue;
       }
 
-      const text = sanitizeText(textElement?.textContent ?? "");
-      if (text.length === 0) {
-        throw new CaptureError("malformed-segments", "Segment has empty text");
-      }
+      if (node.matches(selectors.transcript.segment)) {
+        const timestampElement = node.querySelector(
+          selectors.transcript.segmentTimestamp,
+        );
+        const textElement = node.querySelector(selectors.transcript.segmentText);
 
-      if (currentChapter !== null) {
-        const last = chapters[chapters.length - 1];
-        if (last === undefined || last.title !== currentChapter) {
-          chapters.push({ start, title: currentChapter });
+        const rawTimestamp = timestampElement?.textContent ?? null;
+        const start = parseTimestamp(rawTimestamp);
+        if (start === null) {
+          throw new CaptureError(
+            "malformed-segments",
+            `Unparseable segment timestamp: ${JSON.stringify(rawTimestamp ?? null)}`,
+          );
         }
+
+        const text = sanitizeText(textElement?.textContent ?? "");
+        if (text.length === 0) {
+          throw new CaptureError("malformed-segments", "Segment has empty text");
+        }
+
+        if (currentChapter !== null) {
+          const last = chapters[chapters.length - 1];
+          if (last === undefined || last.title !== currentChapter) {
+            chapters.push({ start, title: currentChapter });
+          }
+        }
+        segments.push({ start, text });
       }
-      segments.push({ start, text });
     }
+    allSegments.push(...segments);
+    allChapters.push(...chapters);
   }
 
-  return { segments, chapters };
+  return { segments: allSegments, chapters: allChapters };
 }
 
-async function readTranscript(
+function readChaptersFromMarkers(
+  doc: Document,
+  selectors: SiteSelectors,
+): CaptureChapter[] {
+  if (!selectors.chapters) return [];
+  const panel = doc.querySelector(selectors.chapters.panel);
+  if (!panel) return [];
+
+  const chapters: CaptureChapter[] = [];
+  for (const node of Array.from(
+    panel.querySelectorAll(selectors.chapters.item),
+  )) {
+    const title = sanitizeText(
+      node.querySelector(selectors.chapters.itemTitle)?.textContent ?? "",
+    );
+    const start = parseTimestamp(
+      node.querySelector(selectors.chapters.itemTime)?.textContent ?? null,
+    );
+    if (title.length === 0 || start === null) continue;
+    chapters.push({ start, title });
+  }
+  return chapters;
+}
+
+async function readTranscriptFromDom(
   doc: Document,
   selectors: SiteSelectors,
   options: CaptureOptions,
-): Promise<TranscriptBody> {
-  const section = doc.querySelector(selectors.transcript.section);
-  if (!section) {
-    throw new CaptureError("no-transcript", "Transcript section not found");
-  }
-
+): Promise<TranscriptBody | null> {
   let body = readTranscriptBody(doc, selectors);
   if (body.segments.length > 0) return body;
+
+  const section = doc.querySelector(selectors.transcript.section);
+  if (!section) return null;
 
   const openButton = section.querySelector<HTMLElement>(
     selectors.transcript.openButton,
   );
   if (!openButton) {
-    throw new CaptureError(
-      "no-transcript",
-      "No transcript open control on the page",
-    );
+    return null;
   }
 
   openButton.click();
@@ -181,10 +211,7 @@ async function readTranscript(
     if (body.segments.length > 0) return body;
   }
 
-  throw new CaptureError(
-    "no-transcript",
-    "Transcript segments did not render after opening the panel",
-  );
+  return null;
 }
 
 export async function capture(
@@ -205,7 +232,15 @@ export async function capture(
 
   const url = canonicalWatchUrl(videoId);
   const source = readSource(doc, selectors, url, videoId);
-  const { segments, chapters } = await readTranscript(doc, selectors, options);
+  const transcript = await readTranscriptFromDom(doc, selectors, options);
+  if (!transcript) {
+    throw new CaptureError("no-transcript", "No usable transcript was found");
+  }
+  const { segments, chapters: transcriptChapters } = transcript;
+  const chapters =
+    transcriptChapters.length > 0
+      ? transcriptChapters
+      : readChaptersFromMarkers(doc, selectors);
 
   return {
     source,

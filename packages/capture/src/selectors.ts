@@ -14,6 +14,13 @@ export interface TranscriptSelectors {
   chapterText: string;
 }
 
+export interface ChapterMarkersSelectors {
+  panel: string;
+  item: string;
+  itemTitle: string;
+  itemTime: string;
+}
+
 export interface SiteSelectors {
   meta: {
     title: SelectorRule;
@@ -25,6 +32,7 @@ export interface SiteSelectors {
     duration?: SelectorRule;
   };
   transcript: TranscriptSelectors;
+  chapters?: ChapterMarkersSelectors;
 }
 
 export const youtubeSelectors: SiteSelectors = {
@@ -62,11 +70,19 @@ export const youtubeSelectors: SiteSelectors = {
     section: "ytd-video-description-transcript-section-renderer",
     openButton: "button",
     segmentsContainer:
-      "ytd-transcript-renderer #segments-container, #segments-container",
-    segment: "ytd-transcript-segment-renderer",
-    segmentTimestamp: ".segment-timestamp",
-    segmentText: ".segment-text",
+      'ytd-transcript-renderer #segments-container, ytd-engagement-panel-section-list-renderer[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"] #contents, #segments-container',
+    segment: "ytd-transcript-segment-renderer, transcript-segment-view-model",
+    segmentTimestamp:
+      ".segment-timestamp, .ytwTranscriptSegmentViewModelTimestamp",
+    segmentText: ".segment-text, [role='text']",
     chapter: "ytd-transcript-section-header-renderer",
     chapterText: "yt-formatted-string",
+  },
+  chapters: {
+    panel:
+      'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-macro-markers-description-chapters"]',
+    item: "ytd-macro-markers-list-item-renderer",
+    itemTitle: "h3.macro-markers",
+    itemTime: "#time",
   },
 };

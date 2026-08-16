@@ -54,6 +54,28 @@ function buildFrontmatter(source: CaptureSource, capturedAt: string): string {
   return lines.join("\n");
 }
 
+export type TranscriptBlock =
+  | { kind: "chapter"; title: string }
+  | { kind: "segment"; start: number; text: string };
+
+export function transcriptBlocks(capture: Capture): TranscriptBlock[] {
+  const chapters = capture.chapters ?? [];
+  const blocks: TranscriptBlock[] = [];
+  let chapterIndex = 0;
+
+  for (const segment of capture.segments) {
+    while (chapterIndex < chapters.length) {
+      const chapter = chapters[chapterIndex];
+      if (chapter === undefined || chapter.start > segment.start) break;
+      blocks.push({ kind: "chapter", title: chapter.title });
+      chapterIndex += 1;
+    }
+    blocks.push({ kind: "segment", start: segment.start, text: segment.text });
+  }
+
+  return blocks;
+}
+
 export function serializeToMarkdown(capture: Capture): string {
   const { source, capturedAt, segments } = capture;
 
@@ -79,20 +101,16 @@ export function serializeToMarkdown(capture: Capture): string {
   parts.push("## Transcript", "");
 
   if (segments.length > 0) {
-    const chapters = capture.chapters ?? [];
     const lines: string[] = [];
-    let chapterIndex = 0;
 
-    for (const segment of segments) {
-      while (chapterIndex < chapters.length) {
-        const chapter = chapters[chapterIndex];
-        if (chapter === undefined || chapter.start > segment.start) break;
-        lines.push(`### ${escapeInline(chapter.title)}`, "");
-        chapterIndex++;
+    for (const block of transcriptBlocks(capture)) {
+      if (block.kind === "chapter") {
+        lines.push(`### ${escapeInline(block.title)}`, "");
+      } else {
+        lines.push(
+          `- [${formatTimestamp(block.start)}](${timestampUrl(source.url, block.start)}) ${escapeInline(block.text)}`,
+        );
       }
-      lines.push(
-        `- [${formatTimestamp(segment.start)}](${timestampUrl(source.url, segment.start)}) ${escapeInline(segment.text)}`,
-      );
     }
 
     parts.push(lines.join("\n"), "");

@@ -86,6 +86,18 @@ describe("capture", () => {
     );
   });
 
+  it("captures rendered Chinese segments from YouTube's current in-video panel", async () => {
+    const doc = loadDocument("watch-current-transcript-panel.html");
+
+    const result = await capture(doc, WATCH_URL, { timeoutMs: 0 });
+
+    expect(result.segments).toEqual([
+      { start: 0, text: "大家好，我是肖恩 最近，记忆在AI智能体系统中非常流行" },
+      { start: 6, text: "任何LLM调用都不会长期携带任何记忆权重" },
+      { start: 12, text: "后续章节也必须被保存" },
+    ]);
+  });
+
   it("captures CJK transcript text in order", async () => {
     const doc = loadDocument("cjk.html");
 
@@ -109,6 +121,18 @@ describe("capture", () => {
       { start: 52, title: "Ship It" },
     ]);
     expect(result.segments).toHaveLength(6);
+  });
+
+  it("falls back to the description chapters panel when the transcript has no section headers", async () => {
+    const doc = loadDocument("watch-markers.html");
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.chapters).toEqual([
+      { start: 0, title: "Intro" },
+      { start: 25, title: "How we're used to learning" },
+      { start: 55, title: "One teaches many" },
+    ]);
   });
 
   it("fails explicitly with no-transcript when the panel is unavailable", async () => {
