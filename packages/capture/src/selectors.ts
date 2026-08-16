@@ -70,10 +70,11 @@ export const youtubeSelectors: SiteSelectors = {
     section: "ytd-video-description-transcript-section-renderer",
     openButton: "button",
     segmentsContainer:
-      "ytd-transcript-renderer #segments-container, #segments-container",
-    segment: "ytd-transcript-segment-renderer",
-    segmentTimestamp: ".segment-timestamp",
-    segmentText: ".segment-text",
+      'ytd-transcript-renderer #segments-container, ytd-engagement-panel-section-list-renderer[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"] #contents, #segments-container',
+    segment: "ytd-transcript-segment-renderer, transcript-segment-view-model",
+    segmentTimestamp:
+      ".segment-timestamp, .ytwTranscriptSegmentViewModelTimestamp",
+    segmentText: ".segment-text, [role='text']",
     chapter: "ytd-transcript-section-header-renderer",
     chapterText: "yt-formatted-string",
   },
