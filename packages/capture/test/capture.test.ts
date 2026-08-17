@@ -75,6 +75,19 @@ describe("capture", () => {
     expect(result.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
   });
 
+  it("prefers live DOM metadata over stale head meta tags after SPA navigation", async () => {
+    const doc = loadDocument("watch-spa-stale-meta.html");
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.title).toBe("Fresh Title from DOM");
+    expect(result.source.channelName).toBe("Fresh Channel");
+    expect(result.source.channelUrl).toBe("https://www.youtube.com/@freshchannel");
+    expect(result.source.description).toBe("Fresh description from DOM.");
+    expect(result.source.publishedAt).toBe("Oct 24, 2009");
+    expect(result.source.durationSeconds).toBe(245);
+  });
+
   it("reads already-rendered segments without opening the panel", async () => {
     const doc = loadDocument("watch-open.html");
 
