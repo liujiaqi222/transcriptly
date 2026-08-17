@@ -43,9 +43,6 @@ function buildFrontmatter(source: CaptureSource, capturedAt: string): string {
   if (source.publishedAt !== undefined) {
     lines.push(`publishedAt: ${yamlString(source.publishedAt)}`);
   }
-  if (source.language !== undefined) {
-    lines.push(`language: ${yamlString(source.language)}`);
-  }
   if (source.durationSeconds !== undefined) {
     lines.push(`durationSeconds: ${source.durationSeconds}`);
   }

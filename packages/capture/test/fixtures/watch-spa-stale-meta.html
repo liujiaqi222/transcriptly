@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <base href="https://www.youtube.com/watch?v=newvid" />
+    <!-- Stale head tags: frozen at the previously-loaded video (SPA nav). -->
+    <meta name="title" content="Old Stale Title" />
+    <meta name="description" content="Old stale description." />
+    <meta itemprop="duration" content="PT1M2S" />
+    <meta itemprop="datePublished" content="2020-01-01" />
+    <link itemprop="name" content="Old Stale Channel" />
+    <link itemprop="url" href="https://www.youtube.com/@oldstalechannel" />
+  </head>
+  <body>
+    <ytd-watch-metadata>
+      <h1 class="ytd-watch-metadata">Fresh Title from DOM</h1>
+      <div id="owner">
+        <div id="channel-name">
+          <a href="/@freshchannel">Fresh Channel</a>
+        </div>
+      </div>
+      <span id="attributed-snippet-text">Fresh description from DOM.</span>
+    </ytd-watch-metadata>
+
+    <div class="ytp-time-duration">4:05</div>
+
+    <div id="info-strings">
+      <yt-formatted-string>Oct 24, 2009</yt-formatted-string>
+    </div>
+
+    <ytd-video-description-transcript-section-renderer>
+      <div id="title">
+        <h3>Transcript</h3>
+      </div>
+    </ytd-video-description-transcript-section-renderer>
+
+    <ytd-transcript-renderer>
+      <div id="segments-container">
+        <ytd-transcript-segment-renderer>
+          <div class="segment-timestamp">0:00</div>
+          <yt-formatted-string class="segment-text"
+            >first fresh line</yt-formatted-string
+          >
+        </ytd-transcript-segment-renderer>
+      </div>
+    </ytd-transcript-renderer>
+  </body>
+</html>

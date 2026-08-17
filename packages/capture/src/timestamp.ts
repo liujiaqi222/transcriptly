@@ -1,4 +1,8 @@
-function toSeconds(hours: number, minutes: number, seconds: number): number | null {
+function toSeconds(
+  hours: number,
+  minutes: number,
+  seconds: number,
+): number | null {
   const total = hours * 3600 + minutes * 60 + seconds;
   return Number.isFinite(total) && total >= 0 ? total : null;
 }

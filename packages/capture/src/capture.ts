@@ -1,7 +1,15 @@
-import type { Capture, CaptureChapter, CaptureSegment } from "@transcriptly/schema";
-import { CaptureError, toCaptureFailure, type CaptureFailure } from "./errors";
+import type {
+  Capture,
+  CaptureChapter,
+  CaptureSegment,
+} from "@transcriptly/schema";
+import { CaptureError, type CaptureFailure, toCaptureFailure } from "./errors";
 import { sanitizeText } from "./sanitize";
-import { type SelectorRule, type SiteSelectors, youtubeSelectors } from "./selectors";
+import {
+  type SelectorRule,
+  type SiteSelectors,
+  youtubeSelectors,
+} from "./selectors";
 import { parseDuration, parseTimestamp } from "./timestamp";
 import { canonicalWatchUrl, parseVideoId } from "./video";
 
@@ -30,10 +38,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function readAttribute(
-  doc: Document,
-  rule: { selector: string; attribute?: string },
-): string | null {
+function readAttribute(doc: Document, rule: SelectorRule): string | null {
   const element = doc.querySelector(rule.selector);
   if (!element) return null;
 
@@ -43,8 +48,27 @@ function readAttribute(
   return element.textContent;
 }
 
-function readMeta(doc: Document, rule: SelectorRule): string {
-  return sanitizeText(readAttribute(doc, rule) ?? "");
+function readFirstAttribute(
+  doc: Document,
+  rules: SelectorRule[],
+): string | null {
+  for (const rule of rules) {
+    const value = readAttribute(doc, rule);
+    if (value !== null && value.trim() !== "") return value;
+  }
+  return null;
+}
+
+function readMeta(doc: Document, rules: SelectorRule[]): string {
+  return sanitizeText(readFirstAttribute(doc, rules) ?? "");
+}
+
+function resolveUrl(raw: string, base: string): string {
+  try {
+    return new URL(raw, base).href;
+  } catch {
+    return raw;
+  }
 }
 
 function readSource(
@@ -56,21 +80,24 @@ function readSource(
   const title = readMeta(doc, selectors.meta.title);
   const description = readMeta(doc, selectors.meta.description);
   const channelName = readMeta(doc, selectors.meta.channelName);
-  const channelUrl = (readAttribute(doc, selectors.meta.channelUrl) ?? "").trim();
+  const rawChannelUrl =
+    readFirstAttribute(doc, selectors.meta.channelUrl) ?? "";
+  const channelUrl =
+    rawChannelUrl.trim() === ""
+      ? ""
+      : resolveUrl(rawChannelUrl.trim(), doc.baseURI);
 
   const publishedAt = selectors.meta.publishedAt
     ? readMeta(doc, selectors.meta.publishedAt) || undefined
     : undefined;
 
-  const language = selectors.meta.language
-    ? readMeta(doc, selectors.meta.language) || undefined
-    : undefined;
-
   let durationSeconds: number | undefined;
   if (selectors.meta.duration) {
-    const rawDuration = readAttribute(doc, selectors.meta.duration);
-    const parsed = parseDuration(rawDuration);
-    if (parsed !== null) durationSeconds = parsed;
+    const rawDuration = readFirstAttribute(doc, selectors.meta.duration);
+    if (rawDuration !== null) {
+      const parsed = parseDuration(rawDuration) ?? parseTimestamp(rawDuration);
+      if (parsed !== null) durationSeconds = parsed;
+    }
   }
 
   return {
@@ -81,7 +108,6 @@ function readSource(
     channelUrl,
     description,
     ...(publishedAt !== undefined ? { publishedAt } : {}),
-    ...(language !== undefined ? { language } : {}),
     ...(durationSeconds !== undefined ? { durationSeconds } : {}),
   };
 }
@@ -113,7 +139,8 @@ function readTranscriptBody(
     for (const node of nodes) {
       if (node.matches(selectors.transcript.chapter)) {
         const title = sanitizeText(
-          node.querySelector(selectors.transcript.chapterText)?.textContent ?? "",
+          node.querySelector(selectors.transcript.chapterText)?.textContent ??
+            "",
         );
         currentChapter = title.length > 0 ? title : null;
         continue;
@@ -123,7 +150,9 @@ function readTranscriptBody(
         const timestampElement = node.querySelector(
           selectors.transcript.segmentTimestamp,
         );
-        const textElement = node.querySelector(selectors.transcript.segmentText);
+        const textElement = node.querySelector(
+          selectors.transcript.segmentText,
+        );
 
         const rawTimestamp = timestampElement?.textContent ?? null;
         const start = parseTimestamp(rawTimestamp);
@@ -136,7 +165,10 @@ function readTranscriptBody(
 
         const text = sanitizeText(textElement?.textContent ?? "");
         if (text.length === 0) {
-          throw new CaptureError("malformed-segments", "Segment has empty text");
+          throw new CaptureError(
+            "malformed-segments",
+            "Segment has empty text",
+          );
         }
 
         if (currentChapter !== null) {

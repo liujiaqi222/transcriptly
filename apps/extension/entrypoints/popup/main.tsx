@@ -1,8 +1,10 @@
-import React from "react";
 import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
-import { createLocalMarkdownSaver } from "../../local-save";
-import { CAPTURE_REQUEST, type CaptureResponseMessage } from "../../shared/messages";
+import { createLocalMarkdownSaver } from "@/local-save";
+import {
+  CAPTURE_REQUEST,
+  type CaptureResponseMessage,
+} from "@/shared/messages";
 import { Popup, type PopupDependencies } from "./app";
 import "./style.css";
 
@@ -23,4 +25,6 @@ const dependencies: PopupDependencies = {
   createSaver: () => createLocalMarkdownSaver(),
 };
 
-createRoot(document.getElementById("root")!).render(<Popup deps={dependencies} />);
+createRoot(document.getElementById("root")!).render(
+  <Popup deps={dependencies} />,
+);

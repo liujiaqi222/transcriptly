@@ -9,7 +9,7 @@ The product's single normalized representation of one save action — source met
 _Avoid_: snapshot, clip
 
 **Source**:
-The YouTube-side facts about a captured video (videoId, url, title, channel, description, publication date, transcript language, duration). Fixed facts about the video, distinct from the capture action itself.
+The YouTube-side facts about a captured video (videoId, url, title, channel, description, publication date, duration). Fixed facts about the video, distinct from the capture action itself.
 _Avoid_: video metadata, page metadata
 
 **Segment**:

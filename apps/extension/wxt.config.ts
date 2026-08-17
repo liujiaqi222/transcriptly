@@ -1,5 +1,8 @@
-import { defineConfig } from "wxt";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "wxt";
+
+const extensionRoot = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   manifest: {
@@ -9,5 +12,10 @@ export default defineConfig({
   },
   vite: () => ({
     plugins: [react()],
+    resolve: {
+      alias: {
+        "@": extensionRoot,
+      },
+    },
   }),
 });

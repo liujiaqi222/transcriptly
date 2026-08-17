@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
+import { describe, expect, it } from "vitest";
 import {
+  CaptureError,
   capture,
   captureOutcome,
-  CaptureError,
   serializeToMarkdown,
 } from "../src/index";
 
@@ -58,21 +58,39 @@ describe("capture", () => {
     ]);
   });
 
-  it("returns title, channel, URL, description, language, and duration when available", async () => {
+  it("returns title, channel, URL, description, and duration when available", async () => {
     const doc = loadDocument("watch-open.html");
 
     const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.source.videoId).toBe("dQw4w9WgXcQ");
-    expect(result.source.url).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    expect(result.source.url).toBe(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
     expect(result.source.title).toBe("Rust for TypeScript Developers");
     expect(result.source.channelName).toBe("Crab People");
-    expect(result.source.channelUrl).toBe("https://www.youtube.com/@crabpeople");
+    expect(result.source.channelUrl).toBe(
+      "https://www.youtube.com/@crabpeople",
+    );
     expect(result.source.description).toBe("Borrow checker without the tears.");
-    expect(result.source.language).toBe("en");
     expect(result.source.durationSeconds).toBe(1391);
     expect(result.source.publishedAt).toBe("2025-01-15");
     expect(result.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
+  });
+
+  it("prefers live DOM metadata over stale head meta tags after SPA navigation", async () => {
+    const doc = loadDocument("watch-spa-stale-meta.html");
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.title).toBe("Fresh Title from DOM");
+    expect(result.source.channelName).toBe("Fresh Channel");
+    expect(result.source.channelUrl).toBe(
+      "https://www.youtube.com/@freshchannel",
+    );
+    expect(result.source.description).toBe("Fresh description from DOM.");
+    expect(result.source.publishedAt).toBe("Oct 24, 2009");
+    expect(result.source.durationSeconds).toBe(245);
   });
 
   it("reads already-rendered segments without opening the panel", async () => {
@@ -181,7 +199,9 @@ describe("capture", () => {
     );
 
     const markdown = serializeToMarkdown(result);
-    const body = markdown.slice(markdown.indexOf("---", markdown.indexOf("---") + 3));
+    const body = markdown.slice(
+      markdown.indexOf("---", markdown.indexOf("---") + 3),
+    );
     expect(body).not.toContain("<script>");
     expect(body).not.toContain("<img");
     expect(body).not.toContain("<b>");

@@ -1,11 +1,15 @@
-import { describe, expect, it } from "vitest";
 import type {
   Capture,
   CaptureChapter,
-  CaptureSource,
   CaptureSegment,
+  CaptureSource,
 } from "@transcriptly/schema";
-import { formatTimestamp, serializeToMarkdown, transcriptBlocks } from "../src/serialize";
+import { describe, expect, it } from "vitest";
+import {
+  formatTimestamp,
+  serializeToMarkdown,
+  transcriptBlocks,
+} from "../src/serialize";
 
 interface Overrides {
   source?: Partial<CaptureSource>;
@@ -31,7 +35,9 @@ function makeCapture(overrides: Overrides = {}): Capture {
       { start: 61, text: "and you keep hitting the same walls" },
       { start: 3724, text: "that's all for today, thanks for watching" },
     ],
-    ...(overrides.chapters !== undefined ? { chapters: overrides.chapters } : {}),
+    ...(overrides.chapters !== undefined
+      ? { chapters: overrides.chapters }
+      : {}),
   };
 }
 
@@ -41,7 +47,6 @@ describe("serializeToMarkdown", () => {
       makeCapture({
         source: {
           publishedAt: "2024-08-01",
-          language: "English",
           durationSeconds: 3725,
         },
       }),
@@ -49,12 +54,15 @@ describe("serializeToMarkdown", () => {
 
     expect(markdown).toContain('title: "A Practical Guide to Agents"');
     expect(markdown).toContain('channelName: "Ship It Weekly"');
-    expect(markdown).toContain('channelUrl: "https://www.youtube.com/@shipitweekly"');
-    expect(markdown).toContain('url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"');
+    expect(markdown).toContain(
+      'channelUrl: "https://www.youtube.com/@shipitweekly"',
+    );
+    expect(markdown).toContain(
+      'url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"',
+    );
     expect(markdown).toContain('videoId: "dQw4w9WgXcQ"');
     expect(markdown).toContain('capturedAt: "2024-08-15T14:32:00.000Z"');
     expect(markdown).toContain('publishedAt: "2024-08-01"');
-    expect(markdown).toContain('language: "English"');
     expect(markdown).toContain("durationSeconds: 3725");
   });
 
@@ -62,7 +70,6 @@ describe("serializeToMarkdown", () => {
     const markdown = serializeToMarkdown(makeCapture());
 
     expect(markdown).not.toContain("publishedAt");
-    expect(markdown).not.toContain("language:");
     expect(markdown).not.toContain("durationSeconds");
   });
 
@@ -120,7 +127,9 @@ describe("serializeToMarkdown", () => {
     expect(markdown).toContain("> Desc &lt;img src=x onerror=alert(1)&gt;");
     expect(markdown).toContain("segment &lt;b&gt;bold&lt;/b&gt;");
 
-    const body = markdown.slice(markdown.indexOf("---", markdown.indexOf("---") + 3));
+    const body = markdown.slice(
+      markdown.indexOf("---", markdown.indexOf("---") + 3),
+    );
     expect(body).not.toContain("<script>");
     expect(body).not.toContain("<img");
     expect(body).not.toContain("<b>");

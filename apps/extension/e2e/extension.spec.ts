@@ -1,7 +1,7 @@
-import { chromium, expect, test } from "@playwright/test";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { chromium, expect, test } from "@playwright/test";
 
 const extensionPath = path.resolve(".output/chrome-mv3");
 const manifestPath = path.join(extensionPath, "manifest.json");
@@ -42,8 +42,12 @@ test("extension loads and popup renders via launchPersistentContext + --load-ext
   await page.goto(
     `chrome-extension://${extensionId}/${manifest.action.default_popup}`,
   );
-  await expect(page.getByRole("heading", { name: "Transcriptly" })).toBeVisible();
-  await expect(page.getByText(/Open a YouTube video and try again/)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Transcriptly" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Open a YouTube video and try again/),
+  ).toBeVisible();
 
   await context.close();
 });
