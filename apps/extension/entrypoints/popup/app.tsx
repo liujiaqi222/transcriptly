@@ -1,17 +1,12 @@
-import {
-  canonicalWatchUrl,
-  formatTimestamp,
-  parseVideoId,
-  transcriptBlocks,
-} from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
-import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
+import { CaptureView, type SaveState } from "@/entrypoints/popup/components";
+import { errorMessage, isYouTubeWatchUrl } from "@/entrypoints/popup/utils";
 import {
   type LocalMarkdownSaver,
   suggestedMarkdownFilename,
-} from "../../local-save";
-import type { CaptureResponseMessage } from "../../shared/messages";
+} from "@/local-save";
+import type { CaptureResponseMessage } from "@/shared/messages";
 
 export interface PopupTab {
   id?: number;
@@ -28,74 +23,6 @@ type CaptureState =
   | { status: "capturing" }
   | { status: "ready"; capture: Capture }
   | { status: "error"; message: string };
-
-type SaveState =
-  | { status: "idle" }
-  | { status: "saving" }
-  | { status: "saved"; directoryName: string; filename: string }
-  | { status: "error"; message: string };
-
-const YOUTUBE_HOSTS = new Set(["www.youtube.com", "m.youtube.com"]);
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function isYouTubeWatchUrl(url: string | undefined): boolean {
-  if (!url) return false;
-  try {
-    if (!YOUTUBE_HOSTS.has(new URL(url).hostname)) return false;
-  } catch {
-    return false;
-  }
-  return parseVideoId(url) !== null;
-}
-
-function segmentUrl(videoId: string, start: number): string {
-  return `${canonicalWatchUrl(videoId)}&t=${start}`;
-}
-
-function transcriptRows(capture: Capture): ReactNode[] {
-  return transcriptBlocks(capture).map((block, index) => {
-    if (block.kind === "chapter") {
-      return (
-        <h4 className="chapter" key={`block-${index}`}>
-          {block.title}
-        </h4>
-      );
-    }
-    return (
-      <p className="segment" key={`block-${index}`}>
-        [
-        <a href={segmentUrl(capture.source.videoId, block.start)}>
-          {formatTimestamp(block.start)}
-        </a>
-        ] {block.text}
-      </p>
-    );
-  });
-}
-
-function properties(capture: Capture): Array<[string, string]> {
-  const source = capture.source;
-  const rows: Array<[string, string]> = [
-    ["Title", source.title],
-    ["Channel", source.channelName],
-    ["Video", source.url],
-    ["Video ID", source.videoId],
-  ];
-  if (source.publishedAt !== undefined) {
-    rows.push(["Published", source.publishedAt]);
-  }
-  if (source.language !== undefined) {
-    rows.push(["Language", source.language]);
-  }
-  if (source.durationSeconds !== undefined) {
-    rows.push(["Duration", `${source.durationSeconds}s`]);
-  }
-  rows.push(["Captured", capture.capturedAt]);
-  return rows;
-}
 
 export function Popup({ deps }: { deps: PopupDependencies }) {
   const [captureState, setCaptureState] = useState<CaptureState>({
@@ -229,94 +156,18 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       )}
 
       {captureState.status === "ready" && (
-        <>
-          <label className="field-label" htmlFor="filename">
-            File name
-          </label>
-          <input
-            id="filename"
-            className={
-              saveState.status === "saved" ? "filename saved" : "filename"
-            }
-            value={filename}
-            onChange={(event) => setFilename(event.target.value)}
-            spellCheck={false}
-          />
-
-          <details className="properties">
-            <summary>Properties</summary>
-            <dl>
-              {properties(captureState.capture).map(([label, value]) => (
-                <div className="property" key={label}>
-                  <dt>{label}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </details>
-
-          <section className="preview" aria-label="Transcript preview">
-            {captureState.capture.source.description.trim().length > 0 && (
-              <blockquote className="description">
-                {captureState.capture.source.description
-                  .split("\n")
-                  .map((line, index) => (
-                    <p key={index}>{line}</p>
-                  ))}
-              </blockquote>
-            )}
-            <h2>Transcript</h2>
-            {transcriptRows(captureState.capture)}
-          </section>
-
-          {saveState.status === "saved" && (
-            <p className="success-banner" role="status">
-              Saved to {saveState.directoryName}/{saveState.filename}
-            </p>
-          )}
-          {saveState.status === "error" && (
-            <p className="error-banner" role="alert">
-              {saveState.message}
-            </p>
-          )}
-
-          <footer className="footer">
-            <label className="toggle">
-              <input type="checkbox" checked disabled readOnly /> Local
-            </label>
-            <p className="save-to">
-              Save to:{" "}
-              <span className="directory">
-                {directoryName ?? (saver ? "No folder selected" : "…")}
-              </span>{" "}
-              <button
-                type="button"
-                className="link"
-                onClick={() => void handleChangeFolder()}
-                disabled={!saver || changingFolder}
-              >
-                {changingFolder ? "Changing…" : "Change"}
-              </button>
-            </p>
-            <label className="toggle">
-              <input type="checkbox" disabled /> Cloud
-            </label>
-            <p className="cloud">Sign in to save to cloud</p>
-            {saverError && (
-              <p className="error-banner" role="alert">
-                {saverError}
-              </p>
-            )}
-            <button
-              type="button"
-              className="save-button"
-              onClick={() => void handleSave()}
-              disabled={saveState.status === "saving" || !saver}
-            >
-              {saveState.status === "saving" ? "Saving…" : "Save"}
-            </button>
-          </footer>
-        </>
+        <CaptureView
+          capture={captureState.capture}
+          filename={filename}
+          saver={saver}
+          saverError={saverError}
+          directoryName={directoryName}
+          changingFolder={changingFolder}
+          saveState={saveState}
+          onFilenameChange={setFilename}
+          onSave={() => void handleSave()}
+          onChangeFolder={() => void handleChangeFolder()}
+        />
       )}
     </div>
   );

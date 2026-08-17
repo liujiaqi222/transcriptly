@@ -31,7 +31,6 @@ export interface SiteSelectors {
     channelName: SelectorRule[];
     channelUrl: SelectorRule[];
     publishedAt?: SelectorRule[];
-    language?: SelectorRule[];
     duration?: SelectorRule[];
   };
   transcript: TranscriptSelectors;
@@ -68,12 +67,6 @@ export const youtubeSelectors: SiteSelectors = {
       { selector: "#info-strings yt-formatted-string" },
       {
         selector: 'meta[itemprop="datePublished"]',
-        attribute: "content",
-      },
-    ],
-    language: [
-      {
-        selector: 'meta[itemprop="inLanguage"], meta[name="inLanguage"]',
         attribute: "content",
       },
     ],

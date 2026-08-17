@@ -47,7 +47,6 @@ describe("serializeToMarkdown", () => {
       makeCapture({
         source: {
           publishedAt: "2024-08-01",
-          language: "English",
           durationSeconds: 3725,
         },
       }),
@@ -64,7 +63,6 @@ describe("serializeToMarkdown", () => {
     expect(markdown).toContain('videoId: "dQw4w9WgXcQ"');
     expect(markdown).toContain('capturedAt: "2024-08-15T14:32:00.000Z"');
     expect(markdown).toContain('publishedAt: "2024-08-01"');
-    expect(markdown).toContain('language: "English"');
     expect(markdown).toContain("durationSeconds: 3725");
   });
 
@@ -72,7 +70,6 @@ describe("serializeToMarkdown", () => {
     const markdown = serializeToMarkdown(makeCapture());
 
     expect(markdown).not.toContain("publishedAt");
-    expect(markdown).not.toContain("language:");
     expect(markdown).not.toContain("durationSeconds");
   });
 

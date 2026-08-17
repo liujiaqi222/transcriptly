@@ -13,6 +13,7 @@ import {
   type PopupDependencies,
   type PopupTab,
 } from "../entrypoints/popup/app";
+import { formatCapturedAt } from "../entrypoints/popup/utils";
 import {
   createLocalMarkdownSaver,
   type LocalDirectoryHandle,
@@ -188,8 +189,17 @@ describe("popup capture flow", () => {
     );
   });
 
-  it("keeps properties collapsed until expanded", async () => {
+  it("keeps properties collapsed until expanded and formats display-only values", async () => {
     const harness = createHarness({ tab: youtubeTab });
+    const capturedAt = "2026-08-17T14:51:43.413Z";
+    harness.deps.requestCapture = vi.fn(async () => ({
+      ok: true as const,
+      capture: {
+        ...capture,
+        capturedAt,
+        source: { ...capture.source, durationSeconds: 558 },
+      },
+    }));
     render(<Popup deps={harness.deps} />);
     await screen.findByLabelText("File name");
 
@@ -199,8 +209,20 @@ describe("popup capture flow", () => {
     expect(details.open).toBe(false);
     fireEvent.click(screen.getByText("Properties"));
     expect(details.open).toBe(true);
-    expect(screen.getByText("Ship It Weekly")).toBeTruthy();
+    for (const [name, href] of [
+      ["Ship It Weekly", "https://www.youtube.com/@shipitweekly"],
+      ["abc123", "https://www.youtube.com/watch?v=abc123"],
+    ]) {
+      const link = screen.getByRole("link", { name });
+      expect(link.getAttribute("href")).toBe(href);
+      expect(link.getAttribute("target")).toBe("_blank");
+    }
+    expect(screen.queryByText("Video", { exact: true })).toBeNull();
     expect(screen.getByText(hostileTitle)).toBeTruthy();
+    expect(screen.getByText("09:18")).toBeTruthy();
+    expect(screen.getByText(formatCapturedAt(capturedAt))).toBeTruthy();
+    expect(screen.queryByText("558s")).toBeNull();
+    expect(screen.queryByText(capturedAt)).toBeNull();
   });
 
   it("reports a missing active tab and can retry into success", async () => {

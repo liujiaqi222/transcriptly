@@ -91,10 +91,6 @@ function readSource(
     ? readMeta(doc, selectors.meta.publishedAt) || undefined
     : undefined;
 
-  const language = selectors.meta.language
-    ? readMeta(doc, selectors.meta.language) || undefined
-    : undefined;
-
   let durationSeconds: number | undefined;
   if (selectors.meta.duration) {
     const rawDuration = readFirstAttribute(doc, selectors.meta.duration);
@@ -112,7 +108,6 @@ function readSource(
     channelUrl,
     description,
     ...(publishedAt !== undefined ? { publishedAt } : {}),
-    ...(language !== undefined ? { language } : {}),
     ...(durationSeconds !== undefined ? { durationSeconds } : {}),
   };
 }

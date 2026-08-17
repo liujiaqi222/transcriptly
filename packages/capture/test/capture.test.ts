@@ -58,7 +58,7 @@ describe("capture", () => {
     ]);
   });
 
-  it("returns title, channel, URL, description, language, and duration when available", async () => {
+  it("returns title, channel, URL, description, and duration when available", async () => {
     const doc = loadDocument("watch-open.html");
 
     const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
@@ -73,7 +73,6 @@ describe("capture", () => {
       "https://www.youtube.com/@crabpeople",
     );
     expect(result.source.description).toBe("Borrow checker without the tears.");
-    expect(result.source.language).toBe("en");
     expect(result.source.durationSeconds).toBe(1391);
     expect(result.source.publishedAt).toBe("2025-01-15");
     expect(result.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);

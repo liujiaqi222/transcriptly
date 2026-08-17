@@ -6,7 +6,6 @@ export interface CaptureSource {
   channelUrl: string;
   description: string;
   publishedAt?: string;
-  language?: string;
   durationSeconds?: number;
 }
 

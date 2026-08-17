@@ -1,10 +1,10 @@
 import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
-import { createLocalMarkdownSaver } from "../../local-save";
+import { createLocalMarkdownSaver } from "@/local-save";
 import {
   CAPTURE_REQUEST,
   type CaptureResponseMessage,
-} from "../../shared/messages";
+} from "@/shared/messages";
 import { Popup, type PopupDependencies } from "./app";
 import "./style.css";
 
