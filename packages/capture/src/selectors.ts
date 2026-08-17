@@ -21,6 +21,9 @@ export interface ChapterMarkersSelectors {
   itemTime: string;
 }
 
+const YOUTUBE_CHANNEL_LINK_SELECTOR =
+  "#owner #channel-name a, ytd-channel-name a";
+
 export interface SiteSelectors {
   meta: {
     title: SelectorRule[];
@@ -37,9 +40,8 @@ export interface SiteSelectors {
 
 export const youtubeSelectors: SiteSelectors = {
   meta: {
-    // Live DOM first, head <meta>/<link> fallback. YouTube is an SPA: on
-    // client-side navigation between videos it re-renders the page body but
-    // never updates the server-rendered head tags, so meta tags go stale.
+    // Prefer live page elements; fall back to server-rendered head elements.
+    // YouTube SPA navigation re-renders the body without updating the head.
     title: [
       { selector: "h1.ytd-watch-metadata, ytd-watch-metadata h1" },
       {
@@ -55,14 +57,11 @@ export const youtubeSelectors: SiteSelectors = {
       },
     ],
     channelName: [
-      { selector: "#owner #channel-name a, ytd-channel-name a" },
+      { selector: YOUTUBE_CHANNEL_LINK_SELECTOR },
       { selector: 'link[itemprop="name"]', attribute: "content" },
     ],
     channelUrl: [
-      {
-        selector: "#owner #channel-name a, ytd-channel-name a",
-        attribute: "href",
-      },
+      { selector: YOUTUBE_CHANNEL_LINK_SELECTOR, attribute: "href" },
       { selector: 'link[itemprop="url"]', attribute: "href" },
     ],
     publishedAt: [

@@ -11,6 +11,13 @@
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
-    "e2e": "pnpm --filter @transcriptly/extension run build && pnpm --filter @transcriptly/extension run e2e"
+    "e2e": "pnpm --filter @transcriptly/extension run build && pnpm --filter @transcriptly/extension run e2e",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.8"
   }
 }

@@ -1,7 +1,15 @@
-import type { Capture, CaptureChapter, CaptureSegment } from "@transcriptly/schema";
-import { CaptureError, toCaptureFailure, type CaptureFailure } from "./errors";
+import type {
+  Capture,
+  CaptureChapter,
+  CaptureSegment,
+} from "@transcriptly/schema";
+import { CaptureError, type CaptureFailure, toCaptureFailure } from "./errors";
 import { sanitizeText } from "./sanitize";
-import { type SelectorRule, type SiteSelectors, youtubeSelectors } from "./selectors";
+import {
+  type SelectorRule,
+  type SiteSelectors,
+  youtubeSelectors,
+} from "./selectors";
 import { parseDuration, parseTimestamp } from "./timestamp";
 import { canonicalWatchUrl, parseVideoId } from "./video";
 
@@ -72,7 +80,8 @@ function readSource(
   const title = readMeta(doc, selectors.meta.title);
   const description = readMeta(doc, selectors.meta.description);
   const channelName = readMeta(doc, selectors.meta.channelName);
-  const rawChannelUrl = readFirstAttribute(doc, selectors.meta.channelUrl) ?? "";
+  const rawChannelUrl =
+    readFirstAttribute(doc, selectors.meta.channelUrl) ?? "";
   const channelUrl =
     rawChannelUrl.trim() === ""
       ? ""
@@ -135,7 +144,8 @@ function readTranscriptBody(
     for (const node of nodes) {
       if (node.matches(selectors.transcript.chapter)) {
         const title = sanitizeText(
-          node.querySelector(selectors.transcript.chapterText)?.textContent ?? "",
+          node.querySelector(selectors.transcript.chapterText)?.textContent ??
+            "",
         );
         currentChapter = title.length > 0 ? title : null;
         continue;
@@ -145,7 +155,9 @@ function readTranscriptBody(
         const timestampElement = node.querySelector(
           selectors.transcript.segmentTimestamp,
         );
-        const textElement = node.querySelector(selectors.transcript.segmentText);
+        const textElement = node.querySelector(
+          selectors.transcript.segmentText,
+        );
 
         const rawTimestamp = timestampElement?.textContent ?? null;
         const start = parseTimestamp(rawTimestamp);
@@ -158,7 +170,10 @@ function readTranscriptBody(
 
         const text = sanitizeText(textElement?.textContent ?? "");
         if (text.length === 0) {
-          throw new CaptureError("malformed-segments", "Segment has empty text");
+          throw new CaptureError(
+            "malformed-segments",
+            "Segment has empty text",
+          );
         }
 
         if (currentChapter !== null) {

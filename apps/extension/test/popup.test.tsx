@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { Capture } from "@transcriptly/schema";
-import { Popup, type PopupDependencies, type PopupTab } from "../entrypoints/popup/app";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  Popup,
+  type PopupDependencies,
+  type PopupTab,
+} from "../entrypoints/popup/app";
 import {
   createLocalMarkdownSaver,
-  suggestedMarkdownFilename,
   type LocalDirectoryHandle,
+  suggestedMarkdownFilename,
 } from "../local-save";
 
 const hostileTitle = `Bad <script>alert(1)</script> <img src=x onerror=alert(1)>`;
@@ -109,10 +119,12 @@ interface Harness {
   store: ReturnType<typeof createMemoryStore>;
 }
 
-function createHarness(options: {
-  tab?: PopupTab | undefined;
-  rememberedDirectory?: MemoryDirectory;
-} = {}): Harness {
+function createHarness(
+  options: {
+    tab?: PopupTab | undefined;
+    rememberedDirectory?: MemoryDirectory;
+  } = {},
+): Harness {
   const store = createMemoryStore(
     options.rememberedDirectory as LocalDirectoryHandle | undefined,
   );
@@ -153,15 +165,17 @@ describe("popup capture flow", () => {
       suggestedMarkdownFilename(capture),
     );
 
-    expect(screen.getByText(/Start <script>alert\(2\)<\/script> here\./)).toBeTruthy();
+    expect(
+      screen.getByText(/Start <script>alert\(2\)<\/script> here\./),
+    ).toBeTruthy();
     expect(screen.getByText(/Second segment\./)).toBeTruthy();
     expect(
-      screen.getByRole("heading", { name: /Intro <script>alert\(4\)<\/script>/ }),
+      screen.getByRole("heading", {
+        name: /Intro <script>alert\(4\)<\/script>/,
+      }),
     ).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Part two" })).toBeTruthy();
-    expect(
-      screen.getByText(/Description with <b>markup<\/b>/),
-    ).toBeTruthy();
+    expect(screen.getByText(/Description with <b>markup<\/b>/)).toBeTruthy();
     expect(container.querySelectorAll("script").length).toBe(0);
 
     const first = screen.getByRole("link", { name: "00:00" });
@@ -235,7 +249,9 @@ describe("popup capture flow", () => {
       message: "No transcript tracks were found.",
     }));
     render(<Popup deps={harness.deps} />);
-    expect(await screen.findByText("No transcript tracks were found.")).toBeTruthy();
+    expect(
+      await screen.findByText("No transcript tracks were found."),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
@@ -246,7 +262,9 @@ describe("popup capture flow", () => {
       capture: { ...capture, segments: [] },
     }));
     render(<Popup deps={harness.deps} />);
-    expect(await screen.findByText(/No transcript found on this video/)).toBeTruthy();
+    expect(
+      await screen.findByText(/No transcript found on this video/),
+    ).toBeTruthy();
   });
 });
 
@@ -322,7 +340,7 @@ describe("popup local saving", () => {
     const save = await captureSuccessfulPopup(harness);
     fireEvent.click(save);
 
-    const suffix = suggested.slice(0, -3) + " (2).md";
+    const suffix = `${suggested.slice(0, -3)} (2).md`;
     expect(await screen.findByText(`Saved to Notes/${suffix}`)).toBeTruthy();
     expect(directory.files.get(suggested)).toBe("previous content");
     expect((screen.getByLabelText("File name") as HTMLInputElement).value).toBe(
@@ -335,7 +353,9 @@ describe("popup local saving", () => {
     const save = await captureSuccessfulPopup(harness);
     fireEvent.click(save);
 
-    expect(await screen.findByText(/Folder selection was cancelled/)).toBeTruthy();
+    expect(
+      await screen.findByText(/Folder selection was cancelled/),
+    ).toBeTruthy();
     expect(screen.queryByText(/Saved to/)).toBeFalsy();
   });
 
@@ -357,7 +377,6 @@ describe("popup local saving", () => {
   });
 
   it("shows failed writes as an error and keeps the old file", async () => {
-    const suggested = suggestedMarkdownFilename(capture);
     const directory = new MemoryDirectory("Notes");
     directory.failWrite = true;
     const harness = createHarness({

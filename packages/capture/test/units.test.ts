@@ -80,9 +80,9 @@ describe("parseVideoId", () => {
     expect(parseVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe(
       "dQw4w9WgXcQ",
     );
-    expect(
-      parseVideoId("https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=61"),
-    ).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=61")).toBe(
+      "dQw4w9WgXcQ",
+    );
   });
 
   it("extracts ids from shorts and youtu.be links", () => {

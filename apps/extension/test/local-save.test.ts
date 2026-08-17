@@ -1,11 +1,11 @@
+import type { Capture } from "@transcriptly/schema";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Capture } from "@transcriptly/schema";
 import {
-  LocalSaveError,
-  type LocalDirectoryHandle,
   createIndexedDbDirectoryStore,
   createLocalMarkdownSaver,
+  type LocalDirectoryHandle,
+  type LocalSaveError,
   suggestedMarkdownFilename,
 } from "../local-save";
 
@@ -131,9 +131,9 @@ describe("local Markdown saving", () => {
 
     await createIndexedDbDirectoryStore(indexedDB).set(directory);
 
-    await expect(createIndexedDbDirectoryStore(indexedDB).get()).resolves.toEqual(
-      directory,
-    );
+    await expect(
+      createIndexedDbDirectoryStore(indexedDB).get(),
+    ).resolves.toEqual(directory);
   });
 
   it("picks and remembers a directory on first save, then writes there without another prompt", async () => {

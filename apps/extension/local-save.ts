@@ -13,7 +13,9 @@ interface WritableFile {
 }
 
 interface LocalFileHandle {
-  createWritable(options?: { keepExistingData?: boolean }): Promise<WritableFile>;
+  createWritable(options?: {
+    keepExistingData?: boolean;
+  }): Promise<WritableFile>;
 }
 
 export interface LocalDirectoryHandle {
@@ -57,14 +59,16 @@ export class LocalSaveError extends Error {
 }
 
 export function slugifyFilename(value: string): string {
-  return value
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ")
-    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 120)
-    .replace(/-+$/g, "") || "untitled";
+  return (
+    value
+      .normalize("NFKC")
+      .toLocaleLowerCase()
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ")
+      .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 120)
+      .replace(/-+$/g, "") || "untitled"
+  );
 }
 
 export function suggestedMarkdownFilename(capture: Capture): string {
@@ -101,7 +105,9 @@ export async function availableFilename(
     if (!(await exists(candidate))) return candidate;
   }
 
-  throw new LocalSaveError(`Could not find an available name for "${normalized}".`);
+  throw new LocalSaveError(
+    `Could not find an available name for "${normalized}".`,
+  );
 }
 
 function request<T>(operation: IDBRequest<T>): Promise<T> {
@@ -156,7 +162,9 @@ export function createIndexedDbDirectoryStore(
         const transaction = database.transaction(DIRECTORY_STORE, "readwrite");
         const complete = transactionComplete(transaction);
         await request(
-          transaction.objectStore(DIRECTORY_STORE).put(directory, DIRECTORY_KEY),
+          transaction
+            .objectStore(DIRECTORY_STORE)
+            .put(directory, DIRECTORY_KEY),
         );
         await complete;
       } finally {
@@ -288,7 +296,9 @@ export async function createLocalMarkdownSaver(
     } catch (error) {
       if (error instanceof LocalSaveError) throw error;
       if (error instanceof DOMException && error.name === "AbortError") {
-        throw new LocalSaveError("Folder selection was cancelled.", { cause: error });
+        throw new LocalSaveError("Folder selection was cancelled.", {
+          cause: error,
+        });
       }
       throw new LocalSaveError(
         `Could not select the save folder: ${errorMessage(error)}`,
@@ -330,7 +340,11 @@ export async function createLocalMarkdownSaver(
             { cause: error },
           );
         }
-        await writeNewFile(directory, safeFilename, serializeToMarkdown(capture));
+        await writeNewFile(
+          directory,
+          safeFilename,
+          serializeToMarkdown(capture),
+        );
         return { directoryName: directory.name, filename: safeFilename };
       });
     },

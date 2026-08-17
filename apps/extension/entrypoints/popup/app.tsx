@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import {
   canonicalWatchUrl,
   formatTimestamp,
@@ -7,9 +5,11 @@ import {
   transcriptBlocks,
 } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  suggestedMarkdownFilename,
   type LocalMarkdownSaver,
+  suggestedMarkdownFilename,
 } from "../../local-save";
 import type { CaptureResponseMessage } from "../../shared/messages";
 
@@ -66,8 +66,11 @@ function transcriptRows(capture: Capture): ReactNode[] {
     }
     return (
       <p className="segment" key={`block-${index}`}>
-        [<a href={segmentUrl(capture.source.videoId, block.start)}>{formatTimestamp(block.start)}</a>]{" "}
-        {block.text}
+        [
+        <a href={segmentUrl(capture.source.videoId, block.start)}>
+          {formatTimestamp(block.start)}
+        </a>
+        ] {block.text}
       </p>
     );
   });
@@ -232,7 +235,9 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           </label>
           <input
             id="filename"
-            className={saveState.status === "saved" ? "filename saved" : "filename"}
+            className={
+              saveState.status === "saved" ? "filename saved" : "filename"
+            }
             value={filename}
             onChange={(event) => setFilename(event.target.value)}
             spellCheck={false}
