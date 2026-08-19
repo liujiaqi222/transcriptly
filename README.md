@@ -43,7 +43,7 @@ CONTEXT.md         领域术语表
 - **React** —— popup UI
 - **vitest** —— 单元测试
 - **Playwright** —— 扩展加载的 e2e 测试
-- **Next.js** —— 网站、SSR 与薄 Route Handlers
+- **Next.js + Tailwind CSS v4** —— 网站、SSR、UI 骨架与薄 Route Handlers
 - **PostgreSQL + Drizzle** —— 云端权威数据源与版本化 SQL migration
 
 ## 环境要求
