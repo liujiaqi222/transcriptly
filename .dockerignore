@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+**/node_modules
+**/.next
+**/.output
+**/.wxt
+**/dist
+**/test-results
+**/playwright-report
+*.log
+*.tsbuildinfo
+.DS_Store

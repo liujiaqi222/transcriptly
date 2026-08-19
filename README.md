@@ -1,14 +1,14 @@
 # Transcriptly
 
-一个开源 Chrome 浏览器扩展:在 YouTube 观看页一键把 transcript(逐段字幕)保存成本地 Markdown。
+一个开源 YouTube transcript 工具：Chrome 扩展可把逐段字幕保存成本地 Markdown；可选云端正在 P2 中建设。
 
-无需登录、无云、无上传——保存结果是一份普通 Markdown, 用 `rg`/`grep` 搜索、或交给本地 coding agent 读取。
+本地保存仍然无需登录或上传——结果是一份普通 Markdown，可用 `rg`/`grep` 搜索，或交给本地 coding agent 读取。
 
 ## 产品环
 
 `Capture → Store → Find → Publish`
 
-P1 只做前两环的本地部分:**捕获 YouTube 已渲染的 transcript → 本地 Markdown 落盘**。云存储、语义检索、公开发布留待后续期。
+P1 完成前两环的本地部分：**捕获 YouTube 已渲染的 transcript → 本地 Markdown 落盘**。P2 在不改变本地隐私边界的前提下加入可选云端 Store → Find。
 
 ## 当前状态
 
@@ -19,17 +19,19 @@ P1 只做前两环的本地部分:**捕获 YouTube 已渲染的 transcript → �
 | #17 本地落盘(File System Access API) | ✅ 已合入 |
 | #18 Popup UI(React + Tailwind v4) | ✅ 已合入 |
 | #19 端到端 Save + 浏览器契约测试 | 待开发 |
+| #30 P2 云端运行骨架（Next.js + PostgreSQL + Drizzle） | ✅ 已实现 |
 
 > `#17` + `#18` 已合入，popup 已接线「捕获 → 预览 → Save」完整链路，可在真实 YouTube 页手动触发本地落盘。
 
 ## 目录结构
 
-pnpm workspaces monorepo,三个包:
+pnpm workspaces monorepo：
 
 ```
-packages/schema    归一化 Capture 类型契约(单一事实源,纯类型)
+packages/schema    归一化 Capture 类型契约（单一事实源、纯类型）
 packages/capture   环境中立捕获核心 + serializeToMarkdown()
-apps/extension     WXT 扩展壳(React popup + content script)
+apps/extension     WXT 扩展壳（React popup + content script）
+apps/web           Next.js 模块化单体；Cloud Module、Drizzle schema/migration
 docs/adr/          架构决策记录
 CONTEXT.md         领域术语表
 ```
@@ -41,6 +43,8 @@ CONTEXT.md         领域术语表
 - **React** —— popup UI
 - **vitest** —— 单元测试
 - **Playwright** —— 扩展加载的 e2e 测试
+- **Next.js** —— 网站、SSR 与薄 Route Handlers
+- **PostgreSQL + Drizzle** —— 云端权威数据源与版本化 SQL migration
 
 ## 环境要求
 
@@ -60,11 +64,29 @@ pnpm --filter @transcriptly/extension exec playwright install chromium
 ## 常用命令
 
 ```bash
-pnpm run build        # 三个包全部构建;扩展产出 apps/extension/.output/chrome-mv3
-pnpm run typecheck    # 三个包类型检查
+pnpm run build        # 全部 workspace 构建；扩展产出 apps/extension/.output/chrome-mv3
+pnpm run typecheck    # 全部 workspace 类型检查
 pnpm run test         # vitest 单元测试
-pnpm run e2e          # 先 build 扩展,再用 Playwright 加载并断言
+pnpm run e2e          # 先 build 扩展，再用 Playwright 加载并断言
+pnpm run dev:web      # 本机启动 Next.js
+pnpm run db:migrate   # 对本机配置的 DATABASE_URL 执行版本化 migration
+pnpm run cloud:up     # Compose 构建并启动 migration、App 与 PostgreSQL
+pnpm run cloud:down   # 停止云端容器
 ```
+
+## P2 云端骨架
+
+本机 `dev:web`、`db:generate` 和 `db:migrate` 在未注入 `DATABASE_URL` 时，只读取 `/Users/liujiaqi/code/video-blog-suggester/.env` 中的 `DATABASE_URL`。可通过 `TRANSCRIPTLY_ENV_FILE` 改用其他文件；显式注入的 `DATABASE_URL` 始终优先。其他 Secret 不会从共享文件复制进进程。
+
+Compose 使用自己的 PostgreSQL 容器，不读取该共享文件。`migrate` 是独立 one-shot 服务；migration 成功后 App 才启动。PostgreSQL 不映射宿主机端口。
+
+```bash
+pnpm run cloud:up
+curl -i http://localhost:3000/api/health/live   # App 存活：200
+curl -i http://localhost:3000/api/health/ready  # App + 已迁移数据库就绪：200；否则 503
+```
+
+`live` 不依赖数据库；`ready` 会实际查询 Drizzle schema。配置缺失返回 `configuration_error`，数据库不可用返回 `database_unavailable`，响应和 migration 错误均不包含连接串或 Secret。要用全新本地数据库验证 migration，可先执行 `docker compose down -v`（会删除本地 Compose 数据）。
 
 单个包:
 
