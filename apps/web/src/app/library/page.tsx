@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "../../modules/auth/auth";
+import { auth } from "@/lib/auth/auth";
 import { signOut } from "./actions";
 
 export default async function LibraryPage() {

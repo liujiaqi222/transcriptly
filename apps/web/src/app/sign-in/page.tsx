@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "../../modules/auth/auth";
+import { auth } from "@/lib/auth/auth";
 import { SignInButtons } from "./sign-in-buttons";
 
 export default async function SignInPage() {

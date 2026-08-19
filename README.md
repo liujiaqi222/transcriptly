@@ -32,7 +32,7 @@ pnpm workspaces monorepo：
 packages/schema    归一化 Capture 类型契约（单一事实源、纯类型）
 packages/capture   环境中立捕获核心 + serializeToMarkdown()
 apps/extension     WXT 扩展壳（React popup + content script）
-apps/web           Next.js 模块化单体；Cloud Module、Drizzle schema/migration
+apps/web           Next.js App；src/db 分表 schema/migration、src/lib/auth 登录
 docs/adr/          架构决策记录
 CONTEXT.md         领域术语表
 ```

@@ -1,9 +1,9 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
 import { betterAuth } from "better-auth/minimal";
 import { nextCookies } from "better-auth/next-js";
+import { getDatabase } from "../../db/client";
+import * as schema from "../../db/schema";
 import { getAuthEnv } from "../../env/server";
-import { getDatabase } from "../cloud/database/client";
-import * as schema from "../cloud/database/schema";
 
 const env = getAuthEnv();
 

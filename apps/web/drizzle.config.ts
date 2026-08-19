@@ -6,7 +6,7 @@ loadLocalDatabaseEnvironment();
 
 export default defineConfig({
   out: "./drizzle",
-  schema: "./src/modules/cloud/database/schema.ts",
+  schema: "./src/db/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
     url: getServerEnv().DATABASE_URL,

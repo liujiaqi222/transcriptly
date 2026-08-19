@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { authClient } from "../../modules/auth/auth-client";
+import { authClient } from "@/lib/auth/auth-client";
 
 type Provider = "google" | "github";
 

@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { getServerEnv } from "../../../env/server";
+import { getServerEnv } from "../env/server";
 import { authRelations, canonicalVideos } from "./schema";
 
 function createDatabase() {
@@ -23,7 +23,7 @@ export function getDatabase() {
   return database;
 }
 
-export const cloudDataSource = {
+export const databaseHealthCheck = {
   async verifyConnection(): Promise<void> {
     await getDatabase()
       .select({ id: canonicalVideos.id })
