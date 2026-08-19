@@ -1,0 +1,30 @@
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { getServerEnv } from "../../../env/server";
+import { canonicalVideos } from "./schema";
+
+function createDatabase() {
+  const queryClient = postgres(getServerEnv().DATABASE_URL, {
+    connect_timeout: 5,
+    idle_timeout: 20,
+    max: 5,
+    onnotice: () => undefined,
+  });
+  return drizzle({ client: queryClient });
+}
+
+let database: ReturnType<typeof createDatabase> | undefined;
+
+function getDatabase() {
+  database ??= createDatabase();
+  return database;
+}
+
+export const cloudDataSource = {
+  async verifyConnection(): Promise<void> {
+    await getDatabase()
+      .select({ id: canonicalVideos.id })
+      .from(canonicalVideos)
+      .limit(1);
+  },
+};
