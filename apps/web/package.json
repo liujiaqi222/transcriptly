@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude 'e2e/**'",
+    "e2e": "tsx e2e/run.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts"
   },
@@ -25,6 +26,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20.19.0",
     "@types/react": "^19.2.0",

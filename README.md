@@ -69,6 +69,7 @@ pnpm run build        # 全部 workspace 构建；扩展产出 apps/extension/.o
 pnpm run typecheck    # 全部 workspace 类型检查
 pnpm run test         # vitest 单元测试
 pnpm run e2e          # 先 build 扩展，再用 Playwright 加载并断言
+pnpm run e2e:web      # 临时 PostgreSQL + production build，验证网站 Session/私库/退出
 pnpm run dev:web      # 本机启动 Next.js
 pnpm run db:migrate   # 对本机配置的 DATABASE_URL 执行版本化 migration
 pnpm run cloud:up     # Compose 构建并启动 migration、App 与 PostgreSQL
@@ -117,9 +118,12 @@ pnpm run build
 pnpm run typecheck
 pnpm run test
 pnpm run e2e
+pnpm run e2e:web
 ```
 
-全部绿即通过:`build` 产出 `chrome-mv3` 产物;`test` 跑 schema/capture 与扩展本地落盘模块的 vitest 用例;`e2e` 会用 `launchPersistentContext + --load-extension` 把扩展加载进捆绑的 Chromium,并断言 popup 能渲染及 manifest 入口符合 P1 约束。
+`e2e:web` 需要 Docker 和 Playwright Chromium；它会自动创建并清理临时 PostgreSQL，不读取真实 OAuth 账号或本机开发数据库。
+
+全部绿即通过:`build` 产出 `chrome-mv3` 产物;`test` 跑 schema/capture 与扩展本地落盘模块的 vitest 用例;`e2e` 会用 `launchPersistentContext + --load-extension` 把扩展加载进捆绑的 Chromium,并断言 popup 能渲染及 manifest 入口符合 P1 约束；`e2e:web` 会在隔离数据库上验证未登录跳转、数据库 Session 私库访问，以及退出不影响另一客户端 Session。
 
 ### 方式二:手动加载扩展到 Chrome(完整流程)
 
