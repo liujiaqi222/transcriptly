@@ -8,6 +8,19 @@ export class EnvironmentConfigurationError extends Error {
 
 let serverEnvironment: ReturnType<typeof createServerEnvironment> | undefined;
 
+function configurationError(
+  issues: readonly { path?: readonly unknown[] }[],
+): never {
+  const variables = [
+    ...new Set(
+      issues.map((issue) => issue.path?.map(String).join(".") ?? "unknown"),
+    ),
+  ].join(", ");
+  throw new EnvironmentConfigurationError(
+    `Missing or invalid server configuration: ${variables}`,
+  );
+}
+
 function createServerEnvironment() {
   loadLocalDatabaseEnvironment();
 
@@ -26,18 +39,41 @@ function createServerEnvironment() {
       DATABASE_URL: process.env.DATABASE_URL,
     },
     emptyStringAsUndefined: true,
-    onValidationError: (issues) => {
-      const variables = [
-        ...new Set(issues.map((issue) => issue.path?.join(".") ?? "unknown")),
-      ].join(", ");
-      throw new EnvironmentConfigurationError(
-        `Missing or invalid server configuration: ${variables}`,
-      );
-    },
+    onValidationError: configurationError,
   });
 }
 
 export function getServerEnv() {
   serverEnvironment ??= createServerEnvironment();
   return serverEnvironment;
+}
+
+let authEnvironment: ReturnType<typeof createAuthEnvironment> | undefined;
+
+function createAuthEnvironment() {
+  return createEnv({
+    server: {
+      BETTER_AUTH_SECRET: z.string().min(32),
+      BETTER_AUTH_URL: z.url(),
+      GITHUB_CLIENT_ID: z.string().min(1),
+      GITHUB_CLIENT_SECRET: z.string().min(1),
+      GOOGLE_CLIENT_ID: z.string().min(1),
+      GOOGLE_CLIENT_SECRET: z.string().min(1),
+    },
+    runtimeEnv: {
+      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+      GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
+      GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    },
+    emptyStringAsUndefined: true,
+    onValidationError: configurationError,
+  });
+}
+
+export function getAuthEnv() {
+  authEnvironment ??= createAuthEnvironment();
+  return authEnvironment;
 }

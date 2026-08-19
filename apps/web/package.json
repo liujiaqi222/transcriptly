@@ -13,7 +13,9 @@
     "db:migrate": "tsx src/modules/cloud/database/migrate.ts"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.1",
     "@t3-oss/env-nextjs": "^0.13.11",
+    "better-auth": "^1.7.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^1.0.0-rc.4",
     "next": "16.2.10",

@@ -5,3 +5,13 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
+
+minimumReleaseAgeExclude:
+  - '@better-auth/core@1.7.1'
+  - '@better-auth/drizzle-adapter@1.7.1'
+  - '@better-auth/kysely-adapter@1.7.1'
+  - '@better-auth/memory-adapter@1.7.1'
+  - '@better-auth/mongo-adapter@1.7.1'
+  - '@better-auth/prisma-adapter@1.7.1'
+  - '@better-auth/telemetry@1.7.1'
+  - better-auth@1.7.1
