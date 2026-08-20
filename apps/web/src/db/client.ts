@@ -18,7 +18,9 @@ function createDatabase() {
 
 let database: ReturnType<typeof createDatabase> | undefined;
 
-export function getDatabase() {
+export type Database = ReturnType<typeof createDatabase>;
+
+export function getDatabase(): Database {
   database ??= createDatabase();
   return database;
 }

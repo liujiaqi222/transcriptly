@@ -4,3 +4,9 @@ export type {
   CaptureSegment,
   CaptureSource,
 } from "./capture";
+export {
+  captureChapterSchema,
+  captureSchema,
+  captureSegmentSchema,
+  captureSourceSchema,
+} from "./capture";

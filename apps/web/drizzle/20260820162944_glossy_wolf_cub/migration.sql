@@ -1,0 +1,1 @@
+ALTER TABLE "library_items" ALTER COLUMN "transcript_id" SET NOT NULL;
