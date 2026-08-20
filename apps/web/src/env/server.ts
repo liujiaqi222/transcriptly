@@ -59,6 +59,8 @@ function createAuthEnvironment() {
       GITHUB_CLIENT_SECRET: z.string().min(1),
       GOOGLE_CLIENT_ID: z.string().min(1),
       GOOGLE_CLIENT_SECRET: z.string().min(1),
+      /** Exact chrome-extension:// origins allowed to call auth endpoints. */
+      EXTENSION_ORIGINS: z.string().optional(),
     },
     runtimeEnv: {
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
@@ -67,6 +69,7 @@ function createAuthEnvironment() {
       GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
       GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
       GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+      EXTENSION_ORIGINS: process.env.EXTENSION_ORIGINS,
     },
     emptyStringAsUndefined: true,
     onValidationError: configurationError,

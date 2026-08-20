@@ -300,3 +300,57 @@ h2 {
 button {
   font-family: inherit;
 }
+
+/* Cloud account */
+
+.account {
+  margin: 0 0 10px;
+}
+
+.account-status {
+  margin: 0;
+  color: var(--muted);
+}
+
+.account button {
+  width: 100%;
+}
+
+.account-signed-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.account-signed-in button {
+  width: auto;
+  flex-shrink: 0;
+}
+
+.account-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.account-error {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: var(--danger-background);
+  color: var(--danger);
+  word-break: break-word;
+}
+
+.account-error p {
+  margin: 0 0 6px;
+}
+
+.account-error button {
+  width: 100%;
+  font-size: 12px;
+}
