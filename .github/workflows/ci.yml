@@ -80,5 +80,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Playwright chromium
+        run: pnpm --filter @transcriptly/web exec playwright install --with-deps chromium
+
       - name: Run web e2e
         run: pnpm e2e:web
