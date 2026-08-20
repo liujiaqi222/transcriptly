@@ -71,6 +71,51 @@ function resolveUrl(raw: string, base: string): string {
   }
 }
 
+function normalizePublishedAt(raw: string): string | undefined {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  const displayDate =
+    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2}), (\d{4})$/.exec(
+      raw,
+    );
+  const values = dateOnly
+    ? {
+        year: Number(dateOnly[1]),
+        month: Number(dateOnly[2]) - 1,
+        day: Number(dateOnly[3]),
+      }
+    : displayDate
+      ? {
+          year: Number(displayDate[3]),
+          month: [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+          ].indexOf(displayDate[1] ?? ""),
+          day: Number(displayDate[2]),
+        }
+      : undefined;
+  if (!values || values.month < 0) return undefined;
+
+  const normalized = new Date(Date.UTC(values.year, values.month, values.day));
+  if (
+    normalized.getUTCFullYear() !== values.year ||
+    normalized.getUTCMonth() !== values.month ||
+    normalized.getUTCDate() !== values.day
+  ) {
+    return undefined;
+  }
+  return normalized.toISOString();
+}
+
 function readSource(
   doc: Document,
   selectors: SiteSelectors,
@@ -88,7 +133,7 @@ function readSource(
       : resolveUrl(rawChannelUrl.trim(), doc.baseURI);
 
   const publishedAt = selectors.meta.publishedAt
-    ? readMeta(doc, selectors.meta.publishedAt) || undefined
+    ? normalizePublishedAt(readMeta(doc, selectors.meta.publishedAt))
     : undefined;
 
   let durationSeconds: number | undefined;

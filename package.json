@@ -11,6 +11,7 @@
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
+    "dev:extension": "pnpm --filter @transcriptly/extension dev",
     "dev:web": "pnpm --filter @transcriptly/web dev",
     "db:generate": "pnpm --filter @transcriptly/web db:generate",
     "db:migrate": "pnpm --filter @transcriptly/web db:migrate",

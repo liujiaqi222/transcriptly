@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { captureSchema } from "@transcriptly/schema";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 import {
@@ -80,7 +81,7 @@ describe("capture", () => {
     );
     expect(result.source.description).toBe("Borrow checker without the tears.");
     expect(result.source.durationSeconds).toBe(1391);
-    expect(result.source.publishedAt).toBe("2025-01-15");
+    expect(result.source.publishedAt).toBe("2025-01-15T00:00:00.000Z");
     expect(result.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
   });
 
@@ -95,8 +96,19 @@ describe("capture", () => {
       "https://www.youtube.com/@freshchannel",
     );
     expect(result.source.description).toBe("Fresh description from DOM.");
-    expect(result.source.publishedAt).toBe("Oct 24, 2009");
+    expect(result.source.publishedAt).toBe("2009-10-24T00:00:00.000Z");
     expect(result.source.durationSeconds).toBe(245);
+  });
+
+  it("produces captures accepted by the shared runtime schema", async () => {
+    for (const fixture of ["watch-open.html", "watch-spa-stale-meta.html"]) {
+      const result = await capture(
+        loadDocument(fixture),
+        WATCH_URL,
+        QUICK_OPTIONS,
+      );
+      expect(captureSchema.safeParse(result).success).toBe(true);
+    }
   });
 
   it("reads already-rendered segments without opening the panel", async () => {
