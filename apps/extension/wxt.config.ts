@@ -5,6 +5,11 @@ import { defineConfig } from "wxt";
 const extensionRoot = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
+  dev: {
+    server: {
+      port: 3001,
+    },
+  },
   manifest: {
     name: "Transcriptly",
     description: "Capture YouTube transcripts to local Markdown.",

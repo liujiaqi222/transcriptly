@@ -1,10 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import {
-  EnvironmentConfigurationError,
-  getServerEnv,
-} from "../../../env/server";
+import { EnvironmentConfigurationError, getServerEnv } from "../env/server";
 
 const CONNECTION_ERROR_CODES = new Set([
   "ECONNREFUSED",

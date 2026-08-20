@@ -8,12 +8,15 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude 'e2e/**'",
+    "e2e": "tsx e2e/run.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/modules/cloud/database/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.1",
     "@t3-oss/env-nextjs": "^0.13.11",
+    "better-auth": "^1.7.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^1.0.0-rc.4",
     "next": "16.2.10",
@@ -23,6 +26,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20.19.0",
     "@types/react": "^19.2.0",

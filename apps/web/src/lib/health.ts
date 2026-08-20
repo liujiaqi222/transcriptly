@@ -1,7 +1,7 @@
-import { EnvironmentConfigurationError } from "../../env/server";
-import { cloudDataSource } from "./database/client";
+import { databaseHealthCheck } from "../db/client";
+import { EnvironmentConfigurationError } from "../env/server";
 
-export interface CloudDataSource {
+export interface HealthCheck {
   verifyConnection(): Promise<void>;
 }
 
@@ -19,7 +19,7 @@ export interface HealthResult {
   status: 200 | 503;
 }
 
-export function getCloudLiveness(): HealthResult {
+export function getLiveness(): HealthResult {
   return {
     status: 200,
     body: {
@@ -29,11 +29,11 @@ export function getCloudLiveness(): HealthResult {
   };
 }
 
-export async function getCloudReadiness(
-  dataSource: CloudDataSource = cloudDataSource,
+export async function getReadiness(
+  healthCheck: HealthCheck = databaseHealthCheck,
 ): Promise<HealthResult> {
   try {
-    await dataSource.verifyConnection();
+    await healthCheck.verifyConnection();
     return {
       status: 200,
       body: {
