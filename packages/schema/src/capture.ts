@@ -13,6 +13,10 @@ import { z } from "zod";
 
 /** YouTube video IDs are exactly 11 base64url characters. */
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+const MAX_INT4 = 2_147_483_647;
+const YOUTUBE_CHANNEL_PATH =
+  /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/;
+const nonNegativeInt4 = z.number().int().min(0).max(MAX_INT4);
 
 export const captureSourceSchema = z
   .strictObject({
@@ -22,10 +26,12 @@ export const captureSourceSchema = z
     url: z.url(),
     title: z.string().trim().min(1),
     channelName: z.string().trim().min(1),
-    channelUrl: z.url(),
+    // The producer uses an empty string when YouTube exposes no channel URL.
+    channelUrl: z.string(),
     description: z.string(),
-    publishedAt: z.iso.datetime({ offset: true }).optional(),
-    durationSeconds: z.number().int().nonnegative().optional(),
+    // YouTube emits both ISO dates and display dates such as "Oct 24, 2009".
+    publishedAt: z.string().trim().min(1).optional(),
+    durationSeconds: nonNegativeInt4.optional(),
   })
   .superRefine((source, context) => {
     try {
@@ -34,7 +40,8 @@ export const captureSourceSchema = z
         url.protocol !== "https:" ||
         url.hostname !== "www.youtube.com" ||
         url.pathname !== "/watch" ||
-        url.searchParams.get("v") !== source.videoId
+        url.searchParams.get("v") !== source.videoId ||
+        [...url.searchParams.keys()].some((key) => key !== "v")
       ) {
         context.addIssue({
           code: "custom",
@@ -49,16 +56,37 @@ export const captureSourceSchema = z
         message: "must be a valid URL",
       });
     }
+
+    if (source.channelUrl !== "") {
+      try {
+        const url = new URL(source.channelUrl);
+        if (
+          url.protocol !== "https:" ||
+          url.hostname !== "www.youtube.com" ||
+          !YOUTUBE_CHANNEL_PATH.test(url.pathname) ||
+          url.search ||
+          url.hash
+        ) {
+          throw new Error("invalid channel URL");
+        }
+      } catch {
+        context.addIssue({
+          code: "custom",
+          path: ["channelUrl"],
+          message: "must be an HTTPS YouTube channel URL or empty",
+        });
+      }
+    }
   });
 
 export const captureSegmentSchema = z.strictObject({
-  /** Non-negative integer seconds. Order is given by array position. */
-  start: z.number().int().nonnegative(),
+  /** Non-negative integer seconds within PostgreSQL's integer range. */
+  start: nonNegativeInt4,
   text: z.string().min(1),
 });
 
 export const captureChapterSchema = z.strictObject({
-  start: z.number().int().nonnegative(),
+  start: nonNegativeInt4,
   title: z.string().min(1),
 });
 

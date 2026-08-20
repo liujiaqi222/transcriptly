@@ -40,6 +40,12 @@ export type CaptureOutcome = {
 
 type CaptureTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
+function parsePublishedAt(value: string | undefined): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 async function findOrCreateTranscript(
   tx: CaptureTransaction,
   videoId: string,
@@ -128,7 +134,7 @@ async function updateCanonicalVideo(
       channelName: source.channelName,
       channelUrl: source.channelUrl,
       description: source.description,
-      publishedAt: source.publishedAt ? new Date(source.publishedAt) : null,
+      publishedAt: parsePublishedAt(source.publishedAt),
       durationSeconds: source.durationSeconds,
       sourceCapturedAt: capturedAt,
     })
@@ -158,20 +164,6 @@ async function updateCanonicalVideo(
   const id = existing[0]?.id;
   if (!id) throw new Error("Canonical Video was not available after upsert.");
   return id;
-}
-
-async function deleteOrphanTranscript(
-  tx: CaptureTransaction,
-  transcriptId: string,
-): Promise<void> {
-  const references = await tx
-    .select({ id: libraryItems.id })
-    .from(libraryItems)
-    .where(eq(libraryItems.transcriptId, transcriptId))
-    .limit(1);
-  if (references.length === 0) {
-    await tx.delete(transcripts).where(eq(transcripts.id, transcriptId));
-  }
 }
 
 export async function storeCapture(
@@ -252,9 +244,6 @@ export async function storeCapture(
           updatedAt: processedAt,
         })
         .where(eq(libraryItems.id, current.id));
-      if (nextTranscriptId !== current.transcriptId) {
-        await deleteOrphanTranscript(tx, current.transcriptId);
-      }
       return {
         libraryItemId: current.id,
         videoId: capture.source.videoId,

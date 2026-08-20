@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   contentTypeIsJson,
   MAX_CAPTURE_BYTES,
+  readJsonBody,
   validateCapturePayload,
 } from "./validation";
 
@@ -35,6 +36,46 @@ describe("capture validation", () => {
         ...capture,
         segments: [{ start: 0, text: "Hello", unexpected: true }],
       }).success,
+    ).toBe(false);
+  });
+
+  it("accepts producer date formats and missing channel URLs", () => {
+    expect(
+      validateCapturePayload({
+        ...capture,
+        source: {
+          ...capture.source,
+          channelUrl: "",
+          publishedAt: "Oct 24, 2009",
+        },
+      }).ok,
+    ).toBe(true);
+    expect(
+      validateCapturePayload({
+        ...capture,
+        source: { ...capture.source, publishedAt: "2025-01-15" },
+      }).ok,
+    ).toBe(true);
+  });
+
+  it("rejects unsafe channel URLs and integers outside PostgreSQL int4", () => {
+    expect(
+      validateCapturePayload({
+        ...capture,
+        source: { ...capture.source, channelUrl: "javascript:alert(1)" },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateCapturePayload({
+        ...capture,
+        segments: [{ start: 2_147_483_648, text: "Hello" }],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateCapturePayload({
+        ...capture,
+        source: { ...capture.source, durationSeconds: 2_147_483_648 },
+      }).ok,
     ).toBe(false);
   });
 
@@ -80,5 +121,20 @@ describe("capture validation", () => {
 
   it("keeps the body limit at exactly 10 MiB", () => {
     expect(MAX_CAPTURE_BYTES).toBe(10 * 1024 * 1024);
+  });
+
+  it("limits chunked bodies while reading", async () => {
+    const oversizedChunk = new Uint8Array(MAX_CAPTURE_BYTES + 1);
+    const request = new Request("https://example.test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: oversizedChunk,
+    });
+
+    await expect(readJsonBody(request)).resolves.toEqual({
+      ok: false,
+      code: "payload_too_large",
+      message: "The capture payload exceeds the 10 MiB limit.",
+    });
   });
 });
