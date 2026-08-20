@@ -29,13 +29,19 @@ describe("capture", () => {
     const dom = new JSDOM(readFixture("watch-collapsed.html"));
     const doc = dom.window.document;
 
-    const container = doc.querySelector("#segments-container")!;
+    const container = doc.querySelector("#segments-container");
+    if (!container) {
+      throw new Error("Missing #segments-container");
+    }
     const template = doc.querySelector(
       "#transcript-segments",
     ) as HTMLTemplateElement;
     const button = doc.querySelector(
       "ytd-video-description-transcript-section-renderer button",
-    )!;
+    );
+    if (!button) {
+      throw new Error("Missing transcript button");
+    }
 
     button.addEventListener("click", () => {
       setTimeout(() => {

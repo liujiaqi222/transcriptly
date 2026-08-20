@@ -4,17 +4,17 @@ import type { ReactNode } from "react";
 import { segmentUrl } from "@/entrypoints/popup/utils";
 
 function transcriptRows(capture: Capture): ReactNode[] {
-  return transcriptBlocks(capture).map((block, index) => {
+  return transcriptBlocks(capture).map((block) => {
     if (block.kind === "chapter") {
       return (
-        <h4 className="chapter" key={`block-${index}`}>
+        <h4 className="chapter" key={`chapter-${block.title}`}>
           {block.title}
         </h4>
       );
     }
 
     return (
-      <p className="segment" key={`block-${index}`}>
+      <p className="segment" key={`segment-${block.start}`}>
         [
         <a href={segmentUrl(capture.source.videoId, block.start)}>
           {formatTimestamp(block.start)}
@@ -31,6 +31,7 @@ export function TranscriptPreview({ capture }: { capture: Capture }) {
       {capture.source.description.trim().length > 0 && (
         <blockquote className="description">
           {capture.source.description.split("\n").map((line, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: description lines are positional
             <p key={index}>{line}</p>
           ))}
         </blockquote>

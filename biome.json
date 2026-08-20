@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/test/fixtures", "!**/drizzle/**"]
+    "includes": ["**", "!**/test/fixtures", "!**/drizzle"]
   },
   "formatter": {
     "enabled": true,

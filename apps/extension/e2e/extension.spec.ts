@@ -19,12 +19,14 @@ function extensionIdFromKey(base64Key: string): string {
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 
-test("manifest exposes only popup + content script (no background / options)", () => {
+test("manifest exposes popup, content script, background, and the exact cloud host permission", () => {
   expect(manifest.action?.default_popup).toBeTruthy();
-  expect(manifest.background).toBeUndefined();
+  expect(manifest.background?.service_worker).toBeTruthy();
   expect(manifest.options_ui).toBeUndefined();
   expect(manifest.options_page).toBeUndefined();
   expect(manifest.content_scripts?.length).toBeGreaterThan(0);
+  // Dev build talks to the local web app only.
+  expect(manifest.host_permissions).toEqual(["http://localhost:3000/*"]);
 });
 
 test("extension loads and popup renders via launchPersistentContext + --load-extension", async () => {
