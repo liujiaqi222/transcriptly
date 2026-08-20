@@ -17,6 +17,9 @@ export default defineConfig({
   dev: {
     server: {
       port: 3001,
+      // The manifest CSP is generated from this port, so never silently
+      // fall back to a random port when another dev server owns 3001.
+      strictPort: true,
     },
   },
   manifest: {
