@@ -1,8 +1,8 @@
 import type { Capture } from "@transcriptly/schema";
 import { useCallback, useEffect, useState } from "react";
 import {
-  AccountSection,
   type AccountDependencies,
+  AccountSection,
   CaptureView,
   type SaveState,
 } from "@/entrypoints/popup/components";

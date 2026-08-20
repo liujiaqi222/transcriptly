@@ -6,10 +6,10 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  AccountSection,
   type AccountDependencies,
+  AccountSection,
 } from "../entrypoints/popup/components/account-section";
 import type {
   CloudSessionStatus,
@@ -17,9 +17,7 @@ import type {
 } from "../shared/messages";
 
 function dependencies(overrides?: {
-  getCloudSession?: (
-    call: number,
-  ) => Promise<CloudSessionStatus | undefined>;
+  getCloudSession?: (call: number) => Promise<CloudSessionStatus | undefined>;
   signOutCloud?: () => Promise<CloudSignOutStatus>;
 }): AccountDependencies {
   let call = 0;
@@ -54,9 +52,7 @@ describe("account section", () => {
     await waitFor(() =>
       expect(screen.getByText("user@example.test")).toBeTruthy(),
     );
-    expect(
-      screen.getByRole("button", { name: "Sign out" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
   });
 
   it("shows a sign-in button when signed out, then the email after sign-in completes", async () => {
@@ -80,9 +76,7 @@ describe("account section", () => {
     await waitFor(() =>
       expect(vi.mocked(deps.openCloudSignIn)).toHaveBeenCalledTimes(1),
     );
-    expect(
-      screen.getByText(/Waiting for sign-in/),
-    ).toBeTruthy();
+    expect(screen.getByText(/Waiting for sign-in/)).toBeTruthy();
 
     signedIn = true;
 
@@ -101,9 +95,7 @@ describe("account section", () => {
     expect(
       await screen.findByText(/Could not reach the Transcriptly cloud/),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Try again" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
   it("returns to signed-out after signing out", async () => {

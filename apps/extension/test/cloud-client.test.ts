@@ -32,7 +32,9 @@ describe("cloud client", () => {
   it("reports a signed-in session with the user email", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(jsonResponse({ user: { email: "user@example.test" } }));
+      .mockResolvedValue(
+        jsonResponse({ user: { email: "user@example.test" } }),
+      );
 
     const client = createCloudClient(origin, fetchImpl);
     await expect(client.getSession()).resolves.toEqual({
@@ -47,7 +49,9 @@ describe("cloud client", () => {
   });
 
   it("reports signed-out when the website has no session", async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(null));
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(null));
 
     const client = createCloudClient(origin, fetchImpl);
     await expect(client.getSession()).resolves.toEqual({

@@ -13,7 +13,8 @@ export type CaptureResponseMessage = CaptureResult;
  * Messages never carry session tokens or provider tokens - only this
  * coarse status plus the display email.
  */
-export const CLOUD_SESSION_REQUEST = "transcriptly:cloud-session-request" as const;
+export const CLOUD_SESSION_REQUEST =
+  "transcriptly:cloud-session-request" as const;
 
 export interface CloudSessionRequestMessage {
   type: typeof CLOUD_SESSION_REQUEST;
@@ -31,6 +32,4 @@ export interface CloudSignOutRequestMessage {
   type: typeof CLOUD_SIGN_OUT_REQUEST;
 }
 
-export type CloudSignOutStatus =
-  | { status: "signed-out" }
-  | { status: "error" };
+export type CloudSignOutStatus = { status: "signed-out" } | { status: "error" };

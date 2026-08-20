@@ -18,9 +18,7 @@ export default defineBackground({
     browser.runtime.onMessage.addListener(
       (
         message: CloudSessionRequestMessage | CloudSignOutRequestMessage,
-      ):
-        | Promise<CloudSessionStatus | CloudSignOutStatus>
-        | undefined => {
+      ): Promise<CloudSessionStatus | CloudSignOutStatus> | undefined => {
         switch (message?.type) {
           case CLOUD_SESSION_REQUEST:
             return cloudClient.getSession();

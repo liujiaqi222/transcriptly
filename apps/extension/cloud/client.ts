@@ -1,8 +1,5 @@
 import type { Capture } from "@transcriptly/schema";
-import type {
-  CloudSessionStatus,
-  CloudSignOutStatus,
-} from "@/shared/messages";
+import type { CloudSessionStatus, CloudSignOutStatus } from "@/shared/messages";
 
 /**
  * The web origin this build talks to. Injected at build time by
@@ -59,7 +56,9 @@ export function createCloudClient(
         }
         const body = (await response.json()) as GetSessionResponse | null;
         const email = body?.user?.email;
-        return email ? { status: "signed-in", email } : { status: "signed-out" };
+        return email
+          ? { status: "signed-in", email }
+          : { status: "signed-out" };
       } catch {
         return { status: "unavailable" };
       }

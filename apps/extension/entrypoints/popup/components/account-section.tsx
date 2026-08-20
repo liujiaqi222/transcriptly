@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  CloudSessionStatus,
-  CloudSignOutStatus,
-} from "@/shared/messages";
+import type { CloudSessionStatus, CloudSignOutStatus } from "@/shared/messages";
 
 export interface AccountDependencies {
   getCloudSession(): Promise<CloudSessionStatus>;
@@ -31,27 +28,22 @@ export function AccountSection({
   pollIntervalMs = 1500,
 }: AccountSectionProps) {
   const [state, setState] = useState<AccountState>({ status: "checking" });
-  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(
-    undefined,
-  );
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
-  const checkSession = useCallback(
-    async (): Promise<CloudSessionStatus> => {
-      const session = await deps.getCloudSession();
-      setState(
-        session.status === "signed-in"
-          ? { status: "signed-in", email: session.email }
-          : session.status === "signed-out"
-            ? { status: "signed-out" }
-            : {
-                status: "error",
-                message: "Could not reach the Transcriptly cloud.",
-              },
-      );
-      return session;
-    },
-    [deps],
-  );
+  const checkSession = useCallback(async (): Promise<CloudSessionStatus> => {
+    const session = await deps.getCloudSession();
+    setState(
+      session.status === "signed-in"
+        ? { status: "signed-in", email: session.email }
+        : session.status === "signed-out"
+          ? { status: "signed-out" }
+          : {
+              status: "error",
+              message: "Could not reach the Transcriptly cloud.",
+            },
+    );
+    return session;
+  }, [deps]);
 
   useEffect(() => {
     void checkSession();
@@ -81,7 +73,7 @@ export function AccountSection({
         }
       });
     }, pollIntervalMs);
-  }, [deps]);
+  }, [deps, pollIntervalMs]);
 
   const handleSignOut = useCallback(async () => {
     const result = await deps.signOutCloud();

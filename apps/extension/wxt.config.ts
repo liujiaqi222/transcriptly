@@ -8,9 +8,10 @@ const extensionRoot = fileURLToPath(new URL(".", import.meta.url));
  * The web origin this build talks to. Defaults to the local dev server;
  * production builds pass the exact origin via WEB_ORIGIN.
  */
-const webOrigin = (
-  process.env.WEB_ORIGIN ?? "http://localhost:3000"
-).replace(/\/+$/, "");
+const webOrigin = (process.env.WEB_ORIGIN ?? "http://localhost:3000").replace(
+  /\/+$/,
+  "",
+);
 
 export default defineConfig({
   dev: {

@@ -15,9 +15,9 @@ describe("origin allowlist", () => {
   it("rejects other extension ids and look-alike prefixes", () => {
     const allowed = [extensionOrigin];
 
-    expect(
-      isAllowedOrigin("chrome-extension://attackerid", allowed),
-    ).toBe(false);
+    expect(isAllowedOrigin("chrome-extension://attackerid", allowed)).toBe(
+      false,
+    );
     expect(isAllowedOrigin(`${extensionOrigin}-evil`, allowed)).toBe(false);
     expect(isAllowedOrigin(`${extensionOrigin}/`, allowed)).toBe(false);
     expect(isAllowedOrigin("chrome-extension://", allowed)).toBe(false);
@@ -37,9 +37,10 @@ describe("origin allowlist", () => {
   });
 
   it("parses comma-separated origins with trimming", () => {
-    expect(
-      parseOrigins(` ${extensionOrigin} , ${websiteOrigin} ,, `),
-    ).toEqual([extensionOrigin, websiteOrigin]);
+    expect(parseOrigins(` ${extensionOrigin} , ${websiteOrigin} ,, `)).toEqual([
+      extensionOrigin,
+      websiteOrigin,
+    ]);
     expect(parseOrigins(undefined)).toEqual([]);
     expect(parseOrigins("")).toEqual([]);
   });

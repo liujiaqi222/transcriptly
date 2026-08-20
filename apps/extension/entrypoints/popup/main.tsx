@@ -4,9 +4,9 @@ import { webOrigin } from "@/cloud/client";
 import { createLocalMarkdownSaver } from "@/local-save";
 import {
   CAPTURE_REQUEST,
+  type CaptureResponseMessage,
   CLOUD_SESSION_REQUEST,
   CLOUD_SIGN_OUT_REQUEST,
-  type CaptureResponseMessage,
   type CloudSessionStatus,
   type CloudSignOutStatus,
 } from "@/shared/messages";
@@ -47,6 +47,9 @@ const dependencies: PopupDependencies = {
   createSaver: () => createLocalMarkdownSaver(),
 };
 
-createRoot(document.getElementById("root")!).render(
-  <Popup deps={dependencies} />,
-);
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  throw new Error("Missing #root element");
+}
+
+createRoot(rootElement).render(<Popup deps={dependencies} />);
