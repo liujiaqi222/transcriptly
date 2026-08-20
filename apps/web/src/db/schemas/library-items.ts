@@ -35,9 +35,9 @@ export const libraryItems = pgTable(
     transcriptId: uuid("transcript_id")
       .notNull()
       .references(() => transcripts.id, {
-        // A shared Transcript is only removed once no Item references it (app
-        // cleanup within the upload transaction); RESTRICT keeps an Item from
-        // silently losing its body if cleanup ordering ever breaks.
+        // Uploads intentionally retain unreferenced shared Transcripts: deleting
+        // them in a per-user transaction races cross-user reuse. A future
+        // coordinated, delayed GC may remove only safely unreferenced rows.
         onDelete: "restrict",
       }),
     visibility: varchar("visibility", { length: 16 })

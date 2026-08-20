@@ -29,8 +29,8 @@ export const captureSourceSchema = z
     // The producer uses an empty string when YouTube exposes no channel URL.
     channelUrl: z.string(),
     description: z.string(),
-    // YouTube emits both ISO dates and display dates such as "Oct 24, 2009".
-    publishedAt: z.string().trim().min(1).optional(),
+    // Producers normalize YouTube display dates to UTC midnight before upload.
+    publishedAt: z.iso.datetime({ offset: true, precision: 3 }).optional(),
     durationSeconds: nonNegativeInt4.optional(),
   })
   .superRefine((source, context) => {

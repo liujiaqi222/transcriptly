@@ -40,12 +40,6 @@ export type CaptureOutcome = {
 
 type CaptureTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-function parsePublishedAt(value: string | undefined): Date | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
 async function findOrCreateTranscript(
   tx: CaptureTransaction,
   videoId: string,
@@ -134,7 +128,7 @@ async function updateCanonicalVideo(
       channelName: source.channelName,
       channelUrl: source.channelUrl,
       description: source.description,
-      publishedAt: parsePublishedAt(source.publishedAt),
+      publishedAt: source.publishedAt ? new Date(source.publishedAt) : null,
       durationSeconds: source.durationSeconds,
       sourceCapturedAt: capturedAt,
     })
@@ -144,7 +138,7 @@ async function updateCanonicalVideo(
         sourceUrl: sql`excluded.source_url`,
         title: sql`excluded.title`,
         channelName: sql`excluded.channel_name`,
-        channelUrl: sql`excluded.channel_url`,
+        channelUrl: sql`coalesce(nullif(excluded.channel_url, ''), ${canonicalVideos.channelUrl})`,
         description: sql`excluded.description`,
         publishedAt: sql`coalesce(excluded.published_at, ${canonicalVideos.publishedAt})`,
         durationSeconds: sql`coalesce(excluded.duration_seconds, ${canonicalVideos.durationSeconds})`,

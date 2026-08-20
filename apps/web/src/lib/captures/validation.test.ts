@@ -39,14 +39,14 @@ describe("capture validation", () => {
     ).toBe(false);
   });
 
-  it("accepts producer date formats and missing channel URLs", () => {
+  it("accepts normalized producer dates and missing channel URLs", () => {
     expect(
       validateCapturePayload({
         ...capture,
         source: {
           ...capture.source,
           channelUrl: "",
-          publishedAt: "Oct 24, 2009",
+          publishedAt: "2009-10-24T00:00:00.000Z",
         },
       }).ok,
     ).toBe(true);
@@ -55,7 +55,7 @@ describe("capture validation", () => {
         ...capture,
         source: { ...capture.source, publishedAt: "2025-01-15" },
       }).ok,
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("rejects unsafe channel URLs and integers outside PostgreSQL int4", () => {
