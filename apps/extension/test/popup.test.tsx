@@ -135,6 +135,11 @@ function createHarness(
   const deps: PopupDependencies = {
     getActiveTab: vi.fn(async () => options.tab),
     requestCapture: vi.fn(async () => ({ ok: true as const, capture })),
+    account: {
+      getCloudSession: vi.fn(async () => ({ status: "signed-out" as const })),
+      openCloudSignIn: vi.fn(async () => undefined),
+      signOutCloud: vi.fn(async () => ({ status: "signed-out" as const })),
+    },
     createSaver: () =>
       createLocalMarkdownSaver({
         store,

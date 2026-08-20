@@ -1,6 +1,11 @@
 import type { Capture } from "@transcriptly/schema";
 import { useCallback, useEffect, useState } from "react";
-import { CaptureView, type SaveState } from "@/entrypoints/popup/components";
+import {
+  AccountSection,
+  type AccountDependencies,
+  CaptureView,
+  type SaveState,
+} from "@/entrypoints/popup/components";
 import { errorMessage, isYouTubeWatchUrl } from "@/entrypoints/popup/utils";
 import {
   type LocalMarkdownSaver,
@@ -17,6 +22,7 @@ export interface PopupDependencies {
   getActiveTab(): Promise<PopupTab | undefined>;
   requestCapture(tabId: number): Promise<CaptureResponseMessage>;
   createSaver(): Promise<LocalMarkdownSaver>;
+  account: AccountDependencies;
 }
 
 type CaptureState =
@@ -136,6 +142,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   return (
     <div className="popup">
       <h1>Transcriptly</h1>
+      <AccountSection deps={deps.account} />
 
       {captureState.status === "capturing" && (
         <div className="capturing" role="status">

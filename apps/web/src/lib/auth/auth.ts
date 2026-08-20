@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { getDatabase } from "../../db/client";
 import * as schema from "../../db/schema";
 import { getAuthEnv } from "../../env/server";
+import { parseOrigins } from "../api/origin-allowlist";
 
 const env = getAuthEnv();
 
@@ -54,7 +55,12 @@ export const auth = betterAuth({
       generateId: "uuid",
     },
   },
-  trustedOrigins: [env.BETTER_AUTH_URL],
+  trustedOrigins: [
+    env.BETTER_AUTH_URL,
+    // The extension background calls auth endpoints (sign-out) with
+    // Origin: chrome-extension://<id>; only exact builds are trusted.
+    ...parseOrigins(env.EXTENSION_ORIGINS),
+  ],
   plugins: [nextCookies()],
 });
 
