@@ -134,6 +134,19 @@ describe("capture", () => {
     ]);
   });
 
+  it("does not double-count segments when the expanded engagement panel nests the segments container", async () => {
+    // The segmentsContainer selector list matches both the expanded panel's
+    // #contents and the nested #segments-container; the nested one must not
+    // re-emit the same segments (seen in production as a transcript stored
+    // twice with the time index restarting at 0).
+    const doc = loadDocument("watch-open.html");
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.segments).toHaveLength(3);
+    expect(result.segments.map((s) => s.start)).toEqual([0, 9, 42]);
+  });
+
   it("captures CJK transcript text in order", async () => {
     const doc = loadDocument("cjk.html");
 
