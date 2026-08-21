@@ -129,6 +129,7 @@ test.beforeAll(async () => {
       { start: 5, text: "Today we study gradient descent" },
       { start: 10, text: "Ada Lovelace was the first programmer" },
       { start: 15, text: "Thanks for watching" },
+      { start: 20, text: "This partial match should not count" },
     ],
     capturedAt: baseCapturedAt,
   });
@@ -202,6 +203,18 @@ test("exact name search returns the video, hit context and timestamp link", asyn
   expect(html).toContain("&amp;t=10s");
   // Private search surfaces are never indexed.
   expect(html).toContain("noindex, nofollow");
+});
+
+test("Latin search respects word boundaries", async ({ request }) => {
+  const response = await request.get(
+    `/saved/search?q=${encodeURIComponent("art")}`,
+    { headers: { Cookie: await sessionCookie(ownerToken) } },
+  );
+  expect(response.status()).toBe(200);
+
+  const html = await response.text();
+  expect(html).not.toContain("Machine learning basics");
+  expect(html).not.toContain("This partial match should not count");
 });
 
 test("CJK exact search matches substrings inside a longer segment", async ({

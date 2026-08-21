@@ -61,6 +61,11 @@ export function escapeLike(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
+/** CJK queries need literal substring matching because simple FTS has no word segmentation. */
+function containsCjk(value: string): boolean {
+  return /[\u3400-\u9fff]/u.test(value);
+}
+
 type HitRow = {
   transcriptId: string;
   position: number;
@@ -84,14 +89,13 @@ type ContextRow = {
  *
  * Authorization is built in: rows are always scoped to `userId`, so another
  * user's private Segments never enter the result even when their text matches
- * exactly (#39). Two predicates cooperate:
+ * exactly (#39). Query matching is selected by script:
  *
  * - `segments.search_vector @@ websearch_to_tsquery('simple', $q)` covers
  *   Latin word matches. `simple` keeps tokens exact (no stemming), so a word
- *   or name matches the literal text.
- * - `segments.text ILIKE '%' || $escaped || '%'` covers CJK and literal
- *   substrings via the pg_trgm GIN index; the default FTS parser cannot
- *   segment CJK.
+ *   or name matches at token boundaries rather than as an arbitrary substring.
+ * - `segments.text ILIKE '%' || $escaped || '%'` covers CJK substrings via the
+ *   pg_trgm GIN index; the default FTS parser cannot segment CJK.
  */
 export async function searchLibrary(
   db: Database,
@@ -102,7 +106,9 @@ export async function searchLibrary(
   if (query === null) return { hits: [] };
 
   const rank = sql<number>`ts_rank(${segments.searchVector}, websearch_to_tsquery('simple', ${query}))`;
-  const likePattern = `%${escapeLike(query)}%`;
+  const searchPredicate = containsCjk(query)
+    ? ilike(segments.text, `%${escapeLike(query)}%`)
+    : sql`${segments.searchVector} @@ websearch_to_tsquery('simple', ${query})`;
 
   const hits = await db
     .select({
@@ -121,15 +127,7 @@ export async function searchLibrary(
       eq(libraryItems.transcriptId, segments.transcriptId),
     )
     .innerJoin(canonicalVideos, eq(canonicalVideos.id, libraryItems.videoId))
-    .where(
-      and(
-        eq(libraryItems.userId, userId),
-        or(
-          sql`${segments.searchVector} @@ websearch_to_tsquery('simple', ${query})`,
-          ilike(segments.text, likePattern),
-        ),
-      ),
-    )
+    .where(and(eq(libraryItems.userId, userId), searchPredicate))
     .orderBy(
       desc(rank),
       desc(libraryItems.capturedAt),
