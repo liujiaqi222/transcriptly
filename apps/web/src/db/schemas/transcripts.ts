@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  customType,
   index,
   integer,
   pgTable,
@@ -10,6 +11,16 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { canonicalVideos } from "./canonical-videos";
+
+/**
+ * PostgreSQL `tsvector` column type. Used only as a generated, rebuildable
+ * search index (#39); the application never reads or writes it directly.
+ */
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return "tsvector";
+  },
+});
 
 /**
  * The immutable, canonical transcript body for one Canonical Video. Shared
@@ -50,6 +61,13 @@ export const segments = pgTable(
     position: integer("position").notNull(),
     startSeconds: integer("start_seconds").notNull(),
     text: text("text").notNull(),
+    // Rebuildable generated tsvector (#39). `simple` keeps tokens exact - no
+    // stemming - so word and name queries match the literal text. The default
+    // parser cannot segment CJK, so CJK substring matching is covered by the
+    // pg_trgm GIN index below instead.
+    searchVector: tsvector("search_vector").generatedAlwaysAs(
+      sql`to_tsvector('simple', ${sql.identifier("text")})`,
+    ),
   },
   (table) => [
     uniqueIndex("segments_transcript_position_unique").on(
@@ -57,6 +75,11 @@ export const segments = pgTable(
       table.position,
     ),
     index("segments_transcript_id_idx").on(table.transcriptId),
+    index("segments_search_vector_idx").using("gin", table.searchVector),
+    index("segments_text_trgm_idx").using(
+      "gin",
+      sql`${table.text} gin_trgm_ops`,
+    ),
     check("segments_position_nonnegative", sql`${table.position} >= 0`),
     check(
       "segments_start_seconds_nonnegative",

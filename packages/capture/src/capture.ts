@@ -63,12 +63,106 @@ function readMeta(doc: Document, rules: SelectorRule[]): string {
   return sanitizeText(readFirstAttribute(doc, rules) ?? "");
 }
 
-function resolveUrl(raw: string, base: string): string {
+function normalizeChannelUrl(raw: string, base: string): string {
+  if (raw.trim() === "") return "";
+
   try {
-    return new URL(raw, base).href;
+    const url = new URL(raw.trim(), base);
+    const isYouTubeChannelPath =
+      /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/.test(
+        url.pathname,
+      );
+    if (
+      url.protocol !== "https:" ||
+      url.hostname !== "www.youtube.com" ||
+      !isYouTubeChannelPath ||
+      url.search ||
+      url.hash
+    ) {
+      return "";
+    }
+    return url.href;
   } catch {
-    return raw;
+    return "";
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function findVideoOwnerRenderer(
+  value: unknown,
+): Record<string, unknown> | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const owner = asRecord(record.videoOwnerRenderer);
+  if (owner) return owner;
+
+  for (const child of Object.values(record)) {
+    const found = findVideoOwnerRenderer(child);
+    if (found) return found;
+  }
+  return null;
+}
+
+interface InitialChannel {
+  name: string;
+  url: string;
+}
+
+function readInitialChannel(
+  doc: Document,
+  base: string,
+): InitialChannel | null {
+  for (const script of Array.from(doc.scripts)) {
+    const match = script.textContent?.match(
+      /var ytInitialData\s*=\s*(\{[\s\S]*\})\s*;?\s*$/,
+    );
+    if (!match?.[1]) continue;
+
+    try {
+      const owner = findVideoOwnerRenderer(JSON.parse(match[1]));
+      const listItems = asRecord(
+        asRecord(
+          asRecord(
+            asRecord(
+              asRecord(
+                asRecord(asRecord(owner?.navigationEndpoint)?.showDialogCommand)
+                  ?.panelLoadingStrategy,
+              )?.inlineContent,
+            )?.dialogViewModel,
+          )?.customContent,
+        )?.listViewModel,
+      )?.listItems;
+      if (!Array.isArray(listItems)) continue;
+
+      for (const item of listItems) {
+        const itemRecord = asRecord(item);
+        const viewModel = asRecord(itemRecord?.listItemViewModel);
+        const title = asRecord(viewModel?.title);
+        const commandRuns = title?.commandRuns;
+        if (!Array.isArray(commandRuns)) continue;
+        const firstRun = asRecord(commandRuns[0]);
+        const endpoint = asRecord(
+          asRecord(asRecord(firstRun?.onTap)?.innertubeCommand)?.browseEndpoint,
+        );
+        const canonicalBaseUrl = endpoint?.canonicalBaseUrl;
+        const name = title?.content;
+        if (typeof canonicalBaseUrl === "string" && typeof name === "string") {
+          const url = normalizeChannelUrl(canonicalBaseUrl, base);
+          if (url && name.trim() !== "") {
+            return { name: sanitizeText(name), url };
+          }
+        }
+      }
+    } catch {
+      // Ignore malformed or unrelated scripts and continue with DOM metadata.
+    }
+  }
+  return null;
 }
 
 function normalizePublishedAt(raw: string): string | undefined {
@@ -124,13 +218,13 @@ function readSource(
 ): Capture["source"] {
   const title = readMeta(doc, selectors.meta.title);
   const description = readMeta(doc, selectors.meta.description);
-  const channelName = readMeta(doc, selectors.meta.channelName);
+  const initialChannel = readInitialChannel(doc, url);
+  const channelName =
+    initialChannel?.name ?? readMeta(doc, selectors.meta.channelName);
   const rawChannelUrl =
     readFirstAttribute(doc, selectors.meta.channelUrl) ?? "";
   const channelUrl =
-    rawChannelUrl.trim() === ""
-      ? ""
-      : resolveUrl(rawChannelUrl.trim(), doc.baseURI);
+    initialChannel?.url || normalizeChannelUrl(rawChannelUrl, url);
 
   const publishedAt = selectors.meta.publishedAt
     ? normalizePublishedAt(readMeta(doc, selectors.meta.publishedAt))

@@ -111,6 +111,73 @@ describe("capture", () => {
     }
   });
 
+  it("reads a text-only joint channel name without inventing a channel URL", async () => {
+    const doc = loadDocument("watch-open.html");
+    const channelUrl = doc.querySelector('link[itemprop="url"]');
+    if (!channelUrl) throw new Error("Missing channel URL metadata");
+    channelUrl.setAttribute(
+      "href",
+      "https://www.youtube.com/watch?v=KCjwU4XYBL8",
+    );
+
+    const attributedChannel = doc.createElement("div");
+    attributedChannel.id = "attributed-channel-name";
+    attributedChannel.innerHTML =
+      '<a role="button">Open Residency和AI with Remy</a>';
+    doc.body.append(attributedChannel);
+
+    const initialData = doc.createElement("script");
+    initialData.textContent = `var ytInitialData = ${JSON.stringify({
+      contents: {
+        videoOwnerRenderer: {
+          navigationEndpoint: {
+            showDialogCommand: {
+              panelLoadingStrategy: {
+                inlineContent: {
+                  dialogViewModel: {
+                    customContent: {
+                      listViewModel: {
+                        listItems: [
+                          {
+                            listItemViewModel: {
+                              title: {
+                                content: "Open Residency",
+                                commandRuns: [
+                                  {
+                                    onTap: {
+                                      innertubeCommand: {
+                                        browseEndpoint: {
+                                          canonicalBaseUrl: "/@openresidency",
+                                        },
+                                      },
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })}`;
+    doc.body.append(initialData);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.channelName).toBe("Open Residency");
+    expect(result.source.channelUrl).toBe(
+      "https://www.youtube.com/@openresidency",
+    );
+    expect(captureSchema.safeParse(result).success).toBe(true);
+  });
+
   it("reads already-rendered segments without opening the panel", async () => {
     const doc = loadDocument("watch-open.html");
 
