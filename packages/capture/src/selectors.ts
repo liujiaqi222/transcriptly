@@ -56,6 +56,8 @@ export const youtubeSelectors: SiteSelectors = {
       },
     ],
     channelName: [
+      // Joint channels may expose a text-only attributed link without href.
+      { selector: "#attributed-channel-name a" },
       { selector: YOUTUBE_CHANNEL_LINK_SELECTOR },
       { selector: 'link[itemprop="name"]', attribute: "content" },
     ],

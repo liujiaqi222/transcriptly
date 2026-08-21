@@ -61,6 +61,9 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   // Tracks whether the session status has resolved yet: the remembered
   // Cloud preference must never be applied to a signed-out popup (#35 AC).
   const sessionKnownRef = useRef<"unknown" | "in" | "out">("unknown");
+  const [sessionStatus, setSessionStatus] = useState<"unknown" | "in" | "out">(
+    "unknown",
+  );
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [queueStatus, setQueueStatus] = useState<
     CloudQueueStatus | undefined
@@ -149,22 +152,22 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     };
   }, [deps]);
 
-  // Remembered Cloud preference: loaded once per popup open. A signed-out
-  // session forces the preference back to off (#35 AC).
+  // Apply the remembered preference only after the current session is known.
+  // This avoids a race between storage and the account session check.
   useEffect(() => {
+    if (sessionStatus === "unknown") return;
     let cancelled = false;
+    if (sessionStatus === "out") {
+      setCloudEnabled(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     deps.cloud
       .getCloudPreference()
       .then((enabled) => {
-        if (
-          !cancelled &&
-          enabled &&
-          // Skip the stored preference when the session already resolved
-          // to signed-out; the sign-out handler has already forced it off.
-          sessionKnownRef.current !== "out"
-        ) {
-          setCloudEnabled(true);
-        }
+        if (!cancelled) setCloudEnabled(enabled);
       })
       .catch(() => {
         // Preference stays off when it cannot be read.
@@ -172,12 +175,14 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     return () => {
       cancelled = true;
     };
-  }, [deps]);
+  }, [deps, sessionStatus]);
 
   const handleSessionChange = useCallback(
     (session: CloudSessionStatus) => {
       setSignedIn(session.status === "signed-in");
-      sessionKnownRef.current = session.status === "signed-in" ? "in" : "out";
+      const nextStatus = session.status === "signed-in" ? "in" : "out";
+      sessionKnownRef.current = nextStatus;
+      setSessionStatus(nextStatus);
       if (session.status !== "signed-in") {
         setCloudEnabled(false);
         void deps.cloud.setCloudPreference(false).catch(() => {});

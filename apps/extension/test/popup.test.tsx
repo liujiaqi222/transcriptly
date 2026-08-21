@@ -367,6 +367,19 @@ describe("popup cloud saving", () => {
     expect(harness.deps.cloud.setCloudPreference).toHaveBeenCalledWith(true);
   });
 
+  it("restores the remembered cloud preference for signed-in users", async () => {
+    const harness = cloudHarness({
+      session: "signed-in",
+      storedPreference: true,
+    });
+    await captureSuccessfulPopup(harness);
+
+    expect((screen.getByLabelText("Cloud") as HTMLInputElement).checked).toBe(
+      true,
+    );
+    expect(harness.deps.cloud.getCloudPreference).toHaveBeenCalled();
+  });
+
   it("queues the cloud job before saving locally", async () => {
     const directory = new MemoryDirectory("Notes");
     const order: string[] = [];
