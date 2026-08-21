@@ -99,9 +99,11 @@ export interface CloudJobStore {
   /**
    * Startup recovery: Jobs stuck in `uploading` (the worker died mid-upload)
    * become failed instead of being replayed automatically (#36 AC), and
-   * expired failed Jobs are deleted.
+   * expired failed Jobs are deleted. `skipJobIds` excludes Jobs the caller
+   * knows are actively uploading in this worker, so a periodic alarm can
+   * never mistake a live upload for a dead worker's leftover.
    */
-  recover(options?: { now?: number }): Promise<void>;
+  recover(options?: { now?: number; skipJobIds?: string[] }): Promise<void>;
   snapshot(videoId?: string): Promise<CloudSnapshot>;
   /** Sign-out: drop every Job, payload and receipt (#36 AC). */
   clearAll(): Promise<void>;
@@ -323,10 +325,11 @@ export function createCloudJobStore(
 
     async recover(recoverOptions) {
       const currentTime = recoverOptions?.now ?? now();
+      const activeJobIds = new Set(recoverOptions?.skipJobIds ?? []);
       await withStore("readwrite", async (store) => {
         const records = (await request(store.getAll())) as CloudJobRecord[];
         for (const record of records) {
-          if (record.state === "uploading") {
+          if (record.state === "uploading" && !activeJobIds.has(record.id)) {
             store.put({
               ...record,
               state: "failed",

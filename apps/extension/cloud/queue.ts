@@ -164,11 +164,17 @@ export function createCloudUploadQueue(
   const { store, client } = options;
   const now = options.now ?? (() => Date.now());
   let draining = false;
+  // The Job currently being uploaded by this worker, if any. Recovery
+  // must skip it: a periodic alarm firing mid-upload would otherwise read
+  // `uploading` from IndexedDB and mistake the live upload for a dead
+  // worker's leftover (#36).
+  let activeJobId: string | undefined;
 
   async function runJob(job: CloudJobRecord): Promise<void> {
     if (!job.capture) return;
-    await store.markUploading(job.id);
+    activeJobId = job.id;
     try {
+      await store.markUploading(job.id);
       const response = await client.uploadCapture(job.capture);
       const success = await parseUploadResponse(response);
       await store.completeSaved(job.id, {
@@ -179,6 +185,8 @@ export function createCloudUploadQueue(
       });
     } catch (error) {
       await store.completeFailed(job.id, classifyUploadFailure(error));
+    } finally {
+      activeJobId = undefined;
     }
   }
 
@@ -214,7 +222,11 @@ export function createCloudUploadQueue(
     },
 
     async recoverAndDrain() {
-      await store.recover();
+      // Skip the live upload (if any) so recovery only targets Jobs left
+      // behind by a genuinely dead worker (#36), never the in-flight one.
+      await store.recover(
+        activeJobId ? { skipJobIds: [activeJobId] } : undefined,
+      );
       await drain();
     },
 

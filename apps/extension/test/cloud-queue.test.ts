@@ -268,6 +268,30 @@ describe("cloud upload queue", () => {
     expect(upload).toHaveBeenCalledTimes(1);
   });
 
+  it("does not fail the in-flight upload when recovery runs mid-drain", async () => {
+    // Regression: the per-minute alarm calls recoverAndDrain(), and
+    // store.recover() used to mark ANY uploading Job as failed - including
+    // the one this worker is actively uploading (#36 race).
+    const gate = deferred<void>();
+    upload.mockImplementation(async () => {
+      await gate.promise;
+      return successResponse("created");
+    });
+
+    await queue.enqueue(captureFor("abc12345678"));
+    // The upload has started, so the Job is `uploading` in the store.
+    await vi.waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
+
+    // The alarm fires mid-upload.
+    await queue.recoverAndDrain();
+    const midFlight = await queue.snapshot("abc12345678");
+    expect(midFlight.current?.state).toBe("uploading");
+
+    gate.resolve();
+    await waitForSaved("abc12345678");
+    expect(upload).toHaveBeenCalledTimes(1);
+  });
+
   it("drops every job and receipt on sign-out", async () => {
     await queue.enqueue(captureFor("abc12345678"));
     await waitForSaved("abc12345678");
