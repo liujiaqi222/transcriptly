@@ -66,6 +66,11 @@ function containsCjk(value: string): boolean {
   return /[\u3400-\u9fff]/u.test(value);
 }
 
+/** A single Latin token can safely use PostgreSQL FTS prefix matching for names. */
+function isLatinToken(value: string): boolean {
+  return /^[A-Za-z0-9]+$/u.test(value);
+}
+
 type HitRow = {
   transcriptId: string;
   position: number;
@@ -93,9 +98,12 @@ type ContextRow = {
  *
  * - `segments.search_vector @@ websearch_to_tsquery('simple', $q)` covers
  *   Latin word matches. `simple` keeps tokens exact (no stemming), so a word
- *   or name matches at token boundaries rather than as an arbitrary substring.
- * - `segments.text ILIKE '%' || $escaped || '%'` covers CJK substrings via the
- *   pg_trgm GIN index; the default FTS parser cannot segment CJK.
+ *   matches at token boundaries rather than as an arbitrary substring.
+ * - A single Latin token also uses FTS prefix matching, so a partial name such
+ *   as `Lovela` can match `Lovelace` without making `art` match `partial`.
+ * - `segments.text ILIKE '%' || $escaped || '%'` covers CJK and mixed CJK/Latin
+ *   substrings via the pg_trgm GIN index; the default FTS parser cannot segment
+ *   CJK.
  */
 export async function searchLibrary(
   db: Database,
@@ -106,9 +114,15 @@ export async function searchLibrary(
   if (query === null) return { hits: [] };
 
   const rank = sql<number>`ts_rank(${segments.searchVector}, websearch_to_tsquery('simple', ${query}))`;
+  const exactPredicate = sql`${segments.searchVector} @@ websearch_to_tsquery('simple', ${query})`;
   const searchPredicate = containsCjk(query)
     ? ilike(segments.text, `%${escapeLike(query)}%`)
-    : sql`${segments.searchVector} @@ websearch_to_tsquery('simple', ${query})`;
+    : isLatinToken(query)
+      ? or(
+          exactPredicate,
+          sql`${segments.searchVector} @@ to_tsquery('simple', ${query} || ':*')`,
+        )
+      : exactPredicate;
 
   const hits = await db
     .select({
