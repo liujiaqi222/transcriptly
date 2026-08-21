@@ -14,6 +14,8 @@ export interface AccountSectionProps {
   deps: AccountDependencies;
   /** Test seam for the sign-in poll interval. */
   pollIntervalMs?: number;
+  /** Notified on every resolved session status (popup drives the cloud toggle). */
+  onSessionChange?(session: CloudSessionStatus): void;
 }
 
 type AccountState =
@@ -26,12 +28,14 @@ type AccountState =
 export function AccountSection({
   deps,
   pollIntervalMs = 1500,
+  onSessionChange,
 }: AccountSectionProps) {
   const [state, setState] = useState<AccountState>({ status: "checking" });
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const checkSession = useCallback(async (): Promise<CloudSessionStatus> => {
     const session = await deps.getCloudSession();
+    onSessionChange?.(session);
     setState(
       session.status === "signed-in"
         ? { status: "signed-in", email: session.email }
@@ -43,7 +47,7 @@ export function AccountSection({
             },
     );
     return session;
-  }, [deps]);
+  }, [deps, onSessionChange]);
 
   useEffect(() => {
     void checkSession();
@@ -69,20 +73,24 @@ export function AccountSection({
       void deps.getCloudSession().then((session) => {
         if (session.status === "signed-in") {
           clearInterval(pollRef.current);
+          onSessionChange?.(session);
           setState({ status: "signed-in", email: session.email });
         }
       });
     }, pollIntervalMs);
-  }, [deps, pollIntervalMs]);
+  }, [deps, pollIntervalMs, onSessionChange]);
 
   const handleSignOut = useCallback(async () => {
     const result = await deps.signOutCloud();
+    if (result.status === "signed-out") {
+      onSessionChange?.({ status: "signed-out" });
+    }
     setState(
       result.status === "signed-out"
         ? { status: "signed-out" }
         : { status: "error", message: "Sign out failed. Try again." },
     );
-  }, [deps]);
+  }, [deps, onSessionChange]);
 
   return (
     <section className="account" aria-label="Cloud account">

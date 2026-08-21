@@ -1,9 +1,12 @@
+import { parseVideoId } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CloudSnapshot } from "@/cloud/jobs";
 import {
   type AccountDependencies,
   AccountSection,
   CaptureView,
+  CloudStatusPanel,
   type SaveState,
 } from "@/entrypoints/popup/components";
 import { errorMessage, isYouTubeWatchUrl } from "@/entrypoints/popup/utils";
@@ -11,11 +14,26 @@ import {
   type LocalMarkdownSaver,
   suggestedMarkdownFilename,
 } from "@/local-save";
-import type { CaptureResponseMessage } from "@/shared/messages";
+import type {
+  CaptureResponseMessage,
+  CloudJobRetryStatus,
+  CloudSaveEnqueueStatus,
+  CloudSessionStatus,
+} from "@/shared/messages";
 
 export interface PopupTab {
   id?: number;
   url?: string;
+}
+
+/** The popup's window into the background cloud queue (#35, #36). */
+export interface CloudDependencies {
+  enqueueCloudSave(capture: Capture): Promise<CloudSaveEnqueueStatus>;
+  getCloudSnapshot(videoId: string): Promise<CloudSnapshot>;
+  retryCloudJob(jobId: string): Promise<CloudJobRetryStatus>;
+  /** Remembered Cloud preference, persisted per installation. */
+  getCloudPreference(): Promise<boolean>;
+  setCloudPreference(enabled: boolean): Promise<void>;
 }
 
 export interface PopupDependencies {
@@ -23,6 +41,7 @@ export interface PopupDependencies {
   requestCapture(tabId: number): Promise<CaptureResponseMessage>;
   createSaver(): Promise<LocalMarkdownSaver>;
   account: AccountDependencies;
+  cloud: CloudDependencies;
 }
 
 type CaptureState =
@@ -30,16 +49,32 @@ type CaptureState =
   | { status: "ready"; capture: Capture }
   | { status: "error"; message: string };
 
+/** Poll cadence for the cloud snapshot while the popup is open. */
+const SNAPSHOT_POLL_MS = 1500;
+
 export function Popup({ deps }: { deps: PopupDependencies }) {
   const [captureState, setCaptureState] = useState<CaptureState>({
     status: "capturing",
   });
+  const [activeVideoId, setActiveVideoId] = useState<string | undefined>();
+  const [signedIn, setSignedIn] = useState(false);
+  // Tracks whether the session status has resolved yet: the remembered
+  // Cloud preference must never be applied to a signed-out popup (#35 AC).
+  const sessionKnownRef = useRef<"unknown" | "in" | "out">("unknown");
+  const [cloudEnabled, setCloudEnabled] = useState(false);
+  const [snapshot, setSnapshot] = useState<CloudSnapshot | undefined>();
+  const [cloudError, setCloudError] = useState<string | undefined>();
+  const [snapshotRefresh, setSnapshotRefresh] = useState(0);
   const [saver, setSaver] = useState<LocalMarkdownSaver | undefined>();
   const [saverError, setSaverError] = useState<string | undefined>();
   const [directoryName, setDirectoryName] = useState<string | undefined>();
   const [filename, setFilename] = useState("");
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [changingFolder, setChangingFolder] = useState(false);
+
+  const refreshSnapshot = useCallback(() => {
+    setSnapshotRefresh((count) => count + 1);
+  }, []);
 
   const runCapture = useCallback(async () => {
     setCaptureState({ status: "capturing" });
@@ -62,6 +97,10 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         return;
       }
 
+      setActiveVideoId(
+        tab.url ? (parseVideoId(tab.url) ?? undefined) : undefined,
+      );
+
       const response = await deps.requestCapture(tab.id);
       if (!response.ok) {
         setCaptureState({ status: "error", message: response.message });
@@ -78,12 +117,11 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       setFilename(suggestedMarkdownFilename(response.capture));
       setCaptureState({ status: "ready", capture: response.capture });
     } catch (error) {
-      const detail = errorMessage(error);
       setCaptureState({
         status: "error",
-        message: detail.includes("Receiving end does not exist")
+        message: detailIncludes(error, "Receiving end does not exist")
           ? "Could not reach the transcript capture script. Reload the YouTube page and try again."
-          : `Could not capture this page: ${detail}`,
+          : `Could not capture this page: ${errorMessage(error)}`,
       });
     }
   }, [deps]);
@@ -109,9 +147,112 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     };
   }, [deps]);
 
+  // Remembered Cloud preference: loaded once per popup open. A signed-out
+  // session forces the preference back to off (#35 AC).
+  useEffect(() => {
+    let cancelled = false;
+    deps.cloud
+      .getCloudPreference()
+      .then((enabled) => {
+        if (
+          !cancelled &&
+          enabled &&
+          // Skip the stored preference when the session already resolved
+          // to signed-out; the sign-out handler has already forced it off.
+          sessionKnownRef.current !== "out"
+        ) {
+          setCloudEnabled(true);
+        }
+      })
+      .catch(() => {
+        // Preference stays off when it cannot be read.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [deps]);
+
+  const handleSessionChange = useCallback(
+    (session: CloudSessionStatus) => {
+      setSignedIn(session.status === "signed-in");
+      sessionKnownRef.current = session.status === "signed-in" ? "in" : "out";
+      if (session.status !== "signed-in") {
+        setCloudEnabled(false);
+        void deps.cloud.setCloudPreference(false).catch(() => {});
+      }
+    },
+    [deps],
+  );
+
+  // Poll the background snapshot for the current video so Saving / Saved /
+  // Failed survive popup close and reopen (#35 AC). Bumping snapshotRefresh
+  // forces an immediate re-poll after enqueue/retry.
+  useEffect(() => {
+    if (!activeVideoId) return;
+    void snapshotRefresh;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const next = await deps.cloud.getCloudSnapshot(activeVideoId);
+        if (!cancelled) setSnapshot(next);
+      } catch {
+        // The background worker is unreachable; the next tick retries.
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), SNAPSHOT_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [activeVideoId, snapshotRefresh, deps]);
+
+  const handleCloudToggle = useCallback(
+    (enabled: boolean) => {
+      setCloudEnabled(enabled);
+      void deps.cloud.setCloudPreference(enabled).catch(() => {});
+    },
+    [deps],
+  );
+
+  const handleRetry = useCallback(
+    async (jobId: string) => {
+      try {
+        const result = await deps.cloud.retryCloudJob(jobId);
+        if (result.ok) {
+          setCloudError(undefined);
+          refreshSnapshot();
+        } else {
+          setCloudError(result.message);
+        }
+      } catch (error) {
+        setCloudError(errorMessage(error));
+      }
+    },
+    [deps, refreshSnapshot],
+  );
+
   const handleSave = async () => {
-    if (!saver || captureState.status !== "ready") return;
+    if (captureState.status !== "ready") return;
     setSaveState({ status: "saving" });
+
+    // The Cloud Job is persisted before any local saving so the upload
+    // survives even if the popup closes mid-save (#35 AC).
+    if (cloudEnabled && signedIn) {
+      try {
+        const result = await deps.cloud.enqueueCloudSave(captureState.capture);
+        if (result.ok) {
+          setCloudError(undefined);
+          refreshSnapshot();
+        } else {
+          setCloudError(result.message);
+        }
+      } catch (error) {
+        setCloudError(errorMessage(error));
+      }
+    }
+
+    if (!saver) return;
     try {
       const result = await saver.save(captureState.capture, filename);
       setFilename(result.filename);
@@ -142,7 +283,16 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   return (
     <div className="popup">
       <h1>Transcriptly</h1>
-      <AccountSection deps={deps.account} />
+      <AccountSection
+        deps={deps.account}
+        onSessionChange={handleSessionChange}
+      />
+      <CloudStatusPanel
+        snapshot={snapshot}
+        cloudError={cloudError}
+        signedIn={signedIn}
+        onRetry={(jobId) => void handleRetry(jobId)}
+      />
 
       {captureState.status === "capturing" && (
         <div className="capturing" role="status">
@@ -171,6 +321,9 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           directoryName={directoryName}
           changingFolder={changingFolder}
           saveState={saveState}
+          cloudEnabled={cloudEnabled}
+          cloudAvailable={signedIn}
+          onCloudToggle={handleCloudToggle}
           onFilenameChange={setFilename}
           onSave={() => void handleSave()}
           onChangeFolder={() => void handleChangeFolder()}
@@ -178,4 +331,8 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       )}
     </div>
   );
+}
+
+function detailIncludes(error: unknown, needle: string): boolean {
+  return errorMessage(error).includes(needle);
 }

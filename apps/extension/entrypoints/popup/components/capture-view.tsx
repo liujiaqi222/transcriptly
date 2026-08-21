@@ -12,6 +12,9 @@ interface CaptureViewProps {
   directoryName?: string;
   changingFolder: boolean;
   saveState: SaveState;
+  cloudEnabled: boolean;
+  cloudAvailable: boolean;
+  onCloudToggle(enabled: boolean): void;
   onFilenameChange(filename: string): void;
   onSave(): void;
   onChangeFolder(): void;
@@ -25,6 +28,9 @@ export function CaptureView({
   directoryName,
   changingFolder,
   saveState,
+  cloudEnabled,
+  cloudAvailable,
+  onCloudToggle,
   onFilenameChange,
   onSave,
   onChangeFolder,
@@ -62,6 +68,9 @@ export function CaptureView({
         directoryName={directoryName}
         changingFolder={changingFolder}
         saveState={saveState}
+        cloudEnabled={cloudEnabled}
+        cloudAvailable={cloudAvailable}
+        onCloudToggle={onCloudToggle}
         onSave={onSave}
         onChangeFolder={onChangeFolder}
       />

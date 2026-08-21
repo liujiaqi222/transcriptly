@@ -350,3 +350,89 @@ h2 {
   width: 100%;
   font-size: 12px;
 }
+
+/* Cloud status panel (#35, #36) */
+
+.cloud-status {
+  margin: 0 0 4px;
+}
+
+.cloud-saving {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cloud-saved {
+  margin: 4px 0;
+  color: var(--ok);
+  font-size: 12px;
+}
+
+.cloud-failed-current {
+  margin: 4px 0;
+  padding: 8px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: var(--danger-background);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.cloud-failed-current p {
+  margin: 0 0 6px;
+  word-break: break-word;
+}
+
+.cloud-failed-current button {
+  font-size: 12px;
+}
+
+.cloud-badge {
+  margin: 4px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  background: var(--danger-background);
+  color: var(--danger);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cloud-failed-list {
+  margin: 4px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cloud-failed-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.cloud-failed-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cloud-retry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cloud-retry button {
+  font-size: 12px;
+}
+
+.cloud-retry-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
