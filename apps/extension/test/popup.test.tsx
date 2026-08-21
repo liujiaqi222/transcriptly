@@ -140,6 +140,16 @@ function createHarness(
       openCloudSignIn: vi.fn(async () => undefined),
       signOutCloud: vi.fn(async () => ({ status: "signed-out" as const })),
     },
+    cloud: {
+      enqueueCloudSave: vi.fn(async () => ({
+        ok: true as const,
+        jobId: "job-1",
+      })),
+      getCloudQueueStatus: vi.fn(async () => ({ failed: [] })),
+      retryCloudJob: vi.fn(async () => ({ ok: true as const })),
+      getCloudPreference: vi.fn(async () => false),
+      setCloudPreference: vi.fn(async () => undefined),
+    },
     createSaver: () =>
       createLocalMarkdownSaver({
         store,
@@ -292,6 +302,245 @@ describe("popup capture flow", () => {
     expect(
       await screen.findByText(/No transcript found on this video/),
     ).toBeTruthy();
+  });
+});
+
+describe("popup cloud saving", () => {
+  function cloudHarness(
+    options: {
+      session?: "signed-in" | "signed-out";
+      storedPreference?: boolean;
+      queueStatus?: import("../cloud/jobs").CloudQueueStatus;
+      rememberedDirectory?: MemoryDirectory;
+    } = {},
+  ): Harness {
+    const harness = createHarness({
+      tab: youtubeTab,
+      rememberedDirectory: options.rememberedDirectory,
+    });
+    harness.deps.account.getCloudSession = vi.fn(async () =>
+      options.session === "signed-in"
+        ? { status: "signed-in" as const, email: "user@example.test" }
+        : { status: "signed-out" as const },
+    );
+    harness.deps.cloud.getCloudPreference = vi.fn(
+      async () => options.storedPreference === true,
+    );
+    harness.deps.cloud.getCloudQueueStatus = vi.fn(
+      async () => options.queueStatus ?? { failed: [] },
+    );
+    return harness;
+  }
+
+  it("disables the cloud toggle and prompts sign-in when signed out", async () => {
+    const harness = cloudHarness({ session: "signed-out" });
+    await captureSuccessfulPopup(harness);
+
+    const cloud = screen.getByLabelText("Cloud") as HTMLInputElement;
+    expect(cloud.disabled).toBe(true);
+    expect(cloud.checked).toBe(false);
+    expect(screen.getByText("Sign in to save to cloud")).toBeTruthy();
+  });
+
+  it("forces the remembered preference back to off when signed out", async () => {
+    const harness = cloudHarness({
+      session: "signed-out",
+      storedPreference: true,
+    });
+    await captureSuccessfulPopup(harness);
+
+    const cloud = screen.getByLabelText("Cloud") as HTMLInputElement;
+    expect(cloud.checked).toBe(false);
+    expect(harness.deps.cloud.setCloudPreference).toHaveBeenCalledWith(false);
+  });
+
+  it("enables and persists the cloud preference for signed-in users", async () => {
+    const harness = cloudHarness({ session: "signed-in" });
+    await captureSuccessfulPopup(harness);
+
+    const cloud = screen.getByLabelText("Cloud") as HTMLInputElement;
+    expect(cloud.disabled).toBe(false);
+    fireEvent.click(cloud);
+    expect((screen.getByLabelText("Cloud") as HTMLInputElement).checked).toBe(
+      true,
+    );
+    expect(harness.deps.cloud.setCloudPreference).toHaveBeenCalledWith(true);
+  });
+
+  it("queues the cloud job before saving locally", async () => {
+    const directory = new MemoryDirectory("Notes");
+    const order: string[] = [];
+    const harness = cloudHarness({
+      session: "signed-in",
+      rememberedDirectory: directory,
+    });
+    harness.deps.cloud.enqueueCloudSave = vi.fn(async () => {
+      order.push("enqueue");
+      return { ok: true as const, jobId: "job-1" };
+    });
+    harness.deps.createSaver = async () => {
+      const saver = await createLocalMarkdownSaver({
+        store: createMemoryStore(directory),
+        runExclusive,
+      });
+      return {
+        ...saver,
+        save: async (capture, filename) => {
+          order.push("local");
+          return saver.save(capture, filename);
+        },
+      };
+    };
+
+    await captureSuccessfulPopup(harness);
+    fireEvent.click(screen.getByLabelText("Cloud"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/Saved to Notes\//)).toBeTruthy();
+    expect(order).toEqual(["enqueue", "local"]);
+    expect(harness.deps.cloud.enqueueCloudSave).toHaveBeenCalledWith(capture);
+  });
+
+  it("saves locally without enqueueing cloud when Cloud is left off", async () => {
+    const directory = new MemoryDirectory("Notes");
+    const harness = cloudHarness({
+      session: "signed-in",
+      rememberedDirectory: directory,
+    });
+
+    await captureSuccessfulPopup(harness);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/Saved to Notes\//)).toBeTruthy();
+    expect(harness.deps.cloud.enqueueCloudSave).not.toHaveBeenCalled();
+  });
+
+  it("still saves locally when the cloud enqueue fails", async () => {
+    const directory = new MemoryDirectory("Notes");
+    const harness = cloudHarness({
+      session: "signed-in",
+      rememberedDirectory: directory,
+    });
+    harness.deps.cloud.enqueueCloudSave = vi.fn(async () => ({
+      ok: false as const,
+      message: "Could not queue the cloud save",
+    }));
+
+    await captureSuccessfulPopup(harness);
+    fireEvent.click(screen.getByLabelText("Cloud"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/Saved to Notes\//)).toBeTruthy();
+    expect(screen.getByText(/Could not queue the cloud save/)).toBeTruthy();
+  });
+
+  it("shows the current video's saved receipt from the queueStatus", async () => {
+    const harness = cloudHarness({
+      session: "signed-in",
+      queueStatus: {
+        current: {
+          id: "job-1",
+          videoId: "abc123",
+          title: "Ship It",
+          state: "saved",
+          receipt: {
+            videoId: "abc123",
+            libraryItemId: "item-1",
+            outcome: "created",
+            savedAt: "2026-08-21T10:00:00.000Z",
+          },
+        },
+        failed: [],
+      },
+    });
+    await captureSuccessfulPopup(harness);
+
+    await waitFor(() =>
+      expect(screen.getByText("Saved to cloud (created)")).toBeTruthy(),
+    );
+  });
+
+  it("shows a failed cloud save with a retry that reaches the background", async () => {
+    const harness = cloudHarness({
+      session: "signed-in",
+      queueStatus: {
+        current: {
+          id: "job-1",
+          videoId: "abc123",
+          title: "Ship It",
+          state: "failed",
+          failure: {
+            kind: "retryable",
+            code: "interrupted",
+            message: "The upload was interrupted.",
+          },
+        },
+        failed: [],
+      },
+    });
+    await captureSuccessfulPopup(harness);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Cloud save failed: The upload was interrupted/),
+      ).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() =>
+      expect(harness.deps.cloud.retryCloudJob).toHaveBeenCalledWith("job-1"),
+    );
+  });
+
+  it("lists failed cloud saves behind a badge with retries", async () => {
+    const harness = cloudHarness({
+      session: "signed-out",
+      queueStatus: {
+        failed: [
+          {
+            id: "job-1",
+            videoId: "aaaaaaaaaaa",
+            title: "First failure",
+            state: "failed",
+            failure: {
+              kind: "auth",
+              code: "unauthenticated",
+              message: "Sign in again.",
+            },
+          },
+          {
+            id: "job-2",
+            videoId: "bbbbbbbbbbb",
+            title: "Second failure",
+            state: "failed",
+            failure: {
+              kind: "permanent",
+              code: "capture_invalid",
+              message: "Invalid.",
+            },
+          },
+        ],
+      },
+    });
+    await captureSuccessfulPopup(harness);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "2 cloud saves failed" }),
+      ).toBeTruthy(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "2 cloud saves failed" }),
+    );
+
+    expect(screen.getByText("First failure")).toBeTruthy();
+    expect(screen.getByText("Second failure")).toBeTruthy();
+
+    // Auth failures offer retry only after signing in; permanent ones never.
+    expect(screen.getByText("Sign in first")).toBeTruthy();
+    const retries = screen.getAllByRole("button", { name: "Retry" });
+    expect(retries).toHaveLength(1);
+    expect((retries[0] as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

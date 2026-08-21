@@ -1,17 +1,27 @@
+import type { Capture } from "@transcriptly/schema";
 import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
 import { webOrigin } from "@/cloud/client";
+import type { CloudQueueStatus } from "@/cloud/jobs";
 import { createLocalMarkdownSaver } from "@/local-save";
 import {
   CAPTURE_REQUEST,
   type CaptureResponseMessage,
+  CLOUD_JOB_RETRY,
+  CLOUD_QUEUE_STATUS_REQUEST,
+  CLOUD_SAVE_ENQUEUE,
   CLOUD_SESSION_REQUEST,
   CLOUD_SIGN_OUT_REQUEST,
+  type CloudJobRetryStatus,
+  type CloudSaveEnqueueStatus,
   type CloudSessionStatus,
   type CloudSignOutStatus,
 } from "@/shared/messages";
 import { Popup, type PopupDependencies } from "./app";
 import "./style.css";
+
+/** chrome.storage.local key for the remembered Cloud preference (#35). */
+const CLOUD_PREFERENCE_KEY = "cloud-save-enabled";
 
 const dependencies: PopupDependencies = {
   account: {
@@ -45,6 +55,38 @@ const dependencies: PopupDependencies = {
     return response as CaptureResponseMessage;
   },
   createSaver: () => createLocalMarkdownSaver(),
+  cloud: {
+    async enqueueCloudSave(capture: Capture): Promise<CloudSaveEnqueueStatus> {
+      const response = await browser.runtime.sendMessage({
+        type: CLOUD_SAVE_ENQUEUE,
+        capture,
+      });
+      return response as CloudSaveEnqueueStatus;
+    },
+    async getCloudQueueStatus(videoId: string): Promise<CloudQueueStatus> {
+      const response = await browser.runtime.sendMessage({
+        type: CLOUD_QUEUE_STATUS_REQUEST,
+        videoId,
+      });
+      return response as CloudQueueStatus;
+    },
+    async retryCloudJob(jobId: string): Promise<CloudJobRetryStatus> {
+      const response = await browser.runtime.sendMessage({
+        type: CLOUD_JOB_RETRY,
+        jobId,
+      });
+      return response as CloudJobRetryStatus;
+    },
+    async getCloudPreference(): Promise<boolean> {
+      const stored = await browser.storage.local.get(CLOUD_PREFERENCE_KEY);
+      return stored[CLOUD_PREFERENCE_KEY] === true;
+    },
+    async setCloudPreference(enabled: boolean): Promise<void> {
+      await browser.storage.local.set({
+        [CLOUD_PREFERENCE_KEY]: enabled,
+      });
+    },
+  },
 };
 
 const rootElement = document.getElementById("root");

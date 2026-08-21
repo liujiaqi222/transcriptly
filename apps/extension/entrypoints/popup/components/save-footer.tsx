@@ -12,6 +12,10 @@ interface SaveFooterProps {
   directoryName?: string;
   changingFolder: boolean;
   saveState: SaveState;
+  /** Cloud destination toggle (#35): only offered to signed-in users. */
+  cloudEnabled: boolean;
+  cloudAvailable: boolean;
+  onCloudToggle(enabled: boolean): void;
   onSave(): void;
   onChangeFolder(): void;
 }
@@ -22,6 +26,9 @@ export function SaveFooter({
   directoryName,
   changingFolder,
   saveState,
+  cloudEnabled,
+  cloudAvailable,
+  onCloudToggle,
   onSave,
   onChangeFolder,
 }: SaveFooterProps) {
@@ -45,9 +52,19 @@ export function SaveFooter({
         </button>
       </p>
       <label className="toggle">
-        <input type="checkbox" disabled /> Cloud
+        <input
+          type="checkbox"
+          checked={cloudEnabled}
+          disabled={!cloudAvailable}
+          onChange={(event) => onCloudToggle(event.target.checked)}
+        />{" "}
+        Cloud
       </label>
-      <p className="cloud">Sign in to save to cloud</p>
+      <p className="cloud">
+        {cloudAvailable
+          ? "Save a copy to your private cloud library"
+          : "Sign in to save to cloud"}
+      </p>
       {saverError && (
         <p className="error-banner" role="alert">
           {saverError}
