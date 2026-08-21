@@ -28,7 +28,7 @@ export function formatTimestamp(totalSeconds: number): string {
 }
 
 function timestampUrl(url: string, seconds: number): string {
-  return `${url}&t=${seconds}`;
+  return `${url}&t=${seconds}s`;
 }
 
 function buildFrontmatter(source: CaptureSource, capturedAt: string): string {

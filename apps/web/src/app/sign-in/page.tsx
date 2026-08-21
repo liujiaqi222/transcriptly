@@ -1,12 +1,21 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
+import { safeCallbackUrl } from "@/lib/auth/callback-url";
 import { SignInButtons } from "./sign-in-buttons";
 
-export default async function SignInPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackURL?: string }>;
+}) {
+  const [{ callbackURL: rawCallbackURL }, session] = await Promise.all([
+    searchParams,
+    auth.api.getSession({ headers: await headers() }),
+  ]);
+  const callbackURL = safeCallbackUrl(rawCallbackURL);
   if (session) {
-    redirect("/library");
+    redirect(callbackURL);
   }
 
   return (
@@ -18,7 +27,7 @@ export default async function SignInPage() {
         Transcriptly
       </a>
       <p className="mt-12 text-xs font-semibold tracking-[0.16em] text-zinc-500 uppercase">
-        Private library
+        Saved transcripts
       </p>
       <h1 className="mt-3 text-4xl font-bold tracking-[-0.05em] text-zinc-950">
         Sign in to your transcripts.
@@ -27,7 +36,7 @@ export default async function SignInPage() {
         Your cloud captures are private to your account. Local Markdown saves
         remain available without signing in.
       </p>
-      <SignInButtons />
+      <SignInButtons callbackURL={callbackURL} />
       <p className="mt-6 text-xs leading-5 text-zinc-500">
         Sign in with a verified Google or GitHub account. Transcriptly never
         sends provider tokens to the browser.

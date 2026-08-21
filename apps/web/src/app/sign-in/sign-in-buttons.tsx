@@ -10,7 +10,7 @@ const providerLabels: Record<Provider, string> = {
   github: "Continue with GitHub",
 };
 
-export function SignInButtons() {
+export function SignInButtons({ callbackURL }: { callbackURL: string }) {
   const [pendingProvider, setPendingProvider] = useState<Provider>();
   const [error, setError] = useState<string>();
 
@@ -21,7 +21,7 @@ export function SignInButtons() {
     try {
       const result = await authClient.signIn.social({
         provider,
-        callbackURL: "/library",
+        callbackURL,
       });
       if (result.error) {
         setError("Sign-in could not be started. Please try again.");

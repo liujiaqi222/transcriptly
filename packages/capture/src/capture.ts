@@ -169,9 +169,22 @@ function readTranscriptBody(
   const allSegments: CaptureSegment[] = [];
   const allChapters: CaptureChapter[] = [];
 
-  for (const container of Array.from(
+  // The selector list intentionally over-matches (classic DOM, engagement
+  // panel, bare container) to survive YouTube variants. When the panel is
+  // expanded, an outer match (the panel's #contents) nests an inner one
+  // (#segments-container), and iterating both would emit every segment
+  // twice. querySelectorAll returns document order - ancestors first - so
+  // skipping any container nested inside an earlier match keeps only the
+  // outermost container of each region.
+  const matched = Array.from(
     doc.querySelectorAll(selectors.transcript.segmentsContainer),
-  )) {
+  );
+  const containers = matched.filter(
+    (container, index) =>
+      !matched.slice(0, index).some((earlier) => earlier.contains(container)),
+  );
+
+  for (const container of containers) {
     const nodes = Array.from(
       container.querySelectorAll(
         `${selectors.transcript.chapter}, ${selectors.transcript.segment}`,

@@ -17,8 +17,13 @@
       </div>
     </ytd-video-description-transcript-section-renderer>
 
-    <ytd-transcript-renderer>
-      <div id="segments-container">
+    <ytd-engagement-panel-section-list-renderer
+      visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"
+      target-id="engagement-panel-searchable-transcript"
+    >
+      <div id="contents">
+        <ytd-transcript-renderer>
+          <div id="segments-container">
         <ytd-transcript-segment-renderer>
           <div class="segment-timestamp">0:00</div>
           <yt-formatted-string class="segment-text"
@@ -37,7 +42,9 @@
             >so you can stop fighting the compiler</yt-formatted-string
           >
         </ytd-transcript-segment-renderer>
+          </div>
+        </ytd-transcript-renderer>
       </div>
-    </ytd-transcript-renderer>
+    </ytd-engagement-panel-section-list-renderer>
   </body>
 </html>
