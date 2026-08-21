@@ -21,7 +21,7 @@ export function SignInButtons() {
     try {
       const result = await authClient.signIn.social({
         provider,
-        callbackURL: "/library",
+        callbackURL: "/saved",
       });
       if (result.error) {
         setError("Sign-in could not be started. Please try again.");

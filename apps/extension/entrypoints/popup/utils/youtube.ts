@@ -13,5 +13,5 @@ export function isYouTubeWatchUrl(url: string | undefined): boolean {
 }
 
 export function segmentUrl(videoId: string, start: number): string {
-  return `${canonicalWatchUrl(videoId)}&t=${start}`;
+  return `${canonicalWatchUrl(videoId)}&t=${start}s`;
 }

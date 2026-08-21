@@ -100,13 +100,13 @@ describe("serializeToMarkdown", () => {
     expect(third).toBeGreaterThan(second);
 
     expect(markdown).toContain(
-      "- [00:00](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=0) so you've been building agents",
+      "- [00:00](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=0s) so you've been building agents",
     );
     expect(markdown).toContain(
-      "- [01:01](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=61) and you keep hitting the same walls",
+      "- [01:01](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=61s) and you keep hitting the same walls",
     );
     expect(markdown).toContain(
-      "- [1:02:04](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=3724) that's all for today, thanks for watching",
+      "- [1:02:04](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=3724s) that's all for today, thanks for watching",
     );
   });
 

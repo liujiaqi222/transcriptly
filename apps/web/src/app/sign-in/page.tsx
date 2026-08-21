@@ -6,7 +6,7 @@ import { SignInButtons } from "./sign-in-buttons";
 export default async function SignInPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session) {
-    redirect("/library");
+    redirect("/saved");
   }
 
   return (
@@ -18,7 +18,7 @@ export default async function SignInPage() {
         Transcriptly
       </a>
       <p className="mt-12 text-xs font-semibold tracking-[0.16em] text-zinc-500 uppercase">
-        Private library
+        Saved transcripts
       </p>
       <h1 className="mt-3 text-4xl font-bold tracking-[-0.05em] text-zinc-950">
         Sign in to your transcripts.

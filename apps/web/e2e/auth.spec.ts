@@ -71,9 +71,9 @@ test.beforeAll(async () => {
 });
 
 test("unauthenticated visitor enters the sign-in flow", async ({ page }) => {
-  await page.goto("/library");
+  await page.goto("/saved");
 
-  await expect(page).toHaveURL(/\/sign-in\?callbackURL=%2Flibrary$/);
+  await expect(page).toHaveURL(/\/sign-in\?callbackURL=%2Fsaved$/);
   await expect(
     page.getByRole("heading", { name: "Sign in to your transcripts." }),
   ).toBeVisible();
@@ -92,11 +92,11 @@ test("database session grants access to the private empty library", async ({
   const page = await context.newPage();
 
   try {
-    await page.goto("/library");
+    await page.goto("/saved");
 
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/saved$/);
     await expect(
-      page.getByRole("heading", { name: "Your library is empty" }),
+      page.getByRole("heading", { name: "Nothing saved yet" }),
     ).toBeVisible();
     await expect(page.getByText(userEmail)).toBeVisible();
   } finally {
@@ -111,19 +111,19 @@ test("sign-out ends only the current browser session", async ({ browser }) => {
   const secondPage = await secondContext.newPage();
 
   try {
-    await firstPage.goto("/library");
-    await secondPage.goto("/library");
+    await firstPage.goto("/saved");
+    await secondPage.goto("/saved");
 
     await firstPage.getByRole("button", { name: "Sign out" }).click();
     await expect(firstPage).toHaveURL(/\/sign-in$/);
 
-    await firstPage.goto("/library");
-    await expect(firstPage).toHaveURL(/\/sign-in\?callbackURL=%2Flibrary$/);
+    await firstPage.goto("/saved");
+    await expect(firstPage).toHaveURL(/\/sign-in\?callbackURL=%2Fsaved$/);
 
     await secondPage.reload();
-    await expect(secondPage).toHaveURL(/\/library$/);
+    await expect(secondPage).toHaveURL(/\/saved$/);
     await expect(
-      secondPage.getByRole("heading", { name: "Your library is empty" }),
+      secondPage.getByRole("heading", { name: "Nothing saved yet" }),
     ).toBeVisible();
   } finally {
     await firstContext.close();

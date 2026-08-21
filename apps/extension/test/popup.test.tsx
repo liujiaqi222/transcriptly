@@ -196,11 +196,11 @@ describe("popup capture flow", () => {
 
     const first = screen.getByRole("link", { name: "00:00" });
     expect(first.getAttribute("href")).toBe(
-      "https://www.youtube.com/watch?v=abc123&t=0",
+      "https://www.youtube.com/watch?v=abc123&t=0s",
     );
     const second = screen.getByRole("link", { name: "01:02" });
     expect(second.getAttribute("href")).toBe(
-      "https://www.youtube.com/watch?v=abc123&t=62",
+      "https://www.youtube.com/watch?v=abc123&t=62s",
     );
   });
 
