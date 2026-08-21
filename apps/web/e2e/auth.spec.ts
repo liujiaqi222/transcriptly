@@ -104,6 +104,34 @@ test("database session grants access to the private empty library", async ({
   }
 });
 
+test("an already signed-in visitor returns to the requested page", async ({
+  browser,
+}) => {
+  const context = await authenticatedContext(browser, firstSessionToken);
+  const page = await context.newPage();
+
+  try {
+    await page.goto("/sign-in?callbackURL=%2Fsaved%2Fzzzzzzzzzzz");
+    await expect(page).toHaveURL(/\/saved\/zzzzzzzzzzz$/);
+  } finally {
+    await context.close();
+  }
+});
+
+test("an unsafe callback target falls back to the saved list", async ({
+  browser,
+}) => {
+  const context = await authenticatedContext(browser, firstSessionToken);
+  const page = await context.newPage();
+
+  try {
+    await page.goto("/sign-in?callbackURL=%2F%2Fevil.example");
+    await expect(page).toHaveURL(/\/saved$/);
+  } finally {
+    await context.close();
+  }
+});
+
 test("sign-out ends only the current browser session", async ({ browser }) => {
   const firstContext = await authenticatedContext(browser, firstSessionToken);
   const secondContext = await authenticatedContext(browser, secondSessionToken);
