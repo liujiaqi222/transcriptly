@@ -130,6 +130,7 @@ test.beforeAll(async () => {
       { start: 10, text: "Ada Lovelace was the first programmer" },
       { start: 15, text: "Thanks for watching" },
       { start: 20, text: "This partial match should not count" },
+      { start: 25, text: "机器 learning appears in a mixed phrase" },
     ],
     capturedAt: baseCapturedAt,
   });
@@ -215,6 +216,32 @@ test("Latin search respects word boundaries", async ({ request }) => {
   const html = await response.text();
   expect(html).not.toContain("Machine learning basics");
   expect(html).not.toContain("This partial match should not count");
+});
+
+test("Latin name search supports a token prefix", async ({ request }) => {
+  const response = await request.get(
+    `/saved/search?q=${encodeURIComponent("Lovela")}`,
+    { headers: { Cookie: await sessionCookie(ownerToken) } },
+  );
+  expect(response.status()).toBe(200);
+
+  const html = await response.text();
+  expect(html).toContain("Machine learning basics");
+  expect(html).toContain("Ada Lovelace was the first programmer");
+});
+
+test("mixed CJK and Latin search matches a literal substring", async ({
+  request,
+}) => {
+  const response = await request.get(
+    `/saved/search?q=${encodeURIComponent("机器 learning")}`,
+    { headers: { Cookie: await sessionCookie(ownerToken) } },
+  );
+  expect(response.status()).toBe(200);
+
+  const html = await response.text();
+  expect(html).toContain("Machine learning basics");
+  expect(html).toContain("机器 learning appears in a mixed phrase");
 });
 
 test("CJK exact search matches substrings inside a longer segment", async ({
