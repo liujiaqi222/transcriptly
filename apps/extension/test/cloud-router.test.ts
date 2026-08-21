@@ -5,6 +5,13 @@ import type { CloudClient } from "../cloud/client";
 import { createCloudJobStore } from "../cloud/jobs";
 import { createCloudUploadQueue } from "../cloud/queue";
 import { createCloudMessageRouter } from "../cloud/router";
+import {
+  CLOUD_JOB_RETRY,
+  CLOUD_QUEUE_STATUS_REQUEST,
+  CLOUD_SAVE_ENQUEUE,
+  CLOUD_SESSION_REQUEST,
+  CLOUD_SIGN_OUT_REQUEST,
+} from "../shared/messages";
 
 const capture: Capture = {
   source: {
@@ -56,44 +63,68 @@ describe("cloud message router", () => {
     getSession.mockResolvedValue({ status: "signed-in", email: "u@x.test" });
 
     await expect(
-      router.handle({ type: "transcriptly:cloud-session-request" }),
+      router.handle({ type: CLOUD_SESSION_REQUEST }),
     ).resolves.toEqual({ status: "signed-in", email: "u@x.test" });
   });
 
   it("clears every cloud job when the shared session is signed out", async () => {
     await router.handle({
-      type: "transcriptly:cloud-save-enqueue",
+      type: CLOUD_SAVE_ENQUEUE,
       capture,
     });
     await vi.waitFor(async () => {
-      const snapshot = await router.handle({
-        type: "transcriptly:cloud-snapshot-request",
+      const queueStatus = await router.handle({
+        type: CLOUD_QUEUE_STATUS_REQUEST,
         videoId: "abc12345678",
       });
-      if (snapshot && "current" in snapshot && !snapshot.current) {
+      if (queueStatus && "current" in queueStatus && !queueStatus.current) {
         throw new Error("not uploaded yet");
       }
     });
 
     await expect(
-      router.handle({ type: "transcriptly:cloud-sign-out-request" }),
+      router.handle({ type: CLOUD_SIGN_OUT_REQUEST }),
     ).resolves.toEqual({ status: "signed-out" });
 
-    const snapshot = await router.handle({
-      type: "transcriptly:cloud-snapshot-request",
+    const queueStatus = await router.handle({
+      type: CLOUD_QUEUE_STATUS_REQUEST,
       videoId: "abc12345678",
     });
-    expect(snapshot).toEqual({ failed: [] });
+    expect(queueStatus).toEqual({ failed: [] });
   });
 
   it("queues a cloud save and reports the job id", async () => {
     const result = await router.handle({
-      type: "transcriptly:cloud-save-enqueue",
+      type: CLOUD_SAVE_ENQUEUE,
       capture,
     });
 
     expect(result).toEqual({ ok: true, jobId: expect.any(String) });
     await vi.waitFor(() => expect(uploadCapture).toHaveBeenCalledWith(capture));
+  });
+
+  it("records a failed post-sign-out cleanup without changing sign-out success", async () => {
+    const clearAll = vi.fn(async () => {
+      throw new Error("IndexedDB is unavailable");
+    });
+    const failingRouter = createCloudMessageRouter({
+      client: { getSession, signOut } as unknown as CloudClient,
+      queue: { clearAll } as never,
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    await expect(
+      failingRouter.handle({ type: CLOUD_SIGN_OUT_REQUEST }),
+    ).resolves.toEqual({ status: "signed-out" });
+
+    expect(clearAll).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledWith(
+      "Could not clear cloud jobs after sign-out; retry on the next sign-out.",
+      expect.any(Error),
+    );
+    consoleError.mockRestore();
   });
 
   it("reports enqueue failures without throwing", async () => {
@@ -108,7 +139,7 @@ describe("cloud message router", () => {
     });
 
     const result = await failingRouter.handle({
-      type: "transcriptly:cloud-save-enqueue",
+      type: CLOUD_SAVE_ENQUEUE,
       capture,
     });
 
@@ -151,34 +182,38 @@ describe("cloud message router", () => {
       );
 
     const enqueued = await router.handle({
-      type: "transcriptly:cloud-save-enqueue",
+      type: CLOUD_SAVE_ENQUEUE,
       capture,
     });
     await vi.waitFor(async () => {
-      const snapshot = await router.handle({
-        type: "transcriptly:cloud-snapshot-request",
+      const queueStatus = await router.handle({
+        type: CLOUD_QUEUE_STATUS_REQUEST,
         videoId: "abc12345678",
       });
-      if (snapshot && "failed" in snapshot && snapshot.failed.length === 0) {
+      if (
+        queueStatus &&
+        "failed" in queueStatus &&
+        queueStatus.failed.length === 0
+      ) {
         throw new Error("not failed yet");
       }
     });
 
     const retried = await router.handle({
-      type: "transcriptly:cloud-job-retry",
+      type: CLOUD_JOB_RETRY,
       jobId: (enqueued as { jobId: string }).jobId,
     });
     expect(retried).toEqual({ ok: true });
 
     await vi.waitFor(async () => {
-      const snapshot = await router.handle({
-        type: "transcriptly:cloud-snapshot-request",
+      const queueStatus = await router.handle({
+        type: CLOUD_QUEUE_STATUS_REQUEST,
         videoId: "abc12345678",
       });
       if (
-        !snapshot ||
-        !("current" in snapshot) ||
-        snapshot.current?.state !== "saved"
+        !queueStatus ||
+        !("current" in queueStatus) ||
+        queueStatus.current?.state !== "saved"
       ) {
         throw new Error("not saved yet");
       }
@@ -188,7 +223,7 @@ describe("cloud message router", () => {
 
   it("reports a retry for a job that no longer exists", async () => {
     const result = await router.handle({
-      type: "transcriptly:cloud-job-retry",
+      type: CLOUD_JOB_RETRY,
       jobId: "missing",
     });
     expect(result && "ok" in result && result.ok === false).toBe(true);

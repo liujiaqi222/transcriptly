@@ -145,7 +145,7 @@ function createHarness(
         ok: true as const,
         jobId: "job-1",
       })),
-      getCloudSnapshot: vi.fn(async () => ({ failed: [] })),
+      getCloudQueueStatus: vi.fn(async () => ({ failed: [] })),
       retryCloudJob: vi.fn(async () => ({ ok: true as const })),
       getCloudPreference: vi.fn(async () => false),
       setCloudPreference: vi.fn(async () => undefined),
@@ -310,7 +310,7 @@ describe("popup cloud saving", () => {
     options: {
       session?: "signed-in" | "signed-out";
       storedPreference?: boolean;
-      snapshot?: import("../cloud/jobs").CloudSnapshot;
+      queueStatus?: import("../cloud/jobs").CloudQueueStatus;
       rememberedDirectory?: MemoryDirectory;
     } = {},
   ): Harness {
@@ -326,8 +326,8 @@ describe("popup cloud saving", () => {
     harness.deps.cloud.getCloudPreference = vi.fn(
       async () => options.storedPreference === true,
     );
-    harness.deps.cloud.getCloudSnapshot = vi.fn(
-      async () => options.snapshot ?? { failed: [] },
+    harness.deps.cloud.getCloudQueueStatus = vi.fn(
+      async () => options.queueStatus ?? { failed: [] },
     );
     return harness;
   }
@@ -401,6 +401,20 @@ describe("popup cloud saving", () => {
     expect(harness.deps.cloud.enqueueCloudSave).toHaveBeenCalledWith(capture);
   });
 
+  it("saves locally without enqueueing cloud when Cloud is left off", async () => {
+    const directory = new MemoryDirectory("Notes");
+    const harness = cloudHarness({
+      session: "signed-in",
+      rememberedDirectory: directory,
+    });
+
+    await captureSuccessfulPopup(harness);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/Saved to Notes\//)).toBeTruthy();
+    expect(harness.deps.cloud.enqueueCloudSave).not.toHaveBeenCalled();
+  });
+
   it("still saves locally when the cloud enqueue fails", async () => {
     const directory = new MemoryDirectory("Notes");
     const harness = cloudHarness({
@@ -420,10 +434,10 @@ describe("popup cloud saving", () => {
     expect(screen.getByText(/Could not queue the cloud save/)).toBeTruthy();
   });
 
-  it("shows the current video's saved receipt from the snapshot", async () => {
+  it("shows the current video's saved receipt from the queueStatus", async () => {
     const harness = cloudHarness({
       session: "signed-in",
-      snapshot: {
+      queueStatus: {
         current: {
           id: "job-1",
           videoId: "abc123",
@@ -449,7 +463,7 @@ describe("popup cloud saving", () => {
   it("shows a failed cloud save with a retry that reaches the background", async () => {
     const harness = cloudHarness({
       session: "signed-in",
-      snapshot: {
+      queueStatus: {
         current: {
           id: "job-1",
           videoId: "abc123",
@@ -481,7 +495,7 @@ describe("popup cloud saving", () => {
   it("lists failed cloud saves behind a badge with retries", async () => {
     const harness = cloudHarness({
       session: "signed-out",
-      snapshot: {
+      queueStatus: {
         failed: [
           {
             id: "job-1",

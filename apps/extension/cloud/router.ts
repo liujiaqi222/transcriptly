@@ -1,16 +1,21 @@
 import type { CloudClient } from "@/cloud/client";
-import type { CloudSnapshot } from "@/cloud/jobs";
+import type { CloudQueueStatus } from "@/cloud/jobs";
 import type { CloudUploadQueue } from "@/cloud/queue";
-import type {
-  CloudJobRetryMessage,
-  CloudJobRetryStatus,
-  CloudSaveEnqueueMessage,
-  CloudSaveEnqueueStatus,
-  CloudSessionRequestMessage,
-  CloudSessionStatus,
-  CloudSignOutRequestMessage,
-  CloudSignOutStatus,
-  CloudSnapshotRequestMessage,
+import {
+  CLOUD_JOB_RETRY,
+  CLOUD_QUEUE_STATUS_REQUEST,
+  CLOUD_SAVE_ENQUEUE,
+  CLOUD_SESSION_REQUEST,
+  CLOUD_SIGN_OUT_REQUEST,
+  type CloudJobRetryMessage,
+  type CloudJobRetryStatus,
+  type CloudQueueStatusRequestMessage,
+  type CloudSaveEnqueueMessage,
+  type CloudSaveEnqueueStatus,
+  type CloudSessionRequestMessage,
+  type CloudSessionStatus,
+  type CloudSignOutRequestMessage,
+  type CloudSignOutStatus,
 } from "@/shared/messages";
 
 /**
@@ -29,14 +34,14 @@ export type CloudMessage =
   | CloudSessionRequestMessage
   | CloudSignOutRequestMessage
   | CloudSaveEnqueueMessage
-  | CloudSnapshotRequestMessage
+  | CloudQueueStatusRequestMessage
   | CloudJobRetryMessage;
 
 export type CloudMessageResult =
   | CloudSessionStatus
   | CloudSignOutStatus
   | CloudSaveEnqueueStatus
-  | CloudSnapshot
+  | CloudQueueStatus
   | CloudJobRetryStatus;
 
 function errorMessage(error: unknown): string {
@@ -49,23 +54,28 @@ export function createCloudMessageRouter(deps: CloudRouterDependencies) {
       message: CloudMessage,
     ): Promise<CloudMessageResult | undefined> {
       switch (message?.type) {
-        case "transcriptly:cloud-session-request":
+        case CLOUD_SESSION_REQUEST:
           return deps.client.getSession();
 
-        case "transcriptly:cloud-sign-out-request": {
+        case CLOUD_SIGN_OUT_REQUEST: {
           const result = await deps.client.signOut();
           if (result.status === "signed-out") {
             try {
               await deps.queue.clearAll();
-            } catch {
-              // The session is gone either way; leftover Jobs will fail
-              // with 401 on the next attempt and surface the auth prompt.
+            } catch (error) {
+              // Keep the signed-out result: the server session has already
+              // ended. Do not silently lose the local cleanup failure though;
+              // the next sign-out attempt retries clearAll().
+              console.error(
+                "Could not clear cloud jobs after sign-out; retry on the next sign-out.",
+                error,
+              );
             }
           }
           return result;
         }
 
-        case "transcriptly:cloud-save-enqueue": {
+        case CLOUD_SAVE_ENQUEUE: {
           try {
             const job = await deps.queue.enqueue(message.capture);
             return { ok: true, jobId: job.id };
@@ -77,10 +87,10 @@ export function createCloudMessageRouter(deps: CloudRouterDependencies) {
           }
         }
 
-        case "transcriptly:cloud-snapshot-request":
-          return deps.queue.snapshot(message.videoId);
+        case CLOUD_QUEUE_STATUS_REQUEST:
+          return deps.queue.getStatus(message.videoId);
 
-        case "transcriptly:cloud-job-retry": {
+        case CLOUD_JOB_RETRY: {
           try {
             const job = await deps.queue.retry(message.jobId);
             return job

@@ -47,12 +47,12 @@ export type CloudSaveEnqueueStatus =
   | { ok: true; jobId: string }
   | { ok: false; message: string };
 
-/** Ask the background worker for the current cloud queue snapshot (#35). */
-export const CLOUD_SNAPSHOT_REQUEST =
-  "transcriptly:cloud-snapshot-request" as const;
+/** Ask the background worker for the current cloud queue status (#35). */
+export const CLOUD_QUEUE_STATUS_REQUEST =
+  "transcriptly:cloud-queue-status-request" as const;
 
-export interface CloudSnapshotRequestMessage {
-  type: typeof CLOUD_SNAPSHOT_REQUEST;
+export interface CloudQueueStatusRequestMessage {
+  type: typeof CLOUD_QUEUE_STATUS_REQUEST;
   videoId?: string;
 }
 

@@ -71,7 +71,7 @@ export interface CloudJobSummary {
   failure?: CloudFailure;
 }
 
-export interface CloudSnapshot {
+export interface CloudQueueStatus {
   /** Status of the currently viewed video, when a Job or receipt exists. */
   current?: CloudJobSummary;
   /** Every failed Job, for the popup's failure badge. */
@@ -88,8 +88,11 @@ export interface CloudJobStore {
    * and the new Capture is queued behind it (#35 AC).
    */
   enqueue(capture: Capture): Promise<CloudJobRecord>;
-  /** Oldest pending Job in FIFO order, payload included. */
+  /** Atomically claim the oldest pending Job for upload. */
+  claimNextPending(): Promise<CloudJobRecord | undefined>;
+  /** Read the oldest pending Job without claiming it. */
   takeNextPending(): Promise<CloudJobRecord | undefined>;
+  /** Mark a Job uploading; used by recovery/state-focused tests. */
   markUploading(jobId: string): Promise<void>;
   /** Delete the payload and keep only the lightweight receipt. */
   completeSaved(jobId: string, receipt: CloudReceipt): Promise<void>;
@@ -104,7 +107,7 @@ export interface CloudJobStore {
    * never mistake a live upload for a dead worker's leftover.
    */
   recover(options?: { now?: number; skipJobIds?: string[] }): Promise<void>;
-  snapshot(videoId?: string): Promise<CloudSnapshot>;
+  getStatus(videoId?: string): Promise<CloudQueueStatus>;
   /** Sign-out: drop every Job, payload and receipt (#36 AC). */
   clearAll(): Promise<void>;
 }
@@ -229,12 +232,33 @@ export function createCloudJobStore(
       });
     },
 
+    async claimNextPending() {
+      return withStore("readwrite", async (store) => {
+        const records = (await request(
+          store.index("state").getAll("pending"),
+        )) as CloudJobRecord[];
+        if (records.length === 0) return undefined;
+        records.sort((a, b) => {
+          if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+          return a.id < b.id ? -1 : 1;
+        });
+        const job = records[0];
+        if (!job) return undefined;
+        const claimed = {
+          ...job,
+          state: "uploading" as const,
+          updatedAt: now(),
+        };
+        store.put(claimed);
+        return claimed;
+      });
+    },
+
     async takeNextPending() {
       return withStore("readonly", async (store) => {
         const records = (await request(
           store.index("state").getAll("pending"),
         )) as CloudJobRecord[];
-        if (records.length === 0) return undefined;
         records.sort((a, b) => {
           if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
           return a.id < b.id ? -1 : 1;
@@ -351,7 +375,7 @@ export function createCloudJobStore(
       });
     },
 
-    async snapshot(videoId) {
+    async getStatus(videoId) {
       return withStore("readonly", async (store) => {
         const failed: CloudJobSummary[] = [];
         let current: CloudJobSummary | undefined;

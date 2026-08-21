@@ -4,7 +4,7 @@ import type {
   CloudFailure,
   CloudJobRecord,
   CloudJobStore,
-  CloudSnapshot,
+  CloudQueueStatus,
 } from "@/cloud/jobs";
 
 /**
@@ -144,7 +144,7 @@ export interface CloudUploadQueue {
   enqueue(capture: Capture): Promise<CloudJobRecord>;
   /** Re-queue a failed Job and start draining the queue. */
   retry(jobId: string): Promise<CloudJobRecord | undefined>;
-  snapshot(videoId?: string): Promise<CloudSnapshot>;
+  getStatus(videoId?: string): Promise<CloudQueueStatus>;
   /** Startup recovery plus a drain. */
   recoverAndDrain(): Promise<void>;
   /** Sign-out: drop all Jobs and receipts. */
@@ -174,7 +174,6 @@ export function createCloudUploadQueue(
     if (!job.capture) return;
     activeJobId = job.id;
     try {
-      await store.markUploading(job.id);
       const response = await client.uploadCapture(job.capture);
       const success = await parseUploadResponse(response);
       await store.completeSaved(job.id, {
@@ -195,7 +194,7 @@ export function createCloudUploadQueue(
     draining = true;
     try {
       for (;;) {
-        const job = await store.takeNextPending();
+        const job = await store.claimNextPending();
         if (!job?.capture) break;
         await runJob(job);
       }
@@ -217,8 +216,8 @@ export function createCloudUploadQueue(
       return record;
     },
 
-    snapshot(videoId) {
-      return store.snapshot(videoId);
+    getStatus(videoId) {
+      return store.getStatus(videoId);
     },
 
     async recoverAndDrain() {

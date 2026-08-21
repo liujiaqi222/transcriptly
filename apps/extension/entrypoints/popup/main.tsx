@@ -2,16 +2,16 @@ import type { Capture } from "@transcriptly/schema";
 import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
 import { webOrigin } from "@/cloud/client";
-import type { CloudSnapshot } from "@/cloud/jobs";
+import type { CloudQueueStatus } from "@/cloud/jobs";
 import { createLocalMarkdownSaver } from "@/local-save";
 import {
   CAPTURE_REQUEST,
   type CaptureResponseMessage,
   CLOUD_JOB_RETRY,
+  CLOUD_QUEUE_STATUS_REQUEST,
   CLOUD_SAVE_ENQUEUE,
   CLOUD_SESSION_REQUEST,
   CLOUD_SIGN_OUT_REQUEST,
-  CLOUD_SNAPSHOT_REQUEST,
   type CloudJobRetryStatus,
   type CloudSaveEnqueueStatus,
   type CloudSessionStatus,
@@ -63,12 +63,12 @@ const dependencies: PopupDependencies = {
       });
       return response as CloudSaveEnqueueStatus;
     },
-    async getCloudSnapshot(videoId: string): Promise<CloudSnapshot> {
+    async getCloudQueueStatus(videoId: string): Promise<CloudQueueStatus> {
       const response = await browser.runtime.sendMessage({
-        type: CLOUD_SNAPSHOT_REQUEST,
+        type: CLOUD_QUEUE_STATUS_REQUEST,
         videoId,
       });
-      return response as CloudSnapshot;
+      return response as CloudQueueStatus;
     },
     async retryCloudJob(jobId: string): Promise<CloudJobRetryStatus> {
       const response = await browser.runtime.sendMessage({

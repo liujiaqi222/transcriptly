@@ -3,6 +3,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { type BrowserContext, chromium, expect, test } from "@playwright/test";
+import { CLOUD_SAVE_ENQUEUE } from "../shared/messages";
 
 const extensionPath = path.resolve(".output-e2e/chrome-mv3");
 const manifestPath = path.join(extensionPath, "manifest.json");
@@ -167,13 +168,16 @@ test("cloud upload completes after the popup closes and leaves only a receipt", 
 
     // Queue the cloud save through the same runtime message the popup uses,
     // then close the popup immediately (#35 AC: the upload must survive it).
-    await popup.evaluate(async (capture) => {
-      const chrome = (window as unknown as { chrome: ChromeRuntime }).chrome;
-      await chrome.runtime.sendMessage({
-        type: "transcriptly:cloud-save-enqueue",
-        capture,
-      });
-    }, capturePayload);
+    await popup.evaluate(
+      async ({ capture, messageType }) => {
+        const chrome = (window as unknown as { chrome: ChromeRuntime }).chrome;
+        await chrome.runtime.sendMessage({
+          type: messageType,
+          capture,
+        });
+      },
+      { capture: capturePayload, messageType: CLOUD_SAVE_ENQUEUE },
+    );
     await popup.close();
 
     await expect

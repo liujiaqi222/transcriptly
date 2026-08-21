@@ -89,6 +89,23 @@ describe("cloud job store", () => {
     expect(second.receipt).toBeUndefined();
   });
 
+  it("claims a pending job atomically before a replacement can be enqueued", async () => {
+    const first = await store.enqueue(captureFor("abc12345678", "Old title"));
+
+    const claimed = await store.claimNextPending();
+    expect(claimed?.id).toBe(first.id);
+    expect(claimed?.state).toBe("uploading");
+
+    const second = await store.enqueue(captureFor("abc12345678", "New title"));
+    expect(second.id).not.toBe(first.id);
+    expect(second.state).toBe("pending");
+    expect(second.capture?.source.title).toBe("New title");
+
+    const next = await store.claimNextPending();
+    expect(next?.id).toBe(second.id);
+    expect(next?.state).toBe("uploading");
+  });
+
   it("drains pending jobs in FIFO order", async () => {
     await store.enqueue(captureFor("aaaaaaaaaaa"));
     nowMs += 1_000;
@@ -127,9 +144,9 @@ describe("cloud job store", () => {
       savedAt: new Date(nowMs).toISOString(),
     });
 
-    const snapshot = await store.snapshot("abc12345678");
-    expect(snapshot.current?.state).toBe("saved");
-    expect(snapshot.current?.receipt).toEqual({
+    const queueStatus = await store.getStatus("abc12345678");
+    expect(queueStatus.current?.state).toBe("saved");
+    expect(queueStatus.current?.receipt).toEqual({
       videoId: "abc12345678",
       libraryItemId: "item-1",
       outcome: "created",
@@ -160,13 +177,13 @@ describe("cloud job store", () => {
       savedAt: new Date(nowMs).toISOString(),
     });
 
-    const snapshot = await store.snapshot("abc12345678");
-    expect(snapshot.current?.receipt?.outcome).toBe("updated");
+    const queueStatus = await store.getStatus("abc12345678");
+    expect(queueStatus.current?.receipt?.outcome).toBe("updated");
 
     // The older receipt for the same video is gone; only one record remains.
-    const failed = await store.snapshot();
+    const failed = await store.getStatus();
     expect(failed.failed).toEqual([]);
-    expect(snapshot.current?.id).toBe(second.id);
+    expect(queueStatus.current?.id).toBe(second.id);
   });
 
   it("keeps the payload of a failed job for an explicit retry", async () => {
@@ -179,18 +196,18 @@ describe("cloud job store", () => {
       httpStatus: 401,
     });
 
-    let snapshot = await store.snapshot("abc12345678");
-    expect(snapshot.current?.state).toBe("failed");
-    expect(snapshot.current?.failure?.kind).toBe("auth");
-    expect(snapshot.failed).toHaveLength(1);
+    let queueStatus = await store.getStatus("abc12345678");
+    expect(queueStatus.current?.state).toBe("failed");
+    expect(queueStatus.current?.failure?.kind).toBe("auth");
+    expect(queueStatus.failed).toHaveLength(1);
 
     const retried = await store.retry(job.id);
     expect(retried?.state).toBe("pending");
     expect(retried?.capture).toEqual(captureFor("abc12345678"));
 
-    snapshot = await store.snapshot("abc12345678");
-    expect(snapshot.current?.state).toBe("pending");
-    expect(snapshot.failed).toHaveLength(0);
+    queueStatus = await store.getStatus("abc12345678");
+    expect(queueStatus.current?.state).toBe("pending");
+    expect(queueStatus.failed).toHaveLength(0);
   });
 
   it("marks jobs stuck in uploading as failed instead of replaying them", async () => {
@@ -199,10 +216,10 @@ describe("cloud job store", () => {
 
     await store.recover();
 
-    const snapshot = await store.snapshot("abc12345678");
-    expect(snapshot.current?.state).toBe("failed");
-    expect(snapshot.current?.failure?.kind).toBe("retryable");
-    expect(snapshot.current?.failure?.code).toBe("interrupted");
+    const queueStatus = await store.getStatus("abc12345678");
+    expect(queueStatus.current?.state).toBe("failed");
+    expect(queueStatus.current?.failure?.kind).toBe("retryable");
+    expect(queueStatus.current?.failure?.code).toBe("interrupted");
     // Recovery never re-uploads on its own.
     expect(await store.takeNextPending()).toBeUndefined();
   });
@@ -218,11 +235,11 @@ describe("cloud job store", () => {
 
     nowMs += FAILED_JOB_RETENTION_MS - 1_000;
     await store.recover();
-    expect((await store.snapshot()).failed).toHaveLength(1);
+    expect((await store.getStatus()).failed).toHaveLength(1);
 
     nowMs += 2_000;
     await store.recover();
-    expect((await store.snapshot()).failed).toHaveLength(0);
+    expect((await store.getStatus()).failed).toHaveLength(0);
   });
 
   it("clears every job and receipt on sign-out", async () => {
@@ -244,8 +261,8 @@ describe("cloud job store", () => {
 
     await store.clearAll();
 
-    const snapshot = await store.snapshot();
-    expect(snapshot.failed).toEqual([]);
-    expect(snapshot.current).toBeUndefined();
+    const queueStatus = await store.getStatus();
+    expect(queueStatus.failed).toEqual([]);
+    expect(queueStatus.current).toBeUndefined();
   });
 });

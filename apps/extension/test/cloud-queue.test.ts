@@ -85,18 +85,18 @@ describe("cloud upload queue", () => {
 
   async function waitForSaved(videoId: string) {
     await vi.waitFor(async () => {
-      const snapshot = await queue.snapshot(videoId);
-      if (snapshot.current?.state !== "saved") {
-        throw new Error(`not saved yet: ${snapshot.current?.state}`);
+      const queueStatus = await queue.getStatus(videoId);
+      if (queueStatus.current?.state !== "saved") {
+        throw new Error(`not saved yet: ${queueStatus.current?.state}`);
       }
     });
   }
 
   async function waitForFailed(videoId: string) {
     await vi.waitFor(async () => {
-      const snapshot = await queue.snapshot(videoId);
-      if (snapshot.current?.state !== "failed") {
-        throw new Error(`not failed yet: ${snapshot.current?.state}`);
+      const queueStatus = await queue.getStatus(videoId);
+      if (queueStatus.current?.state !== "failed") {
+        throw new Error(`not failed yet: ${queueStatus.current?.state}`);
       }
     });
   }
@@ -110,8 +110,8 @@ describe("cloud upload queue", () => {
     expect(upload).toHaveBeenCalledTimes(1);
     expect(upload).toHaveBeenCalledWith(captureFor("abc12345678"));
 
-    const snapshot = await queue.snapshot("abc12345678");
-    expect(snapshot.current?.receipt).toMatchObject({
+    const queueStatus = await queue.getStatus("abc12345678");
+    expect(queueStatus.current?.receipt).toMatchObject({
       libraryItemId: "item-1",
       outcome: "updated",
       savedAt: new Date(nowMs).toISOString(),
@@ -155,15 +155,15 @@ describe("cloud upload queue", () => {
       const job = await queue.enqueue(captureFor("abc12345678"));
       await waitForFailed("abc12345678");
 
-      const failed = (await queue.snapshot("abc12345678")).current;
+      const failed = (await queue.getStatus("abc12345678")).current;
       expect(failed?.failure?.kind).toBe(expectedKind);
 
       await queue.retry(job.id);
       await waitForSaved("abc12345678");
 
       expect(upload).toHaveBeenCalledTimes(2);
-      const snapshot = await queue.snapshot("abc12345678");
-      expect(snapshot.current?.receipt?.outcome).toBe("unchanged");
+      const queueStatus = await queue.getStatus("abc12345678");
+      expect(queueStatus.current?.receipt?.outcome).toBe("unchanged");
     },
   );
 
@@ -178,9 +178,9 @@ describe("cloud upload queue", () => {
     const job = await queue.enqueue(captureFor("abc12345678"));
     await waitForFailed("abc12345678");
 
-    const snapshot = await queue.snapshot("abc12345678");
-    expect(snapshot.current?.failure?.kind).toBe("permanent");
-    expect(snapshot.current?.failure?.code).toBe(code);
+    const queueStatus = await queue.getStatus("abc12345678");
+    expect(queueStatus.current?.failure?.kind).toBe("permanent");
+    expect(queueStatus.current?.failure?.code).toBe(code);
 
     const retried = await queue.retry(job.id);
     expect(retried).toBeUndefined();
@@ -194,8 +194,8 @@ describe("cloud upload queue", () => {
     const job = await queue.enqueue(captureFor("abc12345678"));
     await waitForFailed("abc12345678");
 
-    const snapshot = await queue.snapshot("abc12345678");
-    expect(snapshot.current?.failure?.kind).toBe("auth");
+    const queueStatus = await queue.getStatus("abc12345678");
+    expect(queueStatus.current?.failure?.kind).toBe("auth");
     // No automatic second attempt: only the explicit retry re-uploads.
     expect(upload).toHaveBeenCalledTimes(1);
 
@@ -243,9 +243,9 @@ describe("cloud upload queue", () => {
     });
     await restarted.recoverAndDrain();
     await vi.waitFor(async () => {
-      const snapshot = await restarted.snapshot("abc12345678");
-      if (snapshot.current?.state !== "saved") {
-        throw new Error(`not saved yet: ${snapshot.current?.state}`);
+      const queueStatus = await restarted.getStatus("abc12345678");
+      if (queueStatus.current?.state !== "saved") {
+        throw new Error(`not saved yet: ${queueStatus.current?.state}`);
       }
     });
     expect(upload).toHaveBeenCalledTimes(1);
@@ -257,9 +257,9 @@ describe("cloud upload queue", () => {
 
     await queue.recoverAndDrain();
 
-    const snapshot = await queue.snapshot("abc12345678");
-    expect(snapshot.current?.state).toBe("failed");
-    expect(snapshot.current?.failure?.code).toBe("interrupted");
+    const queueStatus = await queue.getStatus("abc12345678");
+    expect(queueStatus.current?.state).toBe("failed");
+    expect(queueStatus.current?.failure?.code).toBe("interrupted");
     expect(upload).not.toHaveBeenCalled();
 
     // An explicit retry does upload.
@@ -284,7 +284,7 @@ describe("cloud upload queue", () => {
 
     // The alarm fires mid-upload.
     await queue.recoverAndDrain();
-    const midFlight = await queue.snapshot("abc12345678");
+    const midFlight = await queue.getStatus("abc12345678");
     expect(midFlight.current?.state).toBe("uploading");
 
     gate.resolve();
@@ -298,9 +298,9 @@ describe("cloud upload queue", () => {
 
     await queue.clearAll();
 
-    const snapshot = await queue.snapshot("abc12345678");
-    expect(snapshot.current).toBeUndefined();
-    expect(snapshot.failed).toEqual([]);
+    const queueStatus = await queue.getStatus("abc12345678");
+    expect(queueStatus.current).toBeUndefined();
+    expect(queueStatus.failed).toEqual([]);
   });
 });
 

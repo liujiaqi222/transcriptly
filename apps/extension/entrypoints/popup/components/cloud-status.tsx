@@ -1,8 +1,8 @@
 import { useState } from "react";
-import type { CloudJobSummary, CloudSnapshot } from "@/cloud/jobs";
+import type { CloudJobSummary, CloudQueueStatus } from "@/cloud/jobs";
 
 interface CloudStatusPanelProps {
-  snapshot?: CloudSnapshot;
+  queueStatus?: CloudQueueStatus;
   /** Popup-local enqueue/retry errors that never became a Job. */
   cloudError?: string;
   signedIn: boolean;
@@ -15,14 +15,14 @@ interface CloudStatusPanelProps {
  * explicit Retry. Internal queue details stay hidden.
  */
 export function CloudStatusPanel({
-  snapshot,
+  queueStatus,
   cloudError,
   signedIn,
   onRetry,
 }: CloudStatusPanelProps) {
   const [failedOpen, setFailedOpen] = useState(false);
-  const failed = snapshot?.failed ?? [];
-  const current = snapshot?.current;
+  const failed = queueStatus?.failed ?? [];
+  const current = queueStatus?.current;
 
   return (
     <section className="cloud-status" aria-label="Cloud save status">

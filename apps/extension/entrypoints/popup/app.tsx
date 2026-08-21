@@ -1,7 +1,7 @@
 import { parseVideoId } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CloudSnapshot } from "@/cloud/jobs";
+import type { CloudQueueStatus } from "@/cloud/jobs";
 import {
   type AccountDependencies,
   AccountSection,
@@ -29,7 +29,7 @@ export interface PopupTab {
 /** The popup's window into the background cloud queue (#35, #36). */
 export interface CloudDependencies {
   enqueueCloudSave(capture: Capture): Promise<CloudSaveEnqueueStatus>;
-  getCloudSnapshot(videoId: string): Promise<CloudSnapshot>;
+  getCloudQueueStatus(videoId: string): Promise<CloudQueueStatus>;
   retryCloudJob(jobId: string): Promise<CloudJobRetryStatus>;
   /** Remembered Cloud preference, persisted per installation. */
   getCloudPreference(): Promise<boolean>;
@@ -49,8 +49,8 @@ type CaptureState =
   | { status: "ready"; capture: Capture }
   | { status: "error"; message: string };
 
-/** Poll cadence for the cloud snapshot while the popup is open. */
-const SNAPSHOT_POLL_MS = 1500;
+/** Poll cadence for the cloud queue status while the popup is open. */
+const QUEUE_STATUS_POLL_MS = 1500;
 
 export function Popup({ deps }: { deps: PopupDependencies }) {
   const [captureState, setCaptureState] = useState<CaptureState>({
@@ -62,9 +62,11 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   // Cloud preference must never be applied to a signed-out popup (#35 AC).
   const sessionKnownRef = useRef<"unknown" | "in" | "out">("unknown");
   const [cloudEnabled, setCloudEnabled] = useState(false);
-  const [snapshot, setSnapshot] = useState<CloudSnapshot | undefined>();
+  const [queueStatus, setQueueStatus] = useState<
+    CloudQueueStatus | undefined
+  >();
   const [cloudError, setCloudError] = useState<string | undefined>();
-  const [snapshotRefresh, setSnapshotRefresh] = useState(0);
+  const [queueStatusRefresh, setQueueStatusRefresh] = useState(0);
   const [saver, setSaver] = useState<LocalMarkdownSaver | undefined>();
   const [saverError, setSaverError] = useState<string | undefined>();
   const [directoryName, setDirectoryName] = useState<string | undefined>();
@@ -72,8 +74,8 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [changingFolder, setChangingFolder] = useState(false);
 
-  const refreshSnapshot = useCallback(() => {
-    setSnapshotRefresh((count) => count + 1);
+  const refreshQueueStatus = useCallback(() => {
+    setQueueStatusRefresh((count) => count + 1);
   }, []);
 
   const runCapture = useCallback(async () => {
@@ -184,28 +186,28 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     [deps],
   );
 
-  // Poll the background snapshot for the current video so Saving / Saved /
-  // Failed survive popup close and reopen (#35 AC). Bumping snapshotRefresh
+  // Poll the background queueStatus for the current video so Saving / Saved /
+  // Failed survive popup close and reopen (#35 AC). Bumping queueStatusRefresh
   // forces an immediate re-poll after enqueue/retry.
   useEffect(() => {
     if (!activeVideoId) return;
-    void snapshotRefresh;
+    void queueStatusRefresh;
     let cancelled = false;
     const poll = async () => {
       try {
-        const next = await deps.cloud.getCloudSnapshot(activeVideoId);
-        if (!cancelled) setSnapshot(next);
+        const next = await deps.cloud.getCloudQueueStatus(activeVideoId);
+        if (!cancelled) setQueueStatus(next);
       } catch {
         // The background worker is unreachable; the next tick retries.
       }
     };
     void poll();
-    const timer = setInterval(() => void poll(), SNAPSHOT_POLL_MS);
+    const timer = setInterval(() => void poll(), QUEUE_STATUS_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [activeVideoId, snapshotRefresh, deps]);
+  }, [activeVideoId, queueStatusRefresh, deps]);
 
   const handleCloudToggle = useCallback(
     (enabled: boolean) => {
@@ -221,7 +223,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         const result = await deps.cloud.retryCloudJob(jobId);
         if (result.ok) {
           setCloudError(undefined);
-          refreshSnapshot();
+          refreshQueueStatus();
         } else {
           setCloudError(result.message);
         }
@@ -229,7 +231,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         setCloudError(errorMessage(error));
       }
     },
-    [deps, refreshSnapshot],
+    [deps, refreshQueueStatus],
   );
 
   const handleSave = async () => {
@@ -243,7 +245,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         const result = await deps.cloud.enqueueCloudSave(captureState.capture);
         if (result.ok) {
           setCloudError(undefined);
-          refreshSnapshot();
+          refreshQueueStatus();
         } else {
           setCloudError(result.message);
         }
@@ -288,7 +290,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         onSessionChange={handleSessionChange}
       />
       <CloudStatusPanel
-        snapshot={snapshot}
+        queueStatus={queueStatus}
         cloudError={cloudError}
         signedIn={signedIn}
         onRetry={(jobId) => void handleRetry(jobId)}
