@@ -317,6 +317,24 @@ test("a shared transcript does not grant library item access", async ({
   }
 });
 
+test("hides pagination when items fit on a single page", async ({
+  browser,
+}) => {
+  const context = await authenticatedContext(browser, peerToken);
+  const page = await context.newPage();
+
+  try {
+    await page.goto("/saved");
+
+    await expect(page.locator("main ul > li")).toHaveCount(2);
+    await expect(
+      page.getByRole("navigation", { name: "Pagination" }),
+    ).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
 test("keeps private pages out of robots and sitemap", async ({ request }) => {
   const robots = await request.get("/robots.txt");
   expect(robots.status()).toBe(200);

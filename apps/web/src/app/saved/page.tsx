@@ -102,38 +102,40 @@ export default async function SavedPage({
               ))}
             </ul>
 
-            <nav
-              aria-label="Pagination"
-              className="mt-10 flex items-center justify-between"
-            >
-              {result.page > 1 ? (
-                <a
-                  className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"
-                  href={pageHref(result.page - 1)}
-                >
-                  ← Previous
-                </a>
-              ) : (
-                <span className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-300">
-                  ← Previous
+            {result.pageCount > 1 ? (
+              <nav
+                aria-label="Pagination"
+                className="mt-10 flex items-center justify-between"
+              >
+                {result.page > 1 ? (
+                  <a
+                    className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"
+                    href={pageHref(result.page - 1)}
+                  >
+                    ← Previous
+                  </a>
+                ) : (
+                  <span className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-300">
+                    ← Previous
+                  </span>
+                )}
+                <span className="text-sm text-zinc-500">
+                  Page {result.page} of {result.pageCount}
                 </span>
-              )}
-              <span className="text-sm text-zinc-500">
-                Page {result.page} of {result.pageCount}
-              </span>
-              {result.page < result.pageCount ? (
-                <a
-                  className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"
-                  href={pageHref(result.page + 1)}
-                >
-                  Next →
-                </a>
-              ) : (
-                <span className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-300">
-                  Next →
-                </span>
-              )}
-            </nav>
+                {result.page < result.pageCount ? (
+                  <a
+                    className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"
+                    href={pageHref(result.page + 1)}
+                  >
+                    Next →
+                  </a>
+                ) : (
+                  <span className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-300">
+                    Next →
+                  </span>
+                )}
+              </nav>
+            ) : null}
           </>
         )}
       </section>
