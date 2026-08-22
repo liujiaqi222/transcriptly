@@ -3,6 +3,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createIndexedDbDirectoryStore,
+  createIndexedDbLocalReceiptStore,
   createLocalMarkdownSaver,
   type LocalDirectoryHandle,
   type LocalSaveError,
@@ -124,6 +125,27 @@ describe("local Markdown saving", () => {
     indexedDB = new IDBFactory();
   });
 
+  it("persists and filters local save receipts by directory", async () => {
+    const receipts = createIndexedDbLocalReceiptStore(indexedDB);
+    await receipts.put({
+      videoId: "abc123",
+      filename: "first.md",
+      directoryName: "First",
+      savedAt: "2026-08-15T10:30:00.000Z",
+    });
+    await receipts.put({
+      videoId: "abc123",
+      filename: "second.md",
+      directoryName: "Second",
+      savedAt: "2026-08-15T10:31:00.000Z",
+    });
+
+    await expect(receipts.getAll("First")).resolves.toEqual([
+      expect.objectContaining({ filename: "first.md" }),
+    ]);
+    await expect(receipts.getAll()).resolves.toHaveLength(2);
+  });
+
   it("persists the selected directory handle in IndexedDB", async () => {
     const directory = {
       name: "Transcript Vault",
@@ -140,22 +162,32 @@ describe("local Markdown saving", () => {
     const directory = new MemoryDirectory("Transcript Vault");
     const pickDirectory = vi.fn(async () => directory);
     const store = createMemoryStore();
+    const receiptStore = createIndexedDbLocalReceiptStore(indexedDB);
 
     const runExclusive = createExclusiveRunner();
     const firstSaver = await createLocalMarkdownSaver({
       store,
+      receiptStore,
       pickDirectory,
       runExclusive,
     });
     const first = await firstSaver.save(capture);
     const secondSaver = await createLocalMarkdownSaver({
       store,
+      receiptStore,
       pickDirectory,
       runExclusive,
     });
     const second = await secondSaver.save(capture, "edited title.md");
 
     expect(pickDirectory).toHaveBeenCalledTimes(1);
+    await expect(receiptStore.getAll("Transcript Vault")).resolves.toEqual([
+      expect.objectContaining({
+        videoId: "abc123",
+        filename: "edited title.md",
+        directoryName: "Transcript Vault",
+      }),
+    ]);
     expect(first).toEqual({
       directoryName: "Transcript Vault",
       filename: "2026-08-15 · build-agents-a-practical-guide.md",
@@ -206,6 +238,27 @@ describe("local Markdown saving", () => {
     expect(directory.files.get("notes.md")).toBe("original");
     expect(directory.files.get("notes (2).md")).toBe("second");
     expect(directory.files.get("notes (3).md")).toContain("Start here.");
+  });
+
+  it("keeps a completed file when the local receipt cannot be written", async () => {
+    const directory = new MemoryDirectory("Vault");
+    const receiptStore = {
+      getAll: vi.fn(async () => []),
+      put: vi.fn(async () => {
+        throw new Error("index unavailable");
+      }),
+    };
+    const saver = await createLocalMarkdownSaver({
+      ...createSaverOptions(directory),
+      receiptStore,
+    });
+
+    await expect(saver.save(capture, "indexed.md")).resolves.toEqual({
+      directoryName: "Vault",
+      filename: "indexed.md",
+      receiptError: "Could not update the local save index: index unavailable",
+    });
+    expect(directory.files.has("indexed.md")).toBe(true);
   });
 
   it("reports a clear error and removes a file created by a failed write", async () => {

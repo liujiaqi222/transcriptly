@@ -368,34 +368,33 @@ async function readTranscriptFromDom(
   selectors: SiteSelectors,
   options: CaptureOptions,
 ): Promise<TranscriptBody | null> {
-  let body = readTranscriptBody(doc, selectors);
-  if (body.segments.length > 0) return body;
-
-  const section = doc.querySelector(selectors.transcript.section);
-  if (!section) return null;
-
-  const openButton = section.querySelector<HTMLElement>(
-    selectors.transcript.openButton,
-  );
-  if (!openButton) {
-    return null;
-  }
-
-  openButton.click();
-  body = readTranscriptBody(doc, selectors);
-  if (body.segments.length > 0) return body;
-
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const deadline = Date.now() + timeoutMs;
+  let panelClicked = false;
 
-  while (Date.now() < deadline) {
-    await sleep(pollIntervalMs);
-    body = readTranscriptBody(doc, selectors);
+  // The transcript section may not exist yet on a freshly loaded (or
+  // background) tab, so keep waiting for it instead of failing fast: poll
+  // for segments, click "Show transcript" as soon as the button appears,
+  // and keep polling until the segments render.
+  for (;;) {
+    const body = readTranscriptBody(doc, selectors);
     if (body.segments.length > 0) return body;
-  }
 
-  return null;
+    if (!panelClicked) {
+      const section = doc.querySelector(selectors.transcript.section);
+      const openButton = section?.querySelector<HTMLElement>(
+        selectors.transcript.openButton,
+      );
+      if (openButton) {
+        openButton.click();
+        panelClicked = true;
+      }
+    }
+
+    if (Date.now() >= deadline) return null;
+    await sleep(pollIntervalMs);
+  }
 }
 
 export async function capture(

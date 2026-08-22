@@ -1,0 +1,195 @@
+import type { CloudReceipt } from "@/cloud/jobs";
+import type { LocalSaveReceipt } from "@/local-save";
+
+export const BATCH_MAX_ITEMS = 20;
+const DATABASE_NAME = "transcriptly-batch";
+const DATABASE_VERSION = 1;
+const TASK_STORE = "tasks";
+
+export type BatchDestination = "local" | "cloud";
+export type BatchItemState =
+  | "queued"
+  | "running"
+  | "saved"
+  | "failed"
+  | "skipped"
+  | "cancelled";
+
+export interface BatchVideo {
+  videoId: string;
+  url: string;
+  title: string;
+}
+
+export interface BatchItem {
+  video: BatchVideo;
+  local: BatchItemState;
+  cloud: BatchItemState;
+  localReceipt?: LocalSaveReceipt;
+  cloudReceipt?: CloudReceipt;
+  localError?: string;
+  cloudError?: string;
+  /** Cloud Job this item's capture was handed to, for traceability. */
+  cloudJobId?: string;
+}
+
+export interface BatchTask {
+  id: string;
+  destinations: BatchDestination[];
+  items: BatchItem[];
+  state: "queued" | "running" | "paused" | "completed" | "stopped";
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface BatchJobStore {
+  create(
+    videos: BatchVideo[],
+    options: {
+      destinations: BatchDestination[];
+      localReceipts?: LocalSaveReceipt[];
+      cloudReceipts?: CloudReceipt[];
+      now?: number;
+      newId?: () => string;
+    },
+  ): Promise<BatchTask>;
+  get(id: string): Promise<BatchTask | undefined>;
+  put(task: BatchTask): Promise<void>;
+  list(): Promise<BatchTask[]>;
+}
+
+function request<T>(operation: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    operation.onsuccess = () => resolve(operation.result);
+    operation.onerror = () => reject(operation.error);
+  });
+}
+
+function transactionComplete(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error);
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+function openDatabase(indexedDB: IDBFactory): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const operation = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    operation.onupgradeneeded = () => {
+      if (!operation.result.objectStoreNames.contains(TASK_STORE)) {
+        operation.result.createObjectStore(TASK_STORE, { keyPath: "id" });
+      }
+    };
+    operation.onsuccess = () => resolve(operation.result);
+    operation.onerror = () => reject(operation.error);
+  });
+}
+
+async function withStore<T>(
+  indexedDB: IDBFactory,
+  mode: IDBTransactionMode,
+  action: (store: IDBObjectStore) => Promise<T>,
+): Promise<T> {
+  const database = await openDatabase(indexedDB);
+  try {
+    const transaction = database.transaction(TASK_STORE, mode);
+    const result = await action(transaction.objectStore(TASK_STORE));
+    await transactionComplete(transaction);
+    return result;
+  } finally {
+    database.close();
+  }
+}
+
+function uniqueDestinations(
+  destinations: BatchDestination[],
+): BatchDestination[] {
+  return [...new Set(destinations)];
+}
+
+export function createBatchJobStore(
+  options: { indexedDB?: IDBFactory; newId?: () => string } = {},
+): BatchJobStore {
+  const indexedDB = options.indexedDB ?? globalThis.indexedDB;
+  const newId = options.newId ?? (() => crypto.randomUUID());
+
+  return {
+    async create(videos, createOptions) {
+      if (videos.length === 0) throw new Error("Select at least one video.");
+      if (videos.length > BATCH_MAX_ITEMS) {
+        throw new Error(`Select no more than ${BATCH_MAX_ITEMS} videos.`);
+      }
+      const destinations = uniqueDestinations(createOptions.destinations);
+      if (destinations.length === 0) {
+        throw new Error("Select at least one save destination.");
+      }
+      const localByVideo = new Map(
+        (createOptions.localReceipts ?? []).map((receipt) => [
+          receipt.videoId,
+          receipt,
+        ]),
+      );
+      const cloudByVideo = new Map(
+        (createOptions.cloudReceipts ?? []).map((receipt) => [
+          receipt.videoId,
+          receipt,
+        ]),
+      );
+      const now = createOptions.now ?? Date.now();
+      const task: BatchTask = {
+        id: (createOptions.newId ?? newId)(),
+        destinations,
+        items: videos.map((video) => {
+          const localReceipt = localByVideo.get(video.videoId);
+          const cloudReceipt = cloudByVideo.get(video.videoId);
+          return {
+            video,
+            local: destinations.includes("local")
+              ? localReceipt
+                ? "skipped"
+                : "queued"
+              : "skipped",
+            cloud: destinations.includes("cloud")
+              ? cloudReceipt
+                ? "skipped"
+                : "queued"
+              : "skipped",
+            ...(localReceipt ? { localReceipt } : {}),
+            ...(cloudReceipt ? { cloudReceipt } : {}),
+          };
+        }),
+        state: "queued",
+        createdAt: now,
+        updatedAt: now,
+      };
+      await withStore(indexedDB, "readwrite", async (store) => {
+        store.put(task);
+      });
+      return task;
+    },
+
+    get(id) {
+      return withStore(
+        indexedDB,
+        "readonly",
+        async (store) =>
+          (await request(store.get(id))) as BatchTask | undefined,
+      );
+    },
+
+    async put(task) {
+      await withStore(indexedDB, "readwrite", async (store) => {
+        store.put(task);
+      });
+    },
+
+    list() {
+      return withStore(
+        indexedDB,
+        "readonly",
+        async (store) => (await request(store.getAll())) as BatchTask[],
+      );
+    },
+  };
+}

@@ -5,11 +5,16 @@ import type { CloudQueueStatus } from "@/cloud/jobs";
 import {
   type AccountDependencies,
   AccountSection,
+  BatchSourceView,
   CaptureView,
   CloudStatusPanel,
   type SaveState,
 } from "@/entrypoints/popup/components";
-import { errorMessage, isYouTubeWatchUrl } from "@/entrypoints/popup/utils";
+import {
+  errorMessage,
+  isBatchSourceUrl,
+  isYouTubeWatchUrl,
+} from "@/entrypoints/popup/utils";
 import {
   type LocalMarkdownSaver,
   suggestedMarkdownFilename,
@@ -48,7 +53,6 @@ type CaptureState =
   | { status: "capturing" }
   | { status: "ready"; capture: Capture }
   | { status: "error"; message: string };
-
 /** Poll cadence for the cloud queue status while the popup is open. */
 const QUEUE_STATUS_POLL_MS = 1500;
 
@@ -73,6 +77,8 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   const [saver, setSaver] = useState<LocalMarkdownSaver | undefined>();
   const [saverError, setSaverError] = useState<string | undefined>();
   const [directoryName, setDirectoryName] = useState<string | undefined>();
+  const [folderReady, setFolderReady] = useState<boolean | undefined>();
+  const [batchSource, setBatchSource] = useState(false);
   const [filename, setFilename] = useState("");
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [changingFolder, setChangingFolder] = useState(false);
@@ -84,6 +90,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   const runCapture = useCallback(async () => {
     setCaptureState({ status: "capturing" });
     setSaveState({ status: "idle" });
+    setBatchSource(false);
     try {
       const tab = await deps.getActiveTab();
       if (!tab) {
@@ -94,6 +101,13 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         return;
       }
       if (tab.id === undefined || !isYouTubeWatchUrl(tab.url)) {
+        if (isBatchSourceUrl(tab.url)) {
+          // Batch pages keep the folder picker available (#26): it is the
+          // only place the user can re-grant folder access for the worker.
+          setBatchSource(true);
+          setCaptureState({ status: "capturing" });
+          return;
+        }
         setCaptureState({
           status: "error",
           message:
@@ -151,6 +165,27 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       cancelled = true;
     };
   }, [deps]);
+
+  // Track whether the background worker can write without a prompt, so the
+  // batch-source view can ask for a re-grant when Chrome dropped access.
+  useEffect(() => {
+    let cancelled = false;
+    if (!saver || !directoryName) {
+      setFolderReady(undefined);
+      return;
+    }
+    saver
+      .hasWritePermission()
+      .then((ready) => {
+        if (!cancelled) setFolderReady(ready);
+      })
+      .catch(() => {
+        if (!cancelled) setFolderReady(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [saver, directoryName]);
 
   // Apply the remembered preference only after the current session is known.
   // This avoids a race between storage and the account session check.
@@ -301,7 +336,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         onRetry={(jobId) => void handleRetry(jobId)}
       />
 
-      {captureState.status === "capturing" && (
+      {!batchSource && captureState.status === "capturing" && (
         <div className="capturing" role="status">
           <p>Capturing transcript…</p>
           <div className="skeleton" />
@@ -317,6 +352,17 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
             Try again
           </button>
         </div>
+      )}
+
+      {batchSource && (
+        <BatchSourceView
+          saver={saver}
+          saverError={saverError}
+          directoryName={directoryName}
+          changingFolder={changingFolder}
+          folderReady={folderReady}
+          onChangeFolder={() => void handleChangeFolder()}
+        />
       )}
 
       {captureState.status === "ready" && (

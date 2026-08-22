@@ -255,6 +255,32 @@ describe("popup capture flow", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
   });
 
+  it("directs channel pages to the batch panel but keeps the folder picker", async () => {
+    const harness = createHarness({
+      tab: { id: 3, url: "https://www.youtube.com/@eoglobal" },
+    });
+    render(<Popup deps={harness.deps} />);
+    expect(
+      await screen.findByText(
+        /Select videos using the Transcriptly batch panel/,
+      ),
+    ).toBeTruthy();
+    expect(harness.deps.requestCapture).not.toHaveBeenCalled();
+    expect(screen.getByText(/Save to:/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Change" })).toBeTruthy();
+  });
+
+  it("warns on batch pages when folder access expired", async () => {
+    const directory = new MemoryDirectory("Notes");
+    directory.permission = "prompt";
+    const harness = createHarness({
+      tab: { id: 3, url: "https://www.youtube.com/playlist?list=PL1" },
+      rememberedDirectory: directory,
+    });
+    render(<Popup deps={harness.deps} />);
+    expect(await screen.findByText(/Write access is not active/)).toBeTruthy();
+  });
+
   it("reports non-YouTube tabs explicitly", async () => {
     const harness = createHarness({
       tab: { id: 3, url: "https://vimeo.com/12345" },
@@ -374,9 +400,11 @@ describe("popup cloud saving", () => {
     });
     await captureSuccessfulPopup(harness);
 
-    expect((screen.getByLabelText("Cloud") as HTMLInputElement).checked).toBe(
-      true,
-    );
+    await waitFor(() => {
+      expect((screen.getByLabelText("Cloud") as HTMLInputElement).checked).toBe(
+        true,
+      );
+    });
     expect(harness.deps.cloud.getCloudPreference).toHaveBeenCalled();
   });
 
