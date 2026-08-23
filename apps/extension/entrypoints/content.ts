@@ -1,4 +1,5 @@
 import { captureOutcome } from "@transcriptly/capture";
+import { mountBatchProgressCapsule } from "@/batch/capsule";
 import { enterBatchSelectionMode } from "@/batch/page-ui";
 import {
   BATCH_ENTER_SELECTION_REQUEST,
@@ -15,6 +16,11 @@ import {
 export default defineContentScript({
   matches: ["*://www.youtube.com/*", "*://m.youtube.com/*"],
   main() {
+    // The floating progress capsule (#58) is independent of selection
+    // mode: batch source pages show it whenever a batch is running, and
+    // it opens the manager page on click.
+    mountBatchProgressCapsule();
+
     browser.runtime.onMessage.addListener(
       (
         message:

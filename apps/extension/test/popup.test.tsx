@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import type { Capture } from "@transcriptly/schema";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { BatchTask } from "../batch/jobs";
 import {
   Popup,
   type PopupDependencies,
@@ -136,6 +137,8 @@ function createHarness(
     getActiveTab: vi.fn(async () => options.tab),
     requestCapture: vi.fn(async () => ({ ok: true as const, capture })),
     enterBatchSelection: vi.fn(async () => ({ ok: true as const })),
+    getBatchStatus: vi.fn(async () => ({ tasks: [] })),
+    openBatchManager: vi.fn(),
     closePopup: vi.fn(),
     account: {
       getCloudSession: vi.fn(async () => ({ status: "signed-out" as const })),
@@ -386,6 +389,95 @@ describe("popup capture flow", () => {
     expect(
       await screen.findByText(/No transcript found on this video/),
     ).toBeTruthy();
+  });
+});
+
+describe("popup batch manager entry (#58)", () => {
+  function batchTask(overrides: Partial<BatchTask> = {}): BatchTask {
+    return {
+      id: "task-1",
+      destinations: ["local"],
+      items: [
+        {
+          video: {
+            videoId: "abc12345678",
+            url: "https://www.youtube.com/watch?v=abc12345678",
+            title: "First video",
+          },
+          local: "saved",
+          cloud: "skipped",
+        },
+        {
+          video: {
+            videoId: "def12345678",
+            url: "https://www.youtube.com/watch?v=def12345678",
+            title: "Second video",
+          },
+          local: "failed",
+          cloud: "skipped",
+        },
+        {
+          video: {
+            videoId: "ghi12345678",
+            url: "https://www.youtube.com/watch?v=ghi12345678",
+            title: "Third video",
+          },
+          local: "running",
+          cloud: "skipped",
+        },
+      ],
+      state: "running",
+      createdAt: Date.parse("2026-08-22T00:00:00.000Z"),
+      updatedAt: Date.parse("2026-08-22T00:00:01.000Z"),
+      ...overrides,
+    };
+  }
+
+  it("shows live progress for a running batch and opens the manager page", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.getBatchStatus = vi.fn(async () => ({
+      tasks: [batchTask()],
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    expect(
+      await screen.findByText(
+        "Batch capture in progress · 2/3 done · 1 failed",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open batch manager" }));
+    expect(harness.deps.openBatchManager).toHaveBeenCalledWith("task-1");
+  });
+
+  it("keeps the entry for a paused batch, marked as waiting", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.getBatchStatus = vi.fn(async () => ({
+      tasks: [batchTask({ state: "paused" })],
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    expect(
+      await screen.findByText(
+        "Paused batch · 2/3 done · 1 failed - waiting to be resumed",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Open batch manager" }),
+    ).toBeTruthy();
+  });
+
+  it("hides the entry when every batch is finished", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.getBatchStatus = vi.fn(async () => ({
+      tasks: [batchTask({ state: "completed" })],
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    await screen.findByLabelText("File name");
+    expect(
+      screen.queryByRole("button", { name: "Open batch manager" }),
+    ).toBeNull();
   });
 });
 

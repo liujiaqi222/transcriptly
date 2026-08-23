@@ -297,6 +297,20 @@ h2 {
   cursor: default;
 }
 
+/* Batch manager entry (#58) */
+
+.batch-activity {
+  margin: 0 0 10px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.batch-activity p {
+  margin: 0 0 6px;
+}
+
 /* Cloud account */
 
 .account {

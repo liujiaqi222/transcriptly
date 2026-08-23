@@ -2,7 +2,6 @@ import { discoverLoadedVideos, isBatchSourceUrl } from "@/batch/discovery";
 import {
   BATCH_MAX_ITEMS,
   type BatchDestination,
-  type BatchTask,
   type BatchVideo,
 } from "@/batch/jobs";
 import {
@@ -11,18 +10,11 @@ import {
 } from "@/entrypoints/popup/utils/youtube";
 import {
   BATCH_LOOKUP_REQUEST,
-  BATCH_PAUSE,
-  BATCH_RESUME,
-  BATCH_RETRY_ITEM,
   BATCH_START,
-  BATCH_STATUS_REQUEST,
-  BATCH_STOP,
   type BatchEnterSelectionStatus,
   type BatchLookupResult,
   type BatchLookupVideo,
-  type BatchMutationStatus,
   type BatchStartStatus,
-  type BatchStatusResult,
   CLOUD_SESSION_REQUEST,
   type CloudSessionStatus,
 } from "@/shared/messages";
@@ -41,6 +33,12 @@ import {
  * a bottom-center toast (3 s, latest only) - persistent info (count, ETA)
  * stays in the toolbar.
  *
+ * Progress, per-item results, controls and history live on the manager
+ * page (#58): Start opens it on the new task and resets the toolbar so
+ * another batch can be queued right away. On batch source pages the
+ * floating capsule (batch/capsule.ts) links back to the manager while a
+ * batch runs.
+ *
  * Lifecycle: the whole mode is torn down (panel, toast, styles, every
  * checkbox and badge, card markers, observer, listeners) on ✕ / Esc / SPA
  * navigation to a page that is neither a batch source nor a watch page.
@@ -52,7 +50,6 @@ const CLOUD_PREFERENCE_KEY = "cloud-save-enabled";
 const ROOT_ID = "transcriptly-batch-panel";
 const TOAST_ID = "transcriptly-batch-toast";
 const CARD_MARKER = "data-transcriptly-batch";
-const STATUS_POLL_MS = 1000;
 /** Load more: hard stops after this many discovered cards or seconds (#57). */
 const LOAD_MORE_MAX_CARDS = 100;
 const LOAD_MORE_TIMEOUT_MS = 10_000;
@@ -110,21 +107,6 @@ function addStyles() {
     #${ROOT_ID} .start-button { display: block; width: calc(100% - 28px); margin: 0 14px 14px; padding: 8px 0; border: 0; border-radius: 10px; background: #232323; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
     #${ROOT_ID} .start-button:hover { background: #000; }
     #${ROOT_ID} .start-button:disabled { background: #d9d9d9; color: #6e6e6e; cursor: default; }
-    #${ROOT_ID} .task-view { border-top: 1px solid #ececec; max-height: 52vh; overflow-y: auto; }
-    #${ROOT_ID} .summary { margin: 0; padding: 12px 14px 4px; font-weight: 600; }
-    #${ROOT_ID} .task-hint { margin: 0; padding: 0 14px 8px; color: #6e6e6e; font-size: 12px; }
-    #${ROOT_ID} .controls { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 10px; }
-    #${ROOT_ID} .controls button, #${ROOT_ID} .item button { padding: 5px 10px; border: 1px solid #d9d9d9; border-radius: 8px; background: #fff; color: #232323; font: inherit; font-size: 12px; cursor: pointer; }
-    #${ROOT_ID} .controls button:hover, #${ROOT_ID} .item button:hover { background: #f5f5f5; }
-    #${ROOT_ID} .item { padding: 8px 14px; border-top: 1px solid #f0f0f0; }
-    #${ROOT_ID} .item-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #${ROOT_ID} .chips { margin: 3px 0; }
-    #${ROOT_ID} .chip { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: #f1f3f4; color: #5f6368; }
-    #${ROOT_ID} .chip-saved { background: #e6f4ea; color: #137333; }
-    #${ROOT_ID} .chip-failed, #${ROOT_ID} .chip-cancelled { background: #fce8e6; color: #b3261e; }
-    #${ROOT_ID} .chip-running { background: #e8f0fe; color: #1a73e8; }
-    #${ROOT_ID} .chip-skipped { background: #f1f3f4; color: #5f6368; }
-    #${ROOT_ID} .item-error { margin: 2px 0; color: #b3261e; font-size: 12px; }
     #${TOAST_ID} { position: fixed; left: 50%; bottom: 36px; z-index: 2147483647; transform: translateX(-50%) translateY(8px); max-width: min(480px, 80vw); padding: 10px 18px; border-radius: 999px; background: #232323; color: #fff; font: 13px/1.4 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; box-shadow: 0 8px 28px rgba(15,22,36,.35); opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
     #${TOAST_ID}.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
     .transcriptly-batch-check { position: absolute; top: 0; left: 0; z-index: 3; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; -webkit-user-select: none; user-select: none; }
@@ -145,46 +127,6 @@ function cardFor(anchor: HTMLAnchorElement): Element {
       "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-video-renderer",
     ) ?? anchor
   );
-}
-
-function textFor(state: string, destination: string): string {
-  return `${destination}: ${state}`;
-}
-
-function chip(
-  item: BatchTask["items"][number],
-  destination: BatchDestination,
-): string {
-  const state = destination === "local" ? item.local : item.cloud;
-  return `<span class="chip chip-${state}">${textFor(state, destination)}</span>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function summarize(task: BatchTask) {
-  let saved = 0;
-  let failed = 0;
-  let skipped = 0;
-  let pending = 0;
-  for (const item of task.items) {
-    const states = task.destinations.map((destination) =>
-      destination === "local" ? item.local : item.cloud,
-    );
-    if (states.every((state) => state === "saved")) saved += 1;
-    else if (states.some((state) => state === "failed")) failed += 1;
-    else if (
-      states.every((state) => state === "skipped" || state === "cancelled")
-    )
-      skipped += 1;
-    else pending += 1;
-  }
-  return { saved, failed, skipped, pending, total: task.items.length };
 }
 
 function batchFullToast(): string {
@@ -237,11 +179,6 @@ export async function enterBatchSelectionMode(
   let refreshing = false;
   let refreshQueued = false;
 
-  // --- task view state ---------------------------------------------------
-  let activeTaskId: string | undefined;
-  let lastTask: BatchTask | undefined;
-  let pollTimer: number | undefined;
-
   const panel = document.createElement("aside");
   panel.id = ROOT_ID;
   panel.innerHTML = `
@@ -263,13 +200,10 @@ export async function enterBatchSelectionMode(
       </div>
       <button type="button" class="start-button" data-action="start">Start ▸</button>
     </div>
-    <div class="task-view" hidden></div>
   `;
   document.body.append(panel);
 
   const counter = panel.querySelector<HTMLElement>(".counter");
-  const selectView = panel.querySelector<HTMLElement>(".select-view");
-  const taskView = panel.querySelector<HTMLElement>(".task-view");
   const localInput = panel.querySelector<HTMLInputElement>(
     '[data-destination="local"]',
   );
@@ -616,177 +550,6 @@ export async function enterBatchSelectionMode(
       updateToolbar();
     });
 
-  // --- task view ---------------------------------------------------------
-  async function refreshTask() {
-    if (!activeTaskId) return;
-    try {
-      const result = await runtime.sendMessage<BatchStatusResult>({
-        type: BATCH_STATUS_REQUEST,
-        taskId: activeTaskId,
-      });
-      lastTask = result.tasks[0];
-    } catch {
-      // The worker is unreachable; the next poll retries.
-      return;
-    }
-    renderTask();
-  }
-
-  function renderTask() {
-    if (!taskView) return;
-    if (!lastTask) {
-      taskView.innerHTML = `<p class="summary">Loading batch…</p>`;
-      return;
-    }
-    const task = lastTask;
-    const counts = summarize(task);
-    const parts = [
-      `${counts.saved + counts.skipped}/${counts.total} done`,
-      ...(counts.failed > 0 ? [`${counts.failed} failed`] : []),
-      ...(counts.skipped > 0 ? [`${counts.skipped} skipped`] : []),
-    ];
-    const stateLabel =
-      task.state === "running" || task.state === "queued"
-        ? "Running"
-        : task.state === "paused"
-          ? "Paused"
-          : task.state === "stopped"
-            ? "Stopped"
-            : "Completed";
-
-    const controls: string[] = [];
-    if (task.state === "running" || task.state === "queued") {
-      controls.push('<button type="button" data-action="pause">Pause</button>');
-    }
-    if (task.state === "paused") {
-      controls.push(
-        '<button type="button" data-action="resume">Resume</button>',
-      );
-    }
-    if (
-      task.state === "running" ||
-      task.state === "queued" ||
-      task.state === "paused"
-    ) {
-      controls.push(
-        '<button type="button" data-action="stop">Stop pending items</button>',
-      );
-    }
-    controls.push(
-      '<button type="button" data-action="back">Back to selection</button>',
-    );
-
-    const items = task.items
-      .map((item) => {
-        const chips = task.destinations
-          .map((destination) => chip(item, destination))
-          .join("");
-        const errors = task.destinations
-          .map((destination) => {
-            const error =
-              destination === "local" ? item.localError : item.cloudError;
-            return error
-              ? `<div class="item-error">${escapeHtml(`${destination}: ${error}`)}</div>`
-              : "";
-          })
-          .join("");
-        const retryable = task.destinations.some((destination) =>
-          ["failed", "skipped", "cancelled"].includes(
-            destination === "local" ? item.local : item.cloud,
-          ),
-        );
-        const retry = retryable
-          ? `<button type="button" data-action="retry" data-video-id="${item.video.videoId}">Retry</button>`
-          : "";
-        return `<div class="item" data-video-id="${item.video.videoId}">
-          <div class="item-title" title="${escapeHtml(item.video.title)}">${escapeHtml(item.video.title)}</div>
-          <div class="chips">${chips}</div>
-          ${errors}
-          ${retry}
-        </div>`;
-      })
-      .join("");
-
-    taskView.innerHTML = `
-      <p class="summary">${stateLabel} · ${parts.join(" · ")}</p>
-      <p class="task-hint">Each video opens in a foreground tab while its transcript is captured, then closes automatically.</p>
-      <div class="controls">${controls.join("")}</div>
-      ${items}
-    `;
-  }
-
-  async function sendMutation(message: unknown): Promise<BatchMutationStatus> {
-    try {
-      return await runtime.sendMessage<BatchMutationStatus>(message);
-    } catch (error) {
-      return {
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  function enterTaskMode(taskId: string) {
-    activeTaskId = taskId;
-    lastTask = undefined;
-    stopLoadMore();
-    if (selectView) selectView.hidden = true;
-    if (taskView) taskView.hidden = false;
-    renderTask();
-    void refreshTask();
-    if (pollTimer === undefined) {
-      pollTimer = window.setInterval(() => void refreshTask(), STATUS_POLL_MS);
-    }
-  }
-
-  function exitTaskMode() {
-    activeTaskId = undefined;
-    lastTask = undefined;
-    if (pollTimer !== undefined) {
-      clearInterval(pollTimer);
-      pollTimer = undefined;
-    }
-    if (taskView) {
-      taskView.hidden = true;
-      taskView.innerHTML = "";
-    }
-    if (selectView) selectView.hidden = false;
-    if (startButton) {
-      startButton.disabled = false;
-      startButton.textContent = "Start ▸";
-    }
-    updateToolbar();
-  }
-
-  taskView?.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest("button");
-    if (!button || !activeTaskId) return;
-    const action = button.dataset.action;
-    const taskId = activeTaskId;
-    if (action === "pause") {
-      void sendMutation({ type: BATCH_PAUSE, taskId }).then(() =>
-        refreshTask(),
-      );
-    } else if (action === "resume") {
-      void sendMutation({ type: BATCH_RESUME, taskId }).then(() =>
-        refreshTask(),
-      );
-    } else if (action === "stop") {
-      void sendMutation({ type: BATCH_STOP, taskId }).then(() => refreshTask());
-    } else if (action === "retry") {
-      const videoId = button.dataset.videoId;
-      if (videoId) {
-        void sendMutation({
-          type: BATCH_RETRY_ITEM,
-          taskId,
-          videoId,
-        }).then(() => refreshTask());
-      }
-    } else if (action === "back") {
-      exitTaskMode();
-    }
-  });
-
   // --- start -------------------------------------------------------------
   startButton?.addEventListener("click", async () => {
     const videos = [...selectedVideoIds]
@@ -810,10 +573,14 @@ export async function enterBatchSelectionMode(
         destinations,
       });
       if (result.ok) {
-        // #57: Start jumps straight to the batch manager page; the
-        // in-panel task view remains as the transitional monitor.
+        // #58: Start jumps to the batch manager page, which now owns
+        // progress, results, controls and history. The toolbar resets
+        // so the next batch can be queued right away.
         runtime.openManagerTab(result.taskId);
-        enterTaskMode(result.taskId);
+        selectedVideoIds.clear();
+        if (startButton) startButton.disabled = false;
+        if (startButton) startButton.textContent = "Start ▸";
+        updateToolbar();
       } else {
         showToast(result.message);
         if (startButton) startButton.disabled = false;
@@ -865,7 +632,6 @@ export async function enterBatchSelectionMode(
 
   // Only react to page mutations outside our own panel.
   const observer = new MutationObserver((mutations) => {
-    if (activeTaskId) return;
     if (mutations.every((mutation) => panel.contains(mutation.target))) return;
     refreshCards();
   });
@@ -874,10 +640,6 @@ export async function enterBatchSelectionMode(
   // Full teardown (#56): panel, toast, styles, every checkbox and badge,
   // card markers, the observer and every listener - zero page residue.
   const teardown = () => {
-    if (pollTimer !== undefined) {
-      clearInterval(pollTimer);
-      pollTimer = undefined;
-    }
     stopLoadMore();
     dismissToast();
     observer.disconnect();

@@ -31,6 +31,10 @@ export interface BatchItem {
   cloudError?: string;
   /** Cloud Job this item's capture was handed to, for traceability. */
   cloudJobId?: string;
+  /** When this item's current attempt started (ms epoch), for the ETA. */
+  startedAt?: number;
+  /** When this item's current attempt reached a terminal state (ms epoch). */
+  finishedAt?: number;
 }
 
 export interface BatchTask {
