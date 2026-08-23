@@ -30,6 +30,15 @@ services:
     build:
       context: .
       target: app
+      args:
+        DATABASE_URL: postgresql://${POSTGRES_USER:-transcriptly}:${POSTGRES_PASSWORD:-transcriptly}@postgres:5432/${POSTGRES_DB:-transcriptly}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
+        BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+        GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:?Set GITHUB_CLIENT_ID in .env}
+        GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:?Set GITHUB_CLIENT_SECRET in .env}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in .env}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET in .env}
+        EXTENSION_ORIGINS: ${EXTENSION_ORIGINS:-}
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-transcriptly}:${POSTGRES_PASSWORD:-transcriptly}@postgres:5432/${POSTGRES_DB:-transcriptly}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
