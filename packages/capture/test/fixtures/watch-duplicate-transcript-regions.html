@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="title" content="Duplicate transcript regions" />
+    <meta name="description" content="YouTube rendered the same transcript twice." />
+    <link itemprop="name" content="Regression Channel" />
+    <link itemprop="url" href="https://www.youtube.com/@regressionchannel" />
+  </head>
+  <body>
+    <ytd-engagement-panel-section-list-renderer
+      visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"
+      target-id="engagement-panel-searchable-transcript"
+    >
+      <div id="contents">
+        <transcript-segment-view-model>
+          <div class="ytwTranscriptSegmentViewModelTimestamp">0:00</div>
+          <span role="text">first segment</span>
+        </transcript-segment-view-model>
+        <transcript-segment-view-model>
+          <div class="ytwTranscriptSegmentViewModelTimestamp">0:08</div>
+          <span role="text">second segment</span>
+        </transcript-segment-view-model>
+      </div>
+    </ytd-engagement-panel-section-list-renderer>
+
+    <ytd-engagement-panel-section-list-renderer
+      visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"
+      target-id="engagement-panel-searchable-transcript"
+    >
+      <div id="contents">
+        <transcript-segment-view-model>
+          <div class="ytwTranscriptSegmentViewModelTimestamp">0:00</div>
+          <span role="text">first segment</span>
+        </transcript-segment-view-model>
+        <transcript-segment-view-model>
+          <div class="ytwTranscriptSegmentViewModelTimestamp">0:08</div>
+          <span role="text">second segment</span>
+        </transcript-segment-view-model>
+      </div>
+    </ytd-engagement-panel-section-list-renderer>
+  </body>
+</html>

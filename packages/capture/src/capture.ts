@@ -262,6 +262,8 @@ function readTranscriptBody(
 ): TranscriptBody {
   const allSegments: CaptureSegment[] = [];
   const allChapters: CaptureChapter[] = [];
+  const seenSegments = new Set<string>();
+  const seenChapters = new Set<string>();
 
   // The selector list intentionally over-matches (classic DOM, engagement
   // panel, bare container) to survive YouTube variants. When the panel is
@@ -332,8 +334,28 @@ function readTranscriptBody(
         segments.push({ start, text });
       }
     }
-    allSegments.push(...segments);
-    allChapters.push(...chapters);
+    // Current YouTube layouts can split one transcript across sibling
+    // #contents containers, so every outermost region must be read. In some
+    // SPA states, however, two sibling regions contain the same rendered
+    // transcript. Deduplicate only across regions by the canonical fields;
+    // unique segments from genuinely split regions are still appended.
+    const unseenSegments = segments.filter(
+      (segment) =>
+        !seenSegments.has(JSON.stringify([segment.start, segment.text])),
+    );
+    const unseenChapters = chapters.filter(
+      (chapter) =>
+        !seenChapters.has(JSON.stringify([chapter.start, chapter.title])),
+    );
+
+    for (const segment of segments) {
+      seenSegments.add(JSON.stringify([segment.start, segment.text]));
+    }
+    for (const chapter of chapters) {
+      seenChapters.add(JSON.stringify([chapter.start, chapter.title]));
+    }
+    allSegments.push(...unseenSegments);
+    allChapters.push(...unseenChapters);
   }
 
   return { segments: allSegments, chapters: allChapters };
