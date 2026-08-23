@@ -121,9 +121,6 @@ export function createBatchJobStore(
   return {
     async create(videos, createOptions) {
       if (videos.length === 0) throw new Error("Select at least one video.");
-      if (videos.length > BATCH_MAX_ITEMS) {
-        throw new Error(`Select no more than ${BATCH_MAX_ITEMS} videos.`);
-      }
       const destinations = uniqueDestinations(createOptions.destinations);
       if (destinations.length === 0) {
         throw new Error("Select at least one save destination.");
@@ -140,6 +137,16 @@ export function createBatchJobStore(
           receipt,
         ]),
       );
+      const runnableCount = videos.filter((video) =>
+        destinations.some((destination) =>
+          destination === "local"
+            ? !localByVideo.has(video.videoId)
+            : !cloudByVideo.has(video.videoId),
+        ),
+      ).length;
+      if (runnableCount > BATCH_MAX_ITEMS) {
+        throw new Error(`Select no more than ${BATCH_MAX_ITEMS} videos.`);
+      }
       const now = createOptions.now ?? Date.now();
       const task: BatchTask = {
         id: (createOptions.newId ?? newId)(),
