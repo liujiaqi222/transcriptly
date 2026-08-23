@@ -59,6 +59,12 @@ export interface LocalMarkdownSaver {
   getSavedDirectoryName(): Promise<string | undefined>;
   /** Whether a write needs no permission prompt (e.g. in a worker). */
   hasWritePermission(): Promise<boolean>;
+  /**
+   * Ask for write permission explicitly. Must run inside a user
+   * gesture (the manager page's grant button, #59); resolves false
+   * when there is no folder or the user denies.
+   */
+  requestWritePermission(): Promise<boolean>;
   save(capture: Capture, filename?: string): Promise<LocalSaveResult>;
 }
 
@@ -385,6 +391,17 @@ export async function createLocalMarkdownSaver(
       try {
         return (
           (await savedDirectory.queryPermission({ mode: "readwrite" })) ===
+          "granted"
+        );
+      } catch {
+        return false;
+      }
+    },
+    async requestWritePermission() {
+      if (!savedDirectory) return false;
+      try {
+        return (
+          (await savedDirectory.requestPermission({ mode: "readwrite" })) ===
           "granted"
         );
       } catch {

@@ -1,5 +1,5 @@
 import type { CloudReceipt } from "@/cloud/jobs";
-import type { LocalSaveReceipt } from "@/local-save";
+import type { LocalSaveReceipt, LocalSaveResult } from "@/local-save";
 
 export const BATCH_MAX_ITEMS = 50;
 const DATABASE_NAME = "transcriptly-batch";
@@ -14,6 +14,36 @@ export type BatchItemState =
   | "failed"
   | "skipped"
   | "cancelled";
+
+/**
+ * Why a batch is paused (#59). Persisted with the task so the manager and
+ * popup can show the matching action (continue / grant / reopen) instead
+ * of guessing from error text. Records written before #59 carry no
+ * reason and render as a plain user pause.
+ */
+export type BatchPauseReason =
+  | "user"
+  | "browser-restart"
+  | "local-permission"
+  | "local-save-unavailable";
+
+/** Result of asking the Manager Local Save Host for permission (#59). */
+export type LocalPreflightOutcome =
+  | { status: "ok"; directoryName: string }
+  | { status: "permission-required" }
+  | { status: "no-directory" }
+  | { status: "unavailable"; message: string };
+
+/**
+ * Result of one local save through the Manager Local Save Host (#59).
+ * Typed - never string-matched: `permission-required` and `unavailable`
+ * pause the whole batch, `error` fails only the single item.
+ */
+export type LocalSaveOutcome =
+  | { status: "saved"; result: LocalSaveResult }
+  | { status: "permission-required" }
+  | { status: "unavailable"; message: string }
+  | { status: "error"; message: string };
 
 export interface BatchVideo {
   videoId: string;
@@ -42,6 +72,8 @@ export interface BatchTask {
   destinations: BatchDestination[];
   items: BatchItem[];
   state: "queued" | "running" | "paused" | "completed" | "stopped";
+  /** Why a `paused` task is paused; absent on records from before #59. */
+  pauseReason?: BatchPauseReason;
   createdAt: number;
   updatedAt: number;
 }

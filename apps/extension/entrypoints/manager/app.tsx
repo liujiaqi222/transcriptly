@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   doneItemCount,
   estimateRemainingSeconds,
@@ -6,6 +12,10 @@ import {
   formatDuration,
 } from "@/batch/eta";
 import type { BatchDestination, BatchItem, BatchTask } from "@/batch/jobs";
+import type {
+  ManagerLocalSaveHost,
+  ManagerLocalSaveHostStatus,
+} from "@/entrypoints/manager/local-save-host";
 import {
   BATCH_PAUSE,
   BATCH_RESUME,
@@ -17,13 +27,22 @@ import {
 } from "@/shared/messages";
 
 /**
- * The batch manager page (#58): everything the 300 px page overlay used
- * to show now lives here - total progress with a sliding ETA, per-video
- * Local / Cloud results with failure reasons and Retry, Pause / Stop /
- * Resume, and the recent-batches history. `?task=<id>` deep-links to one
- * batch; without it the newest batch is shown. State is polled from the
- * background worker, so the page survives closing the YouTube source
- * page and can be re-opened from the popup or the floating capsule.
+ * The batch manager page (#58, #59): everything the 300 px page overlay
+ * used to show now lives here - total progress with a sliding ETA,
+ * per-video Local / Cloud results with failure reasons and Retry, Pause /
+ * Stop / Resume, and the recent-batches history. `?task=<id>` deep-links
+ * to one batch; without it the newest batch is shown. State is polled
+ * from the background worker, so the page survives closing the YouTube
+ * source page and can be re-opened from the popup or the floating
+ * capsule.
+ *
+ * Since #59 the page is also the single batch workbench: it hosts the
+ * Local Save Host (folder authorization and Markdown writes), so a
+ * paused batch shows the exact reason and its matching action -
+ * Continue after a browser restart, Grant folder access & continue for
+ * an expired local grant, or a reopen hint when the save host was lost.
+ * The reason comes from the persisted `pauseReason`, never guessed from
+ * error text.
  */
 
 export interface ManagerDependencies {
@@ -31,6 +50,8 @@ export interface ManagerDependencies {
 }
 
 const STATUS_POLL_MS = 1000;
+
+const NO_LOCAL_HOST: ManagerLocalSaveHostStatus = { writePermission: false };
 
 const STATE_LABELS: Record<BatchTask["state"], string> = {
   queued: "Running",
@@ -62,12 +83,112 @@ function isRetryable(task: BatchTask, item: BatchItem): boolean {
 interface BatchTaskDetailProps {
   task: BatchTask;
   mutationError?: string;
+  localSaveHost?: ManagerLocalSaveHost;
   onMutate(message: unknown): void;
+}
+
+/**
+ * Why the batch paused, straight from the persisted `pauseReason` (#59),
+ * with the matching action. Never guessed from error text.
+ */
+function PauseNotice({
+  task,
+  localSaveHost,
+  onMutate,
+}: {
+  task: BatchTask;
+  localSaveHost?: ManagerLocalSaveHost;
+  onMutate(message: unknown): void;
+}) {
+  const reason = task.pauseReason;
+  const [granting, setGranting] = useState(false);
+  const [grantError, setGrantError] = useState<string | undefined>();
+  const subscribe = useCallback(
+    (onChange: () => void) => localSaveHost?.subscribe(onChange) ?? (() => {}),
+    [localSaveHost],
+  );
+  const getSnapshot = useCallback(
+    () => localSaveHost?.getStatus() ?? NO_LOCAL_HOST,
+    [localSaveHost],
+  );
+  const hostStatus = useSyncExternalStore(subscribe, getSnapshot);
+  if (task.state !== "paused" || !reason || reason === "user") return null;
+
+  const resume = () => onMutate({ type: BATCH_RESUME, taskId: task.id });
+
+  let text: string;
+  let action: ReactNode;
+  if (reason === "browser-restart") {
+    text =
+      "The browser restarted while this batch was running. Continue where it left off?";
+    action = (
+      <button type="button" onClick={resume}>
+        Continue
+      </button>
+    );
+  } else if (reason === "local-permission") {
+    const hasFolder = Boolean(hostStatus.directoryName);
+    text = hasFolder
+      ? `Transcriptly needs write access to the folder "${hostStatus.directoryName}" to continue saving locally.`
+      : "Transcriptly needs a save folder to continue saving locally.";
+    action = (
+      <button
+        type="button"
+        disabled={granting || !localSaveHost}
+        onClick={() => {
+          if (!localSaveHost) return;
+          setGranting(true);
+          setGrantError(undefined);
+          void localSaveHost
+            .grantAccess()
+            .then((outcome) => {
+              if (outcome === "granted") resume();
+              else if (outcome === "denied")
+                setGrantError("Folder access was not granted.");
+              else setGrantError("No folder was selected.");
+            })
+            .catch((error: unknown) =>
+              setGrantError(
+                error instanceof Error ? error.message : String(error),
+              ),
+            )
+            .finally(() => setGranting(false));
+        }}
+      >
+        {granting
+          ? "Waiting for Chrome…"
+          : hasFolder
+            ? "Grant folder access & continue"
+            : "Choose folder & continue"}
+      </button>
+    );
+  } else {
+    text =
+      "The manager page lost contact with the local save host. Reopen or refresh this page, check the target folder for a possibly written file, then continue.";
+    action = (
+      <button type="button" onClick={resume}>
+        Resume
+      </button>
+    );
+  }
+
+  return (
+    <div className="pause-notice" role="status">
+      <p>{text}</p>
+      {action}
+      {grantError && (
+        <p className="error-banner" role="alert">
+          {grantError}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function BatchTaskDetail({
   task,
   mutationError,
+  localSaveHost,
   onMutate,
 }: BatchTaskDetailProps) {
   const total = task.items.length;
@@ -157,6 +278,11 @@ function BatchTaskDetail({
         />
       </div>
       <p className="summary">{summary}</p>
+      <PauseNotice
+        task={task}
+        localSaveHost={localSaveHost}
+        onMutate={onMutate}
+      />
       {active && (
         <div className="controls">
           {(task.state === "running" || task.state === "queued") && (
@@ -167,14 +293,17 @@ function BatchTaskDetail({
               Pause
             </button>
           )}
-          {task.state === "paused" && (
-            <button
-              type="button"
-              onClick={() => onMutate({ type: BATCH_RESUME, taskId: task.id })}
-            >
-              Resume
-            </button>
-          )}
+          {task.state === "paused" &&
+            (!task.pauseReason || task.pauseReason === "user") && (
+              <button
+                type="button"
+                onClick={() =>
+                  onMutate({ type: BATCH_RESUME, taskId: task.id })
+                }
+              >
+                Resume
+              </button>
+            )}
           <button
             type="button"
             className="danger"
@@ -202,9 +331,11 @@ function BatchTaskDetail({
 export function ManagerApp({
   deps,
   initialTaskId,
+  localSaveHost,
 }: {
   deps: ManagerDependencies;
   initialTaskId?: string;
+  localSaveHost?: ManagerLocalSaveHost;
 }) {
   const [tasks, setTasks] = useState<BatchTask[] | undefined>();
   const [selectedTaskId, setSelectedTaskId] = useState(initialTaskId);
@@ -296,6 +427,7 @@ export function ManagerApp({
         <BatchTaskDetail
           task={shown}
           mutationError={mutationError}
+          localSaveHost={localSaveHost}
           onMutate={(message) => void handleMutate(message)}
         />
       )}

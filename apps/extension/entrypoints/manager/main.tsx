@@ -1,12 +1,19 @@
 import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
 import { ManagerApp, type ManagerDependencies } from "./app";
+import { mountManagerLocalSaveHost } from "./local-save-host";
 import "./style.css";
 
 const dependencies: ManagerDependencies = {
   sendMessage: <T,>(message: unknown) =>
     browser.runtime.sendMessage(message) as Promise<T>,
 };
+
+// The manager page doubles as the Local Save Host (#59): folder
+// authorization and Markdown writes happen here, in the same workbench
+// the user already watches. It stays open as long as the user wants -
+// there is no save-agent-style idle auto-close.
+const localSaveHost = mountManagerLocalSaveHost();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -18,5 +25,9 @@ const initialTaskId =
   new URLSearchParams(location.search).get("task") ?? undefined;
 
 createRoot(rootElement).render(
-  <ManagerApp deps={dependencies} initialTaskId={initialTaskId} />,
+  <ManagerApp
+    deps={dependencies}
+    initialTaskId={initialTaskId}
+    localSaveHost={localSaveHost}
+  />,
 );

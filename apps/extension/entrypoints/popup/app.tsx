@@ -25,6 +25,7 @@ import {
 } from "@/local-save";
 import type {
   BatchEnterSelectionStatus,
+  BatchMutationStatus,
   BatchStatusResult,
   CaptureResponseMessage,
   CloudJobRetryStatus,
@@ -54,8 +55,10 @@ export interface PopupDependencies {
   enterBatchSelection(tabId: number): Promise<BatchEnterSelectionStatus>;
   /** Recent batch tasks from the background worker (#58). */
   getBatchStatus(): Promise<BatchStatusResult>;
-  /** Open the batch manager page on a task (#58). */
+  /** Open the batch manager page on a task (#58, routed via the worker #59). */
   openBatchManager(taskId: string): void;
+  /** Continue a paused batch (#59). */
+  resumeBatch(taskId: string): Promise<BatchMutationStatus>;
   /** Close the popup window once selection mode is on. */
   closePopup(): void;
   createSaver(): Promise<LocalMarkdownSaver>;
@@ -429,7 +432,11 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       {activeBatchTask && (
         <BatchActivity
           task={activeBatchTask}
+          directoryName={directoryName}
           onOpenManager={handleOpenBatchManager}
+          onResume={(taskId) => {
+            void deps.resumeBatch(taskId);
+          }}
         />
       )}
 

@@ -71,9 +71,10 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
           };
         }
         directoryName = directory.name;
-        // Note: write permission is intentionally NOT pre-checked here - the
-        // worker cannot request it, and the save-agent page handles expired
-        // grants (with one click) at save time.
+        // Note: write permission is intentionally NOT pre-checked here -
+        // the worker cannot request it. The executor's per-item preflight
+        // (#59) pauses the task with a grant prompt in the manager page
+        // when the grant is missing or has expired.
       }
       // Never trust the page UI alone: re-check the Cloud session (#26).
       if (destinations.includes("cloud")) {
