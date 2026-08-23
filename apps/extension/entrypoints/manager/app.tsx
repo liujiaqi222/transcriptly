@@ -212,14 +212,28 @@ export function ManagerApp({
 
   const refresh = useCallback(async () => {
     try {
-      const result = await deps.sendMessage<BatchStatusResult>({
-        type: BATCH_STATUS_REQUEST,
-      });
-      setTasks(result.tasks);
+      const [recentResult, selectedResult] = await Promise.all([
+        deps.sendMessage<BatchStatusResult>({
+          type: BATCH_STATUS_REQUEST,
+        }),
+        selectedTaskId
+          ? deps.sendMessage<BatchStatusResult>({
+              type: BATCH_STATUS_REQUEST,
+              taskId: selectedTaskId,
+            })
+          : Promise.resolve(undefined),
+      ]);
+      const selectedTask = selectedResult?.tasks[0];
+      setTasks(
+        selectedTask &&
+          !recentResult.tasks.some((task) => task.id === selectedTask.id)
+          ? [selectedTask, ...recentResult.tasks]
+          : recentResult.tasks,
+      );
     } catch {
       // The background worker is unreachable; the next poll retries.
     }
-  }, [deps]);
+  }, [deps, selectedTaskId]);
 
   useEffect(() => {
     void refresh();
