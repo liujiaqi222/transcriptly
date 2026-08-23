@@ -88,6 +88,8 @@ export interface CloudJobStore {
    * and the new Capture is queued behind it (#35 AC).
    */
   enqueue(capture: Capture): Promise<CloudJobRecord>;
+  /** Read one Job by id, including its Capture payload. */
+  get(jobId: string): Promise<CloudJobRecord | undefined>;
   /** Atomically claim the oldest pending Job for upload. */
   claimNextPending(): Promise<CloudJobRecord | undefined>;
   /** Read the oldest pending Job without claiming it. */
@@ -230,6 +232,14 @@ export function createCloudJobStore(
         store.put(record);
         return record;
       });
+    },
+
+    get(jobId) {
+      return withStore(
+        "readonly",
+        async (store) =>
+          (await request(store.get(jobId))) as CloudJobRecord | undefined,
+      );
     },
 
     async claimNextPending() {

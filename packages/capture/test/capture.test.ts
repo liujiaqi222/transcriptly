@@ -260,6 +260,41 @@ describe("capture", () => {
     });
   });
 
+  it("waits for a lazily rendered transcript section before giving up", async () => {
+    const dom = new JSDOM(readFixture("no-transcript.html"));
+    const doc = dom.window.document;
+
+    const section = doc.querySelector(
+      "ytd-video-description-transcript-section-renderer",
+    );
+    const button = doc.createElement("button");
+    button.textContent = "Show transcript";
+    const container = doc.createElement("div");
+    container.id = "segments-container";
+    const segment = doc.createElement("ytd-transcript-segment-renderer");
+    const timestamp = doc.createElement("div");
+    timestamp.className = "segment-timestamp";
+    timestamp.textContent = "0:00";
+    const text = doc.createElement("yt-formatted-string");
+    text.className = "segment-text";
+    text.textContent = "late to the party";
+    segment.append(timestamp, text);
+
+    // The section with the open button only appears after a delay, like on
+    // a freshly loaded background tab.
+    setTimeout(() => {
+      section?.querySelector("#content")?.replaceChildren(button);
+      button.addEventListener("click", () => {
+        container.append(segment);
+        doc.body.append(container);
+      });
+    }, 20);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.segments).toEqual([{ start: 0, text: "late to the party" }]);
+  });
+
   it("fails explicitly with malformed-segments on broken timestamps", async () => {
     const doc = loadDocument("malformed-segments.html");
 

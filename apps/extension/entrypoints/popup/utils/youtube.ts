@@ -1,6 +1,40 @@
 import { canonicalWatchUrl, parseVideoId } from "@transcriptly/capture";
 
 const YOUTUBE_HOSTS = new Set(["www.youtube.com", "m.youtube.com"]);
+const BATCH_CHANNEL_PATH =
+  /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)(?:\/videos)?\/?$/;
+const CHANNEL_ROOT_PATH =
+  /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/;
+
+export function isBatchSourceUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.hostname === "www.youtube.com" &&
+      (parsed.pathname === "/playlist" ||
+        BATCH_CHANNEL_PATH.test(parsed.pathname))
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** A channel root page (no /videos tab): a batch entry that only guides. */
+export function isChannelRootUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.hostname === "www.youtube.com" &&
+      CHANNEL_ROOT_PATH.test(parsed.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function isYouTubeWatchUrl(url: string | undefined): boolean {
   if (!url) return false;

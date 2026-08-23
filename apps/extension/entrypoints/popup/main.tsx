@@ -5,6 +5,8 @@ import { webOrigin } from "@/cloud/client";
 import type { CloudQueueStatus } from "@/cloud/jobs";
 import { createLocalMarkdownSaver } from "@/local-save";
 import {
+  BATCH_ENTER_SELECTION_REQUEST,
+  type BatchEnterSelectionStatus,
   CAPTURE_REQUEST,
   type CaptureResponseMessage,
   CLOUD_JOB_RETRY,
@@ -54,6 +56,13 @@ const dependencies: PopupDependencies = {
     });
     return response as CaptureResponseMessage;
   },
+  async enterBatchSelection(tabId: number): Promise<BatchEnterSelectionStatus> {
+    const response = await browser.tabs.sendMessage(tabId, {
+      type: BATCH_ENTER_SELECTION_REQUEST,
+    });
+    return response as BatchEnterSelectionStatus;
+  },
+  closePopup: () => window.close(),
   createSaver: () => createLocalMarkdownSaver(),
   cloud: {
     async enqueueCloudSave(capture: Capture): Promise<CloudSaveEnqueueStatus> {

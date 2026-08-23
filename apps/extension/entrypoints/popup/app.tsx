@@ -5,16 +5,24 @@ import type { CloudQueueStatus } from "@/cloud/jobs";
 import {
   type AccountDependencies,
   AccountSection,
+  BatchSourceView,
   CaptureView,
+  ChannelRootHint,
   CloudStatusPanel,
   type SaveState,
 } from "@/entrypoints/popup/components";
-import { errorMessage, isYouTubeWatchUrl } from "@/entrypoints/popup/utils";
+import {
+  errorMessage,
+  isBatchSourceUrl,
+  isChannelRootUrl,
+  isYouTubeWatchUrl,
+} from "@/entrypoints/popup/utils";
 import {
   type LocalMarkdownSaver,
   suggestedMarkdownFilename,
 } from "@/local-save";
 import type {
+  BatchEnterSelectionStatus,
   CaptureResponseMessage,
   CloudJobRetryStatus,
   CloudSaveEnqueueStatus,
@@ -39,6 +47,10 @@ export interface CloudDependencies {
 export interface PopupDependencies {
   getActiveTab(): Promise<PopupTab | undefined>;
   requestCapture(tabId: number): Promise<CaptureResponseMessage>;
+  /** Ask the tab's content script to enter selection mode (#56). */
+  enterBatchSelection(tabId: number): Promise<BatchEnterSelectionStatus>;
+  /** Close the popup window once selection mode is on. */
+  closePopup(): void;
   createSaver(): Promise<LocalMarkdownSaver>;
   account: AccountDependencies;
   cloud: CloudDependencies;
@@ -48,7 +60,6 @@ type CaptureState =
   | { status: "capturing" }
   | { status: "ready"; capture: Capture }
   | { status: "error"; message: string };
-
 /** Poll cadence for the cloud queue status while the popup is open. */
 const QUEUE_STATUS_POLL_MS = 1500;
 
@@ -73,6 +84,15 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   const [saver, setSaver] = useState<LocalMarkdownSaver | undefined>();
   const [saverError, setSaverError] = useState<string | undefined>();
   const [directoryName, setDirectoryName] = useState<string | undefined>();
+  const [folderReady, setFolderReady] = useState<boolean | undefined>();
+  const [batchSource, setBatchSource] = useState(false);
+  /** Batch-source page state: on-demand selection (#56). */
+  const [batchPage, setBatchPage] = useState<
+    "selection" | "hint" | undefined
+  >();
+  const [batchTabId, setBatchTabId] = useState<number | undefined>();
+  const [enteringSelection, setEnteringSelection] = useState(false);
+  const [batchError, setBatchError] = useState<string | undefined>();
   const [filename, setFilename] = useState("");
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [changingFolder, setChangingFolder] = useState(false);
@@ -84,6 +104,9 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   const runCapture = useCallback(async () => {
     setCaptureState({ status: "capturing" });
     setSaveState({ status: "idle" });
+    setBatchSource(false);
+    setBatchPage(undefined);
+    setBatchError(undefined);
     try {
       const tab = await deps.getActiveTab();
       if (!tab) {
@@ -94,6 +117,17 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         return;
       }
       if (tab.id === undefined || !isYouTubeWatchUrl(tab.url)) {
+        if (tab.id !== undefined && isBatchSourceUrl(tab.url)) {
+          // Batch pages keep the folder picker available (#26): it is the
+          // only place the user can re-grant folder access for the worker.
+          // Selection itself is injected on demand from here (#56); the
+          // channel root only hints at its Videos tab.
+          setBatchTabId(tab.id);
+          setBatchPage(isChannelRootUrl(tab.url) ? "hint" : "selection");
+          setBatchSource(true);
+          setCaptureState({ status: "capturing" });
+          return;
+        }
         setCaptureState({
           status: "error",
           message:
@@ -151,6 +185,27 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       cancelled = true;
     };
   }, [deps]);
+
+  // Track whether the background worker can write without a prompt, so the
+  // batch-source view can ask for a re-grant when Chrome dropped access.
+  useEffect(() => {
+    let cancelled = false;
+    if (!saver || !directoryName) {
+      setFolderReady(undefined);
+      return;
+    }
+    saver
+      .hasWritePermission()
+      .then((ready) => {
+        if (!cancelled) setFolderReady(ready);
+      })
+      .catch(() => {
+        if (!cancelled) setFolderReady(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [saver, directoryName]);
 
   // Apply the remembered preference only after the current session is known.
   // This avoids a race between storage and the account session check.
@@ -239,6 +294,29 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     [deps, refreshQueueStatus],
   );
 
+  const handleEnterSelection = useCallback(async () => {
+    if (batchTabId === undefined) return;
+    setEnteringSelection(true);
+    try {
+      const result = await deps.enterBatchSelection(batchTabId);
+      if (result.ok) {
+        // Selection mode is on: get out of the way so the checkboxes are
+        // visible immediately.
+        deps.closePopup();
+        return;
+      }
+      setBatchError(result.message);
+    } catch (error) {
+      setBatchError(
+        detailIncludes(error, "Receiving end does not exist")
+          ? "Could not reach the page. Reload the YouTube page and try again."
+          : errorMessage(error),
+      );
+    } finally {
+      setEnteringSelection(false);
+    }
+  }, [batchTabId, deps]);
+
   const handleSave = async () => {
     if (captureState.status !== "ready") return;
     setSaveState({ status: "saving" });
@@ -301,7 +379,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         onRetry={(jobId) => void handleRetry(jobId)}
       />
 
-      {captureState.status === "capturing" && (
+      {!batchSource && captureState.status === "capturing" && (
         <div className="capturing" role="status">
           <p>Capturing transcript…</p>
           <div className="skeleton" />
@@ -318,6 +396,22 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           </button>
         </div>
       )}
+
+      {batchSource && batchPage === "selection" && (
+        <BatchSourceView
+          saver={saver}
+          saverError={saverError}
+          directoryName={directoryName}
+          changingFolder={changingFolder}
+          folderReady={folderReady}
+          enteringSelection={enteringSelection}
+          enterError={batchError}
+          onEnterSelection={() => void handleEnterSelection()}
+          onChangeFolder={() => void handleChangeFolder()}
+        />
+      )}
+
+      {batchSource && batchPage === "hint" && <ChannelRootHint />}
 
       {captureState.status === "ready" && (
         <CaptureView

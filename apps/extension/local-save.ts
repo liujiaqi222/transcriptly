@@ -2,8 +2,9 @@ import { serializeToMarkdown } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 
 const DATABASE_NAME = "transcriptly";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const DIRECTORY_STORE = "local-save";
+const RECEIPT_STORE = "local-receipts";
 const DIRECTORY_KEY = "directory";
 
 interface WritableFile {
@@ -34,21 +35,39 @@ export interface DirectoryStore {
   set(directory: LocalDirectoryHandle): Promise<void>;
 }
 
+export interface LocalSaveReceipt {
+  videoId: string;
+  filename: string;
+  directoryName: string;
+  savedAt: string;
+}
+
+export interface LocalReceiptStore {
+  getAll(directoryName?: string): Promise<LocalSaveReceipt[]>;
+  put(receipt: LocalSaveReceipt): Promise<void>;
+}
+
 export interface LocalSaveResult {
   directoryName: string;
   filename: string;
+  /** The Markdown file exists, but the batch duplicate index could not update. */
+  receiptError?: string;
 }
 
 export interface LocalMarkdownSaver {
   changeDirectory(): Promise<string>;
   getSavedDirectoryName(): Promise<string | undefined>;
+  /** Whether a write needs no permission prompt (e.g. in a worker). */
+  hasWritePermission(): Promise<boolean>;
   save(capture: Capture, filename?: string): Promise<LocalSaveResult>;
 }
 
 export interface LocalMarkdownSaverOptions {
   store?: DirectoryStore;
+  receiptStore?: LocalReceiptStore;
   pickDirectory?: () => Promise<LocalDirectoryHandle>;
   runExclusive?: <T>(action: () => Promise<T>) => Promise<T>;
+  now?: () => number;
 }
 
 export class LocalSaveError extends Error {
@@ -129,13 +148,57 @@ function openDatabase(indexedDB: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const operation = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     operation.onupgradeneeded = () => {
-      if (!operation.result.objectStoreNames.contains(DIRECTORY_STORE)) {
-        operation.result.createObjectStore(DIRECTORY_STORE);
+      const database = operation.result;
+      if (!database.objectStoreNames.contains(DIRECTORY_STORE)) {
+        database.createObjectStore(DIRECTORY_STORE);
+      }
+      if (!database.objectStoreNames.contains(RECEIPT_STORE)) {
+        const store = database.createObjectStore(RECEIPT_STORE, {
+          keyPath: ["directoryName", "videoId"],
+        });
+        store.createIndex("directoryName", "directoryName");
       }
     };
     operation.onsuccess = () => resolve(operation.result);
     operation.onerror = () => reject(operation.error);
   });
+}
+
+export function createIndexedDbLocalReceiptStore(
+  indexedDB: IDBFactory = globalThis.indexedDB,
+): LocalReceiptStore {
+  return {
+    async getAll(directoryName) {
+      const database = await openDatabase(indexedDB);
+      try {
+        const transaction = database.transaction(RECEIPT_STORE, "readonly");
+        const complete = transactionComplete(transaction);
+        const records = (await request(
+          directoryName === undefined
+            ? transaction.objectStore(RECEIPT_STORE).getAll()
+            : transaction
+                .objectStore(RECEIPT_STORE)
+                .index("directoryName")
+                .getAll(directoryName),
+        )) as LocalSaveReceipt[];
+        await complete;
+        return records;
+      } finally {
+        database.close();
+      }
+    },
+    async put(receipt) {
+      const database = await openDatabase(indexedDB);
+      try {
+        const transaction = database.transaction(RECEIPT_STORE, "readwrite");
+        const complete = transactionComplete(transaction);
+        await request(transaction.objectStore(RECEIPT_STORE).put(receipt));
+        await complete;
+      } finally {
+        database.close();
+      }
+    },
+  };
 }
 
 export function createIndexedDbDirectoryStore(
@@ -223,7 +286,7 @@ async function ensureWritePermission(directory: LocalDirectoryHandle) {
   if ((await directory.queryPermission(options)) === "granted") return;
   if ((await directory.requestPermission(options)) !== "granted") {
     throw new LocalSaveError(
-      `Write access to "${directory.name}" was not granted.`,
+      `Write access to "${directory.name}" was not granted. Re-select the folder from the Transcriptly popup and retry.`,
     );
   }
 }
@@ -274,8 +337,11 @@ export async function createLocalMarkdownSaver(
   options: LocalMarkdownSaverOptions = {},
 ): Promise<LocalMarkdownSaver> {
   const store = options.store ?? createIndexedDbDirectoryStore();
+  const receiptStore =
+    options.receiptStore ?? createIndexedDbLocalReceiptStore();
   const pickDirectory = options.pickDirectory ?? defaultDirectoryPicker;
   const runExclusive = options.runExclusive ?? runWithBrowserLock;
+  const now = options.now ?? (() => Date.now());
   let savedDirectory: LocalDirectoryHandle | undefined;
 
   try {
@@ -314,6 +380,17 @@ export async function createLocalMarkdownSaver(
     async getSavedDirectoryName() {
       return savedDirectory?.name;
     },
+    async hasWritePermission() {
+      if (!savedDirectory) return false;
+      try {
+        return (
+          (await savedDirectory.queryPermission({ mode: "readwrite" })) ===
+          "granted"
+        );
+      } catch {
+        return false;
+      }
+    },
     async save(capture, filename = suggestedMarkdownFilename(capture)) {
       let directory: LocalDirectoryHandle;
       try {
@@ -345,7 +422,25 @@ export async function createLocalMarkdownSaver(
           safeFilename,
           serializeToMarkdown(capture),
         );
-        return { directoryName: directory.name, filename: safeFilename };
+
+        let receiptError: string | undefined;
+        try {
+          await receiptStore.put({
+            videoId: capture.source.videoId,
+            filename: safeFilename,
+            directoryName: directory.name,
+            savedAt: new Date(now()).toISOString(),
+          });
+        } catch (error) {
+          // The file is already complete. Keep the successful local save and
+          // surface the indexing problem without pretending the save failed.
+          receiptError = `Could not update the local save index: ${errorMessage(error)}`;
+        }
+        return {
+          directoryName: directory.name,
+          filename: safeFilename,
+          ...(receiptError ? { receiptError } : {}),
+        };
       });
     },
   };
