@@ -107,6 +107,14 @@ export interface BatchStatusResult {
 
 export type BatchMutationStatus = { ok: true } | { ok: false; message: string };
 
+/** Ask the background worker to open a private extension manager page. */
+export const BATCH_OPEN_MANAGER = "transcriptly:batch-open-manager" as const;
+
+export interface BatchOpenManagerMessage {
+  type: typeof BATCH_OPEN_MANAGER;
+  taskId: string;
+}
+
 /** Pause a running batch after the current video finishes (#26). */
 export const BATCH_PAUSE = "transcriptly:batch-pause" as const;
 
@@ -177,6 +185,7 @@ export type BatchEnterSelectionStatus =
 export type BatchMessage =
   | BatchStartMessage
   | BatchStatusRequestMessage
+  | BatchOpenManagerMessage
   | BatchPauseMessage
   | BatchStopMessage
   | BatchResumeMessage

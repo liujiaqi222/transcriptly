@@ -10,10 +10,12 @@ import {
 } from "@/entrypoints/popup/utils/youtube";
 import {
   BATCH_LOOKUP_REQUEST,
+  BATCH_OPEN_MANAGER,
   BATCH_START,
   type BatchEnterSelectionStatus,
   type BatchLookupResult,
   type BatchLookupVideo,
+  type BatchMutationStatus,
   type BatchStartStatus,
   CLOUD_SESSION_REQUEST,
   type CloudSessionStatus,
@@ -61,8 +63,6 @@ const TOAST_AUTO_DISMISS_MS = 3000;
 export interface BatchPageRuntime {
   sendMessage<T = unknown>(message: unknown): Promise<T>;
   getCloudPreference(): Promise<boolean>;
-  /** Open the batch manager page on this task (#58 interface, #57 wire-up). */
-  openManagerTab(taskId: string): void;
 }
 
 function defaultRuntime(): BatchPageRuntime {
@@ -71,12 +71,6 @@ function defaultRuntime(): BatchPageRuntime {
     getCloudPreference: async () => {
       const stored = await browser.storage.local.get(CLOUD_PREFERENCE_KEY);
       return stored[CLOUD_PREFERENCE_KEY] === true;
-    },
-    openManagerTab: (taskId) => {
-      window.open(
-        `${browser.runtime.getURL("/manager.html")}?task=${encodeURIComponent(taskId)}`,
-        "_blank",
-      );
     },
   };
 }
@@ -544,8 +538,18 @@ export async function enterBatchSelectionMode(
       if (result.ok) {
         // #58: Start jumps to the batch manager page, which now owns
         // progress, results, controls and history. The toolbar resets
-        // so the next batch can be queued right away.
-        runtime.openManagerTab(result.taskId);
+        // so the next batch can be queued right away. The background
+        // worker opens the manager tab (tabs.create, #874a776) so the
+        // extension, not the content script, owns tab creation.
+        try {
+          const managerResult = await runtime.sendMessage<BatchMutationStatus>({
+            type: BATCH_OPEN_MANAGER,
+            taskId: result.taskId,
+          });
+          if (!managerResult.ok) showToast(managerResult.message);
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : String(error));
+        }
         selectedVideoIds.clear();
         if (startButton) startButton.disabled = false;
         if (startButton) startButton.textContent = "Start ▸";

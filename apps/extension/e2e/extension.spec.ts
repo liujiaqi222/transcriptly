@@ -53,3 +53,48 @@ test("extension loads and popup renders via launchPersistentContext + --load-ext
 
   await context.close();
 });
+
+test("background opens the private manager page for an extension message", async () => {
+  const extensionId = extensionIdFromKey(manifest.key);
+  const context = await chromium.launchPersistentContext("", {
+    channel: "chromium",
+    headless: true,
+    args: [
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
+    ],
+  });
+
+  const popup = await context.newPage();
+  await popup.goto(
+    `chrome-extension://${extensionId}/${manifest.action.default_popup}`,
+  );
+  const result = await popup.evaluate(async () => {
+    const runtime = (
+      globalThis as unknown as {
+        chrome: {
+          runtime: {
+            sendMessage(message: unknown): Promise<unknown>;
+          };
+        };
+      }
+    ).chrome.runtime;
+    return runtime.sendMessage({
+      type: "transcriptly:batch-open-manager",
+      taskId: "task-e2e",
+    });
+  });
+
+  expect(result).toEqual({ ok: true });
+  const managerUrl = `chrome-extension://${extensionId}/manager.html?task=task-e2e`;
+  await expect
+    .poll(() => context.pages().some((page) => page.url() === managerUrl))
+    .toBe(true);
+  const manager = context.pages().find((page) => page.url() === managerUrl);
+  if (!manager) throw new Error("manager page did not open");
+  await expect(
+    manager.getByRole("heading", { name: "Transcriptly batch manager" }),
+  ).toBeVisible();
+
+  await context.close();
+});
