@@ -225,12 +225,37 @@ h2 {
   border-top: 1px solid #f0f0f0;
 }
 
+/* Title (opens the video) + video id on one row */
+.item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
 .item-title {
   margin: 0;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.item-head .item-title {
+  color: var(--info);
+  text-decoration: none;
+}
+
+.item-head .item-title:hover {
+  text-decoration: underline;
+}
+
+.item-video-id {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
 }
 
 .chips {

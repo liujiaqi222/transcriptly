@@ -166,6 +166,12 @@ describe("batch manager page (#58)", () => {
       screen.getByText("1/3 done · 1 failed · ~40 s remaining"),
     ).toBeTruthy();
     expect(screen.getByText("Video abc12345678")).toBeTruthy();
+    // The title links to the video and the id is shown next to it (#59).
+    const link = screen.getByRole("link", { name: "Video abc12345678" });
+    expect(link.getAttribute("href")).toBe(
+      "https://www.youtube.com/watch?v=abc12345678",
+    );
+    expect(screen.getByText("abc12345678")).toBeTruthy();
     expect(screen.getByText("local: saved")).toBeTruthy();
     expect(screen.getByText("local: disk full")).toBeTruthy();
     // The honest foreground hint (#58 AC).

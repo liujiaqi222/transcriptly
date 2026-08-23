@@ -227,9 +227,18 @@ function BatchTaskDetail({
     });
     return (
       <li key={item.video.videoId} className="item">
-        <p className="item-title" title={item.video.title}>
-          {item.video.title}
-        </p>
+        <div className="item-head">
+          <a
+            className="item-title"
+            href={item.video.url}
+            target="_blank"
+            rel="noreferrer"
+            title={item.video.title}
+          >
+            {item.video.title}
+          </a>
+          <span className="item-video-id">{item.video.videoId}</span>
+        </div>
         <div className="chips">{chips}</div>
         {errors}
         {isRetryable(task, item) && (
