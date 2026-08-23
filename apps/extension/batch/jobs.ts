@@ -1,7 +1,7 @@
 import type { CloudReceipt } from "@/cloud/jobs";
 import type { LocalSaveReceipt } from "@/local-save";
 
-export const BATCH_MAX_ITEMS = 20;
+export const BATCH_MAX_ITEMS = 50;
 const DATABASE_NAME = "transcriptly-batch";
 const DATABASE_VERSION = 1;
 const TASK_STORE = "tasks";
