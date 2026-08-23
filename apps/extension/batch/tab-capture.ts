@@ -124,6 +124,11 @@ export function createTabVideoCapture(
         `Capturing "${video.title}" timed out.`,
       );
       if (response.ok) {
+        if (response.capture.source.videoId !== video.videoId) {
+          throw new Error(
+            `Capturing "${video.title}" returned a different video (${response.capture.source.videoId}).`,
+          );
+        }
         if (response.capture.segments.length > 0) return response.capture;
         lastFailure = `No transcript was found for "${video.title}".`;
       } else {

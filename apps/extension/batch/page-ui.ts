@@ -191,6 +191,19 @@ function batchFullToast(): string {
   return `Batch full (${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS}). Start this batch, then start another - batches run one after another.`;
 }
 
+/** Stable identity across a channel root <-> Videos-tab round trip. */
+function batchSourceIdentity(rawUrl: string): string {
+  const url = new URL(rawUrl);
+  if (url.pathname === "/playlist") {
+    return `playlist:${url.searchParams.get("list") ?? ""}`;
+  }
+  const channelPath = url.pathname
+    .replace(/\/videos\/?$/, "")
+    .replace(/\/$/, "")
+    .toLowerCase();
+  return `channel:${channelPath}`;
+}
+
 /** Tears down the active selection mode, if one is mounted. */
 let activeTeardown: (() => void) | undefined;
 
@@ -220,6 +233,7 @@ export async function enterBatchSelectionMode(
   const knownVideos = new Map<string, BatchVideo>();
   const selectedVideoIds = new Set<string>();
   const savedInfo = new Map<string, BatchLookupVideo>();
+  let activeBatchSource = batchSourceIdentity(location.href);
   let refreshing = false;
   let refreshQueued = false;
 
@@ -504,6 +518,23 @@ export async function enterBatchSelectionMode(
         queueMicrotask(refreshCards);
       }
     }
+  }
+
+  function resetForBatchSource(nextSource: string) {
+    stopLoadMore();
+    knownVideos.clear();
+    selectedVideoIds.clear();
+    savedInfo.clear();
+    for (const element of document.querySelectorAll(
+      ".transcriptly-batch-check, .transcriptly-batch-badge",
+    )) {
+      element.remove();
+    }
+    for (const card of document.querySelectorAll(`[${CARD_MARKER}]`)) {
+      card.removeAttribute(CARD_MARKER);
+    }
+    activeBatchSource = nextSource;
+    updateToolbar();
   }
 
   // --- Load more: explicit auto-scroll, 100 cards / 10 s hard cap --------
@@ -884,7 +915,9 @@ export async function enterBatchSelectionMode(
     const url = location.href;
     if (isYouTubeWatchUrl(url)) return;
     if (isBatchSourceUrl(url)) {
-      stopLoadMore();
+      const nextSource = batchSourceIdentity(url);
+      if (nextSource !== activeBatchSource) resetForBatchSource(nextSource);
+      else stopLoadMore();
       refreshCards();
       return;
     }

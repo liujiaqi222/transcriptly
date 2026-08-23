@@ -773,6 +773,44 @@ describe("selection mode lifecycle (#56)", () => {
     });
   });
 
+  it("clears videos and selection when SPA navigation switches channels", async () => {
+    const runtime = createRuntime();
+    await mount(runtime);
+    selectFirstVideo();
+
+    const feed = document.getElementById("feed");
+    if (!feed) throw new Error("missing feed");
+    feed.innerHTML = `
+      <ytd-rich-item-renderer>
+        <a href="https://www.youtube.com/watch?v=dan12345678" title="Dan video one"><span id="video-title">Dan video one</span></a>
+      </ytd-rich-item-renderer>
+      <ytd-rich-item-renderer>
+        <a href="https://www.youtube.com/watch?v=dan87654321" title="Dan video two"><span id="video-title">Dan video two</span></a>
+      </ytd-rich-item-renderer>
+    `;
+    navigateTo("/@DanKoeTalks/videos");
+
+    await vi.waitFor(() => {
+      expect(
+        document.querySelectorAll(".transcriptly-batch-check"),
+      ).toHaveLength(2);
+      expect(counterText()).toContain("0/50");
+    });
+
+    clickAction("select-all");
+    clickAction("start");
+
+    await vi.waitFor(() => {
+      const start = runtime.sent.find(
+        (message) => (message as { type?: string }).type === BATCH_START,
+      ) as { videos: { videoId: string }[] } | undefined;
+      expect(start?.videos.map((video) => video.videoId)).toEqual([
+        "dan12345678",
+        "dan87654321",
+      ]);
+    });
+  });
+
   it("injects no new checkboxes while on a watch page", async () => {
     const runtime = createRuntime();
     await mount(runtime);
