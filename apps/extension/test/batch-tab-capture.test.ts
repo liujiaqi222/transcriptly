@@ -176,6 +176,31 @@ describe("tab video capture", () => {
     expect(harness.remove).toHaveBeenCalledWith(42);
   });
 
+  it("rejects a capture returned for a different video", async () => {
+    const mismatchedCapture: Capture = {
+      ...capture,
+      source: {
+        ...capture.source,
+        videoId: "other123456",
+        url: "https://www.youtube.com/watch?v=other123456",
+        title: "Another creator's video",
+        channelName: "Another creator",
+      },
+    };
+    const harness = createTabs({
+      captureResponses: [{ ok: true, capture: mismatchedCapture }],
+    });
+    const captureVideo = createTabVideoCapture({
+      tabs: harness.tabs,
+      ...fakeClock(),
+    });
+
+    await expect(captureVideo(video)).rejects.toThrow(
+      "returned a different video",
+    );
+    expect(harness.remove).toHaveBeenCalledWith(42);
+  });
+
   it("times out when the content script never answers", async () => {
     const harness = createTabs({
       pingFailures: Number.MAX_SAFE_INTEGER,

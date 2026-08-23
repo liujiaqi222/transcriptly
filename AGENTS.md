@@ -13,3 +13,7 @@ Default triage labels kept as-is (needs-triage / needs-info / ready-for-agent / 
 ### Domain docs
 
 Single-context layout: root `CONTEXT.md` + `docs/adr/`, created lazily by `/domain-modeling`. See `docs/agents/domain.md`.
+
+### YouTube SPA safety
+
+When changing batch discovery, selection lifecycle, or tab capture, preserve source and target identity. See `docs/agents/youtube-spa-safety.md`.
