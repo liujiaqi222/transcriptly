@@ -110,9 +110,13 @@ export function createBatchExecutor(
       (candidate) => candidate.video.videoId === videoId,
     );
     if (!item) return;
-    const before = `${item.local}|${item.cloud}|${item.localError ?? ""}|${item.cloudError ?? ""}`;
+    const before =
+      `${item.local}|${item.cloud}|${item.localError ?? ""}|${item.cloudError ?? ""}` +
+      `|${item.startedAt ?? ""}|${item.finishedAt ?? ""}`;
     update(item);
-    const after = `${item.local}|${item.cloud}|${item.localError ?? ""}|${item.cloudError ?? ""}`;
+    const after =
+      `${item.local}|${item.cloud}|${item.localError ?? ""}|${item.cloudError ?? ""}` +
+      `|${item.startedAt ?? ""}|${item.finishedAt ?? ""}`;
     if (before !== after) await persist(task);
   }
 
@@ -196,6 +200,7 @@ export function createBatchExecutor(
       freshItem.cloud === "queued" && fresh.destinations.includes("cloud");
 
     // Claim both destinations for this worker before any slow work.
+    // startedAt feeds the manager page's per-item duration estimate (#58).
     await applyItemUpdate(taskId, videoId, (item) => {
       if (runLocal && item.local === "queued") {
         item.local = "running";
@@ -207,6 +212,8 @@ export function createBatchExecutor(
         item.cloudError = undefined;
         item.cloudJobId = undefined;
       }
+      item.startedAt = now();
+      item.finishedAt = undefined;
     });
 
     let capture: Capture | undefined;
@@ -285,6 +292,20 @@ export function createBatchExecutor(
         }
       }
     }
+    // Stamp the attempt's end once both destinations are terminal, so
+    // the manager can estimate the remaining time (#58).
+    await applyItemUpdate(taskId, videoId, (item) => {
+      const terminal = (state: BatchItemState) =>
+        state !== "queued" && state !== "running";
+      if (
+        item.startedAt !== undefined &&
+        item.finishedAt === undefined &&
+        terminal(item.local) &&
+        terminal(item.cloud)
+      ) {
+        item.finishedAt = now();
+      }
+    });
   }
 
   async function runTask(taskId: string): Promise<void> {
@@ -458,6 +479,11 @@ export function createBatchExecutor(
           item.cloudError = undefined;
           requeued = true;
         }
+      }
+      if (requeued) {
+        // The next attempt re-stamps these when it claims the item.
+        item.startedAt = undefined;
+        item.finishedAt = undefined;
       }
       if (!requeued) {
         return {

@@ -1,6 +1,5 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BatchTask } from "../batch/jobs";
 import { BATCH_MAX_ITEMS } from "../batch/jobs";
 import {
   type BatchPageRuntime,
@@ -8,14 +7,9 @@ import {
 } from "../batch/page-ui";
 import {
   BATCH_LOOKUP_REQUEST,
-  BATCH_PAUSE,
-  BATCH_RETRY_ITEM,
   BATCH_START,
-  BATCH_STATUS_REQUEST,
-  BATCH_STOP,
   type BatchLookupResult,
   type BatchStartStatus,
-  type BatchStatusResult,
   CLOUD_SESSION_REQUEST,
   type CloudSessionStatus,
 } from "../shared/messages";
@@ -49,43 +43,10 @@ function manyVideoAnchors(count: number): string {
   return `<div id="feed">${cards.join("")}</div>`;
 }
 
-function makeTask(overrides: Partial<BatchTask> = {}): BatchTask {
-  return {
-    id: "task-1",
-    destinations: ["local", "cloud"],
-    items: [
-      {
-        video: {
-          videoId: "abc12345678",
-          url: "https://www.youtube.com/watch?v=abc12345678",
-          title: "First video",
-        },
-        local: "saved",
-        cloud: "saved",
-      },
-      {
-        video: {
-          videoId: "def12345678",
-          url: "https://www.youtube.com/watch?v=def12345678",
-          title: "Second video",
-        },
-        local: "failed",
-        cloud: "queued",
-        localError: "disk full",
-      },
-    ],
-    state: "completed",
-    createdAt: Date.parse("2026-08-22T00:00:00.000Z"),
-    updatedAt: Date.parse("2026-08-22T00:00:01.000Z"),
-    ...overrides,
-  };
-}
-
 interface RuntimeOptions {
   session?: CloudSessionStatus;
   cloudPreference?: boolean;
   startStatus?: BatchStartStatus;
-  tasks?: BatchTask[];
   saved?: Record<string, { local: boolean; cloud: boolean }>;
 }
 
@@ -113,12 +74,6 @@ function createRuntime(options: RuntimeOptions = {}) {
             ok: true,
             taskId: "task-1",
           }) as T;
-        case BATCH_STATUS_REQUEST: {
-          const result: BatchStatusResult = {
-            tasks: options.tasks ?? [],
-          };
-          return result as T;
-        }
         default:
           return { ok: true } as T;
       }
@@ -285,75 +240,55 @@ describe("batch page panel", () => {
     ).toBe(false);
   });
 
-  it("starts a batch with the checked videos and shows task progress", async () => {
+  it("starts a batch, opens the manager page and resets the toolbar (#58)", async () => {
     const runtime = createRuntime({
       session: { status: "signed-in", email: "user@example.com" },
       cloudPreference: false,
-      tasks: [
-        makeTask({
-          state: "running",
-          items: [
-            makeTask().items[0] as BatchTask["items"][number],
-            {
-              ...(makeTask().items[1] as BatchTask["items"][number]),
-              local: "running",
-              cloud: "queued",
-              localError: undefined,
-            },
-          ],
-        }),
-      ],
     });
     await mount(runtime);
 
     selectFirstVideo();
     clickAction("start");
 
-    await vi.waitFor(() => {
-      const summary = document.querySelector(".summary");
-      expect(summary?.textContent).toContain("Running");
+    const start = await vi.waitFor(() => {
+      const message = runtime.sent.find(
+        (
+          message,
+        ): message is {
+          type: string;
+          videos: unknown[];
+          destinations: string[];
+        } => (message as { type: string }).type === BATCH_START,
+      );
+      if (!message) throw new Error("start message missing");
+      return message;
     });
-
-    const start = runtime.sent.find(
-      (
-        message,
-      ): message is {
-        type: string;
-        videos: unknown[];
-        destinations: string[];
-      } => (message as { type: string }).type === BATCH_START,
-    );
-    expect(start?.videos).toHaveLength(1);
-    expect(start?.destinations).toEqual(["local"]);
-    expect(runtime.sent).toContainEqual({
-      type: BATCH_STATUS_REQUEST,
-      taskId: "task-1",
-    });
-  });
-
-  it("opens the manager page tab for the new task alongside the task view (#57)", async () => {
-    const runtime = createRuntime({
-      startStatus: { ok: true, taskId: "task-1" },
-      tasks: [makeTask()],
-    });
-    await mount(runtime);
-
-    selectFirstVideo();
-    clickAction("start");
+    expect(start.videos).toHaveLength(1);
+    expect(start.destinations).toEqual(["local"]);
 
     await vi.waitFor(() => {
       expect(runtime.managerTabs).toEqual(["task-1"]);
     });
-    // The in-panel task view stays as the transitional monitor.
+    // The task view moved to the manager page: the overlay keeps only
+    // the selection toolbar, reset and ready for the next batch.
+    expect(document.querySelector(".task-view")).toBeNull();
     expect(
-      document.querySelector<HTMLElement>(".task-view")?.hasAttribute("hidden"),
+      document.querySelector<HTMLButtonElement>('[data-action="start"]')
+        ?.disabled,
+    ).toBe(false);
+    await vi.waitFor(() => {
+      expect(counterText()).toBe(`0/${BATCH_MAX_ITEMS}`);
+    });
+    expect(
+      document
+        .querySelector(".transcriptly-batch-check")
+        ?.classList.contains("is-checked"),
     ).toBe(false);
   });
 
-  it("shows per-video results with failure reasons and a Retry button", async () => {
+  it("keeps the selection when the start request fails", async () => {
     const runtime = createRuntime({
-      startStatus: { ok: true, taskId: "task-1" },
-      tasks: [makeTask()],
+      startStatus: { ok: false, message: "Choose a local save folder first." },
     });
     await mount(runtime);
 
@@ -361,86 +296,10 @@ describe("batch page panel", () => {
     clickAction("start");
 
     await vi.waitFor(() => {
-      expect(document.querySelector(".summary")?.textContent).toContain(
-        "Completed",
-      );
+      expect(toastText()).toContain("folder");
     });
-    const errors = [...document.querySelectorAll(".item-error")].map(
-      (element) => element.textContent,
-    );
-    expect(errors).toContain("local: disk full");
-
-    document.querySelector<HTMLButtonElement>('[data-action="retry"]')?.click();
-    await vi.waitFor(() => {
-      expect(runtime.sent).toContainEqual({
-        type: BATCH_RETRY_ITEM,
-        taskId: "task-1",
-        videoId: "def12345678",
-      });
-    });
-  });
-
-  it("sends stop and pause from the task controls", async () => {
-    const runtime = createRuntime({
-      tasks: [
-        makeTask({
-          state: "running",
-          items: [
-            makeTask().items[0] as BatchTask["items"][number],
-            {
-              ...(makeTask().items[1] as BatchTask["items"][number]),
-              local: "queued",
-              cloud: "queued",
-              localError: undefined,
-            },
-          ],
-        }),
-      ],
-    });
-    await mount(runtime);
-
-    selectFirstVideo();
-    clickAction("start");
-
-    await vi.waitFor(() => {
-      expect(document.querySelector('[data-action="pause"]')).not.toBeNull();
-    });
-    document.querySelector<HTMLButtonElement>('[data-action="pause"]')?.click();
-    document.querySelector<HTMLButtonElement>('[data-action="stop"]')?.click();
-
-    await vi.waitFor(() => {
-      const types = runtime.sent.map(
-        (message) => (message as { type: string }).type,
-      );
-      expect(types).toContain(BATCH_PAUSE);
-      expect(types).toContain(BATCH_STOP);
-    });
-  });
-
-  it("returns to the selection view after a task", async () => {
-    const runtime = createRuntime({
-      tasks: [makeTask()],
-    });
-    await mount(runtime);
-
-    selectFirstVideo();
-    clickAction("start");
-
-    await vi.waitFor(() => {
-      expect(document.querySelector('[data-action="back"]')).not.toBeNull();
-    });
-    clickAction("back");
-
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector<HTMLButtonElement>('[data-action="start"]'),
-      ).not.toBeNull();
-    });
-    expect(document.querySelector(".select-view")?.hasAttribute("hidden")).toBe(
-      false,
-    );
-    // Recent batches were cut from the page overlay (#57).
-    expect(document.querySelector(".recent")).toBeNull();
+    expect(counterText()).toBe(`1/${BATCH_MAX_ITEMS} · ~1 min`);
+    expect(runtime.managerTabs).toEqual([]);
   });
 
   it("refuses to enter selection mode on non-batch pages", async () => {

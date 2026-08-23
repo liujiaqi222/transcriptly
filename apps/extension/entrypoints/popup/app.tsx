@@ -1,10 +1,12 @@
 import { parseVideoId } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { BatchTask } from "@/batch/jobs";
 import type { CloudQueueStatus } from "@/cloud/jobs";
 import {
   type AccountDependencies,
   AccountSection,
+  BatchActivity,
   BatchSourceView,
   CaptureView,
   ChannelRootHint,
@@ -23,6 +25,7 @@ import {
 } from "@/local-save";
 import type {
   BatchEnterSelectionStatus,
+  BatchStatusResult,
   CaptureResponseMessage,
   CloudJobRetryStatus,
   CloudSaveEnqueueStatus,
@@ -49,6 +52,10 @@ export interface PopupDependencies {
   requestCapture(tabId: number): Promise<CaptureResponseMessage>;
   /** Ask the tab's content script to enter selection mode (#56). */
   enterBatchSelection(tabId: number): Promise<BatchEnterSelectionStatus>;
+  /** Recent batch tasks from the background worker (#58). */
+  getBatchStatus(): Promise<BatchStatusResult>;
+  /** Open the batch manager page on a task (#58). */
+  openBatchManager(taskId: string): void;
   /** Close the popup window once selection mode is on. */
   closePopup(): void;
   createSaver(): Promise<LocalMarkdownSaver>;
@@ -62,6 +69,8 @@ type CaptureState =
   | { status: "error"; message: string };
 /** Poll cadence for the cloud queue status while the popup is open. */
 const QUEUE_STATUS_POLL_MS = 1500;
+/** Poll cadence for the active batch task while the popup is open (#58). */
+const BATCH_STATUS_POLL_MS = 2000;
 
 export function Popup({ deps }: { deps: PopupDependencies }) {
   const [captureState, setCaptureState] = useState<CaptureState>({
@@ -93,6 +102,10 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   const [batchTabId, setBatchTabId] = useState<number | undefined>();
   const [enteringSelection, setEnteringSelection] = useState(false);
   const [batchError, setBatchError] = useState<string | undefined>();
+  /** Newest running or paused batch, for the manager-page entry (#58). */
+  const [activeBatchTask, setActiveBatchTask] = useState<
+    BatchTask | undefined
+  >();
   const [filename, setFilename] = useState("");
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [changingFolder, setChangingFolder] = useState(false);
@@ -317,6 +330,40 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     }
   }, [batchTabId, deps]);
 
+  // Poll the background worker for an active batch so the manager entry
+  // stays reachable after the YouTube source page is closed (#58 AC).
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const result = await deps.getBatchStatus();
+        if (cancelled) return;
+        // Tasks arrive newest-first (the status router sorts them).
+        setActiveBatchTask(
+          result.tasks.find(
+            (task) =>
+              task.state === "queued" ||
+              task.state === "running" ||
+              task.state === "paused",
+          ),
+        );
+      } catch {
+        // The background worker is unreachable; the next tick retries.
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), BATCH_STATUS_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [deps]);
+
+  const handleOpenBatchManager = useCallback(
+    (taskId: string) => deps.openBatchManager(taskId),
+    [deps],
+  );
+
   const handleSave = async () => {
     if (captureState.status !== "ready") return;
     setSaveState({ status: "saving" });
@@ -378,6 +425,13 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         signedIn={signedIn}
         onRetry={(jobId) => void handleRetry(jobId)}
       />
+
+      {activeBatchTask && (
+        <BatchActivity
+          task={activeBatchTask}
+          onOpenManager={handleOpenBatchManager}
+        />
+      )}
 
       {!batchSource && captureState.status === "capturing" && (
         <div className="capturing" role="status">

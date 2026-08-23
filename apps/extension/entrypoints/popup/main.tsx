@@ -6,7 +6,9 @@ import type { CloudQueueStatus } from "@/cloud/jobs";
 import { createLocalMarkdownSaver } from "@/local-save";
 import {
   BATCH_ENTER_SELECTION_REQUEST,
+  BATCH_STATUS_REQUEST,
   type BatchEnterSelectionStatus,
+  type BatchStatusResult,
   CAPTURE_REQUEST,
   type CaptureResponseMessage,
   CLOUD_JOB_RETRY,
@@ -61,6 +63,17 @@ const dependencies: PopupDependencies = {
       type: BATCH_ENTER_SELECTION_REQUEST,
     });
     return response as BatchEnterSelectionStatus;
+  },
+  async getBatchStatus(): Promise<BatchStatusResult> {
+    const response = await browser.runtime.sendMessage({
+      type: BATCH_STATUS_REQUEST,
+    });
+    return response as BatchStatusResult;
+  },
+  openBatchManager: (taskId: string) => {
+    void browser.tabs.create({
+      url: `${browser.runtime.getURL("/manager.html")}?task=${encodeURIComponent(taskId)}`,
+    });
   },
   closePopup: () => window.close(),
   createSaver: () => createLocalMarkdownSaver(),

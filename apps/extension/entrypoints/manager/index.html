@@ -6,15 +6,13 @@
     <title>Transcriptly Batch</title>
   </head>
   <body>
-    <main id="app">
-      <h1>Transcriptly batch manager</h1>
-      <!--
-        Placeholder (#57): Start in selection mode opens this page with
-        `?task=<id>`. The real manager UI (progress, ETA, per-video
-        results, Pause / Stop / Retry, history) is delivered by #58.
-      -->
-      <p class="status" aria-live="polite">Loading batch…</p>
-    </main>
-    <script type="module" src="./main.ts"></script>
+    <!--
+      Batch manager page (#58): progress, ETA, per-video results with
+      Retry, Pause / Stop / Resume, and batch history. Reachable via
+      Start in selection mode, the popup entry, or the floating capsule
+      on batch source pages; `?task=<id>` opens a specific batch.
+    -->
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
   </body>
 </html>

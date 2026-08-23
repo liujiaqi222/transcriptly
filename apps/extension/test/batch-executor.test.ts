@@ -132,6 +132,49 @@ describe("batch executor", () => {
     expect(harness.intervals).toContain(2000);
   });
 
+  it("stamps every finished item with attempt timings for the ETA (#58)", async () => {
+    const harness = createHarness();
+    const task = await createTask(harness.store, videos);
+
+    await harness.executor.wake();
+
+    const finished = await harness.store.get(task.id);
+    for (const item of finished?.items ?? []) {
+      expect(typeof item.startedAt).toBe("number");
+      expect(item.finishedAt).toBeDefined();
+      expect(item.finishedAt).toBeGreaterThanOrEqual(
+        item.startedAt ?? Number.NaN,
+      );
+    }
+  });
+
+  it("re-stamps attempt timing when an item is retried (#58)", async () => {
+    const harness = createHarness({
+      saveLocal: async (capture) => {
+        if (capture.source.videoId === "abc12345678") {
+          throw new Error("disk full");
+        }
+        return { directoryName: "Vault", filename: "a.md" };
+      },
+    });
+    const task = await createTask(harness.store, videos.slice(0, 2));
+
+    await harness.executor.wake();
+
+    const failed = await harness.store.get(task.id);
+    const first = failed?.items[0];
+    expect(first?.local).toBe("failed");
+    expect(typeof first?.startedAt).toBe("number");
+    expect(typeof first?.finishedAt).toBe("number");
+
+    await harness.executor.retryItem(task.id, "abc12345678", ["local"]);
+
+    const retried = await harness.store.get(task.id);
+    const second = retried?.items[0];
+    expect(second?.local).toBe("failed");
+    expect(second?.startedAt).toBeGreaterThan(first?.startedAt ?? 0);
+  });
+
   it("keeps local and cloud failures independent", async () => {
     const harness = createHarness({
       saveLocal: async (capture) => {
