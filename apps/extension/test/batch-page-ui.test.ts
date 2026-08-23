@@ -1,7 +1,10 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BatchTask } from "../batch/jobs";
-import { type BatchPageRuntime, mountBatchPageUi } from "../batch/page-ui";
+import {
+  type BatchPageRuntime,
+  enterBatchSelectionMode,
+} from "../batch/page-ui";
 import {
   BATCH_LOOKUP_REQUEST,
   BATCH_PAUSE,
@@ -16,7 +19,7 @@ import {
   type CloudSessionStatus,
 } from "../shared/messages";
 
-const PAGE_URL = "https://www.youtube.com/@eoglobal/videos";
+const CHANNEL_VIDEOS_PATH = "/@eoglobal/videos";
 
 function videoAnchors(): string {
   return `
@@ -111,11 +114,16 @@ function createRuntime(options: RuntimeOptions = {}) {
   } = {
     sendMessage: sendMessage as BatchPageRuntime["sendMessage"],
     getCloudPreference: async () => options.cloudPreference ?? false,
-    pageUrl: PAGE_URL,
     sent,
     callCount: () => sendMessage.mock.calls.length,
   };
   return runtime;
+}
+
+/** Simulate YouTube's in-page navigation signal (#56). */
+function navigateTo(path: string): void {
+  window.history.pushState({}, "", path);
+  window.dispatchEvent(new Event("yt-navigate-finish"));
 }
 
 function requiredCheckbox(): HTMLInputElement {
@@ -142,7 +150,8 @@ function clickStart(): void {
 
 async function mount(runtime: ReturnType<typeof createRuntime>) {
   document.body.innerHTML = videoAnchors();
-  await mountBatchPageUi(runtime);
+  navigateTo(CHANNEL_VIDEOS_PATH);
+  await enterBatchSelectionMode(runtime);
   // Let the async defaults (session, badges, recent batches) settle.
   await vi.waitFor(() => {
     if (runtime.callCount() === 0) {
@@ -151,10 +160,20 @@ async function mount(runtime: ReturnType<typeof createRuntime>) {
   });
 }
 
+/** Teardown must leave zero residue on the page (#56). */
+function expectZeroResidue(): void {
+  expect(document.getElementById("transcriptly-batch-panel")).toBeNull();
+  expect(document.getElementById("transcriptly-batch-panel-styles")).toBeNull();
+  expect(document.querySelector(".transcriptly-batch-checkbox")).toBeNull();
+  expect(document.querySelector(".transcriptly-batch-badge")).toBeNull();
+  expect(document.querySelector("[data-transcriptly-batch]")).toBeNull();
+}
+
 afterEach(() => {
   cleanup();
   window.dispatchEvent(new Event("transcriptly-batch-unmount"));
   document.body.innerHTML = "";
+  window.history.pushState({}, "", "/");
 });
 
 describe("batch page panel", () => {
@@ -369,23 +388,140 @@ describe("batch page panel", () => {
     );
   });
 
-  it("does not mount on non-batch pages", async () => {
+  it("refuses to enter selection mode on non-batch pages", async () => {
     document.body.innerHTML = videoAnchors();
-    await mountBatchPageUi({
-      ...createRuntime(),
-      pageUrl: "https://www.youtube.com/watch?v=abc12345678",
-    });
+    navigateTo("/watch?v=abc12345678");
+    const result = await enterBatchSelectionMode(createRuntime());
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain("playlist");
+    }
     expect(document.getElementById("transcriptly-batch-panel")).toBeNull();
+    expect(document.querySelector(".transcriptly-batch-checkbox")).toBeNull();
   });
 
-  it("guides on a channel root page instead of scanning", async () => {
+  it("refuses to enter selection mode on a channel root page", async () => {
     document.body.innerHTML = "";
-    await mountBatchPageUi({
-      ...createRuntime(),
-      pageUrl: "https://www.youtube.com/@eoglobal",
-    });
-    const guide = document.getElementById("transcriptly-batch-guide");
-    expect(guide?.textContent).toContain("Videos tab");
+    navigateTo("/@eoglobal");
+    const result = await enterBatchSelectionMode(createRuntime());
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain("Videos tab");
+    }
+    // The old guide overlay is gone: nothing is injected anywhere (#56).
+    expect(document.getElementById("transcriptly-batch-guide")).toBeNull();
     expect(document.getElementById("transcriptly-batch-panel")).toBeNull();
+  });
+});
+
+describe("selection mode lifecycle (#56)", () => {
+  it("is idempotent while already active", async () => {
+    const runtime = createRuntime();
+    await mount(runtime);
+    await enterBatchSelectionMode(runtime);
+
+    expect(document.querySelectorAll("#transcriptly-batch-panel")).toHaveLength(
+      1,
+    );
+    expect(
+      document.querySelectorAll(".transcriptly-batch-checkbox"),
+    ).toHaveLength(2);
+  });
+
+  it("tears down the panel, checkboxes, badges and styles on ✕", async () => {
+    const runtime = createRuntime({
+      saved: { abc12345678: { local: true, cloud: true } },
+    });
+    await mount(runtime);
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector(".transcriptly-batch-badge"),
+      ).not.toBeNull();
+    });
+
+    document.querySelector<HTMLButtonElement>('[data-action="close"]')?.click();
+
+    expectZeroResidue();
+  });
+
+  it("tears down on Escape", async () => {
+    const runtime = createRuntime();
+    await mount(runtime);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+
+    expectZeroResidue();
+  });
+
+  it("tears everything down when SPA navigation leaves the batch source", async () => {
+    const runtime = createRuntime({
+      saved: { abc12345678: { local: true, cloud: true } },
+    });
+    await mount(runtime);
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector(".transcriptly-batch-badge"),
+      ).not.toBeNull();
+    });
+
+    navigateTo("/");
+
+    expectZeroResidue();
+  });
+
+  it("keeps the panel across a watch-page visit and restores the selection on return", async () => {
+    const runtime = createRuntime();
+    await mount(runtime);
+    selectFirstVideo();
+
+    // The SPA replaces the feed while the user is on the watch page.
+    const feed = document.getElementById("feed");
+    if (!feed) throw new Error("missing feed");
+    feed.innerHTML = "";
+    navigateTo("/watch?v=abc12345678");
+    expect(document.getElementById("transcriptly-batch-panel")).not.toBeNull();
+
+    // Returning re-renders the feed; the observer re-injects the
+    // checkboxes with the previous selection intact.
+    navigateTo(CHANNEL_VIDEOS_PATH);
+    feed.innerHTML = videoAnchors();
+    await vi.waitFor(() => {
+      const checkbox = document.querySelector<HTMLInputElement>(
+        ".transcriptly-batch-checkbox",
+      );
+      expect(checkbox).not.toBeNull();
+      expect(checkbox?.checked).toBe(true);
+    });
+  });
+
+  it("injects no new checkboxes while on a watch page", async () => {
+    const runtime = createRuntime();
+    await mount(runtime);
+    navigateTo("/watch?v=abc12345678");
+
+    const feed = document.getElementById("feed");
+    if (!feed) throw new Error("missing feed");
+    feed.insertAdjacentHTML(
+      "beforeend",
+      '<ytd-rich-item-renderer><a href="https://www.youtube.com/watch?v=ghi12345678" title="Third video"><span id="video-title">Third video</span></a></ytd-rich-item-renderer>',
+    );
+    // Let the observer's microtask run.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const cards = document.querySelectorAll("ytd-rich-item-renderer");
+    expect(cards).toHaveLength(3);
+    const thirdCard = cards.item(2);
+    expect(thirdCard?.querySelector(".transcriptly-batch-checkbox")).toBeNull();
+  });
+
+  it("re-enters with a fresh panel after teardown", async () => {
+    const runtime = createRuntime();
+    await mount(runtime);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expectZeroResidue();
+
+    const result = await enterBatchSelectionMode(runtime);
+    expect(result).toEqual({ ok: true });
+    expect(document.getElementById("transcriptly-batch-panel")).not.toBeNull();
   });
 });

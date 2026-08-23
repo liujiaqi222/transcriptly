@@ -135,6 +135,8 @@ function createHarness(
   const deps: PopupDependencies = {
     getActiveTab: vi.fn(async () => options.tab),
     requestCapture: vi.fn(async () => ({ ok: true as const, capture })),
+    enterBatchSelection: vi.fn(async () => ({ ok: true as const })),
+    closePopup: vi.fn(),
     account: {
       getCloudSession: vi.fn(async () => ({ status: "signed-out" as const })),
       openCloudSignIn: vi.fn(async () => undefined),
@@ -255,19 +257,17 @@ describe("popup capture flow", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
   });
 
-  it("directs channel pages to the batch panel but keeps the folder picker", async () => {
+  it("hints channel root pages to open the Videos tab instead of selecting", async () => {
     const harness = createHarness({
       tab: { id: 3, url: "https://www.youtube.com/@eoglobal" },
     });
     render(<Popup deps={harness.deps} />);
     expect(
-      await screen.findByText(
-        /Select videos using the Transcriptly batch panel/,
-      ),
+      await screen.findByText(/Open this channel's Videos tab/),
     ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Select videos/ })).toBeNull();
     expect(harness.deps.requestCapture).not.toHaveBeenCalled();
-    expect(screen.getByText(/Save to:/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Change" })).toBeTruthy();
+    expect(harness.deps.enterBatchSelection).not.toHaveBeenCalled();
   });
 
   it("warns on batch pages when folder access expired", async () => {
@@ -279,6 +279,64 @@ describe("popup capture flow", () => {
     });
     render(<Popup deps={harness.deps} />);
     expect(await screen.findByText(/Write access is not active/)).toBeTruthy();
+  });
+
+  it("enters selection mode on demand from a batch page and closes the popup", async () => {
+    const harness = createHarness({
+      tab: { id: 3, url: "https://www.youtube.com/playlist?list=PL1" },
+    });
+    render(<Popup deps={harness.deps} />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Select videos on this page" }),
+    );
+
+    await waitFor(() =>
+      expect(harness.deps.enterBatchSelection).toHaveBeenCalledWith(3),
+    );
+    await waitFor(() => expect(harness.deps.closePopup).toHaveBeenCalled());
+    expect(harness.deps.requestCapture).not.toHaveBeenCalled();
+  });
+
+  it("shows the content script's refusal when entering selection mode fails", async () => {
+    const harness = createHarness({
+      tab: { id: 3, url: "https://www.youtube.com/playlist?list=PL1" },
+    });
+    harness.deps.enterBatchSelection = vi.fn(async () => ({
+      ok: false as const,
+      message: "Video selection is only available here.",
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Select videos on this page" }),
+    );
+
+    expect(
+      await screen.findByText("Video selection is only available here."),
+    ).toBeTruthy();
+    expect(harness.deps.closePopup).not.toHaveBeenCalled();
+  });
+
+  it("reports an unreachable content script when entering selection mode", async () => {
+    const harness = createHarness({
+      tab: { id: 3, url: "https://www.youtube.com/playlist?list=PL1" },
+    });
+    harness.deps.enterBatchSelection = vi.fn(async () => {
+      throw new Error(
+        "Could not establish connection. Receiving end does not exist.",
+      );
+    });
+    render(<Popup deps={harness.deps} />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Select videos on this page" }),
+    );
+
+    expect(
+      await screen.findByText(/Reload the YouTube page and try again/),
+    ).toBeTruthy();
+    expect(harness.deps.closePopup).not.toHaveBeenCalled();
   });
 
   it("reports non-YouTube tabs explicitly", async () => {

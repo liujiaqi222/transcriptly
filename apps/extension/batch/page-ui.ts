@@ -1,6 +1,9 @@
 import { discoverLoadedVideos, isBatchSourceUrl } from "@/batch/discovery";
 import type { BatchDestination, BatchTask, BatchVideo } from "@/batch/jobs";
-import { isChannelRootUrl } from "@/entrypoints/popup/utils/youtube";
+import {
+  isChannelRootUrl,
+  isYouTubeWatchUrl,
+} from "@/entrypoints/popup/utils/youtube";
 import {
   BATCH_LOOKUP_REQUEST,
   BATCH_PAUSE,
@@ -9,6 +12,7 @@ import {
   BATCH_START,
   BATCH_STATUS_REQUEST,
   BATCH_STOP,
+  type BatchEnterSelectionStatus,
   type BatchLookupResult,
   type BatchLookupVideo,
   type BatchMutationStatus,
@@ -19,18 +23,24 @@ import {
 } from "@/shared/messages";
 
 /**
- * The batch panel injected into playlist / channel /videos pages (#26).
+ * On-demand selection mode for playlist / channel /videos pages (#56).
  *
- * Select view: per-card checkboxes (selection survives YouTube's virtual
- * list), Local / Cloud destination pickers for this task only, and "already
- * saved" badges from known receipts. Task view: overall progress, per-video
- * Local / Cloud results, failure reasons, Pause / Stop / Resume and
- * per-item Retry.
+ * Entered only when the popup asks - never auto-injected. Select view:
+ * per-card checkboxes (selection survives YouTube's virtual list),
+ * Local / Cloud destination pickers for this task only, and "already
+ * saved" badges from known receipts. Task view: overall progress,
+ * per-video Local / Cloud results, failure reasons, Pause / Stop /
+ * Resume and per-item Retry.
+ *
+ * Lifecycle: the whole mode is torn down (panel, styles, every checkbox
+ * and badge, card markers, observer, listeners) on ✕ / Esc / SPA
+ * navigation to a page that is neither a batch source nor a watch page.
+ * Watch-page round trips keep the mode and the selection, so returning
+ * re-injects the checkboxes over the re-rendered feed.
  */
 
 const CLOUD_PREFERENCE_KEY = "cloud-save-enabled";
 const ROOT_ID = "transcriptly-batch-panel";
-const GUIDE_ID = "transcriptly-batch-guide";
 const CARD_MARKER = "data-transcriptly-batch";
 const STATUS_POLL_MS = 1000;
 const RECENT_LIMIT = 5;
@@ -38,7 +48,6 @@ const RECENT_LIMIT = 5;
 export interface BatchPageRuntime {
   sendMessage<T = unknown>(message: unknown): Promise<T>;
   getCloudPreference(): Promise<boolean>;
-  readonly pageUrl?: string;
 }
 
 function defaultRuntime(): BatchPageRuntime {
@@ -56,10 +65,11 @@ function addStyles() {
   const style = document.createElement("style");
   style.id = `${ROOT_ID}-styles`;
   style.textContent = `
-    #${ROOT_ID}, #${GUIDE_ID} { position: fixed; z-index: 2147483647; right: 20px; bottom: 20px; width: 300px; max-height: 70vh; overflow-y: auto; padding: 14px; color: #171717; background: #fff; border: 1px solid #aaa; border-radius: 8px; box-shadow: 0 4px 18px #0003; font: 13px/1.4 Arial,sans-serif; }
-    #${ROOT_ID} h2, #${GUIDE_ID} h2 { margin: 0 0 8px; font-size: 15px; }
+    #${ROOT_ID} { position: fixed; z-index: 2147483647; right: 20px; bottom: 20px; width: 300px; max-height: 70vh; overflow-y: auto; padding: 14px; color: #171717; background: #fff; border: 1px solid #aaa; border-radius: 8px; box-shadow: 0 4px 18px #0003; font: 13px/1.4 Arial,sans-serif; }
+    #${ROOT_ID} h2 { margin: 0 0 8px; font-size: 15px; }
     #${ROOT_ID} h3 { margin: 12px 0 4px; font-size: 13px; color: #555; }
-    #${ROOT_ID} p, #${GUIDE_ID} p { margin: 6px 0; }
+    #${ROOT_ID} p { margin: 6px 0; }
+    #${ROOT_ID} .panel-close { position: absolute; top: 8px; right: 8px; margin: 0; padding: 2px 6px; border: 0; background: transparent; font-size: 14px; line-height: 1; cursor: pointer; }
     #${ROOT_ID} label { display: block; margin: 5px 0; }
     #${ROOT_ID} label.disabled { color: #888; }
     #${ROOT_ID} .hint { color: #888; font-size: 12px; }
@@ -132,29 +142,30 @@ function summarize(task: BatchTask) {
   return { saved, failed, skipped, pending, total: task.items.length };
 }
 
-export async function mountBatchPageUi(
-  runtime: BatchPageRuntime = defaultRuntime(),
-): Promise<void> {
-  const pageUrl = runtime.pageUrl ?? location.href;
-  if (!isBatchSourceUrl(pageUrl)) return;
-  addStyles();
+/** Tears down the active selection mode, if one is mounted. */
+let activeTeardown: (() => void) | undefined;
 
-  // The channel root page renders no video cards yet: guide, don't scan.
-  if (isChannelRootUrl(pageUrl)) {
-    if (document.getElementById(GUIDE_ID)) return;
-    document.getElementById(ROOT_ID)?.remove();
-    const guide = document.createElement("aside");
-    guide.id = GUIDE_ID;
-    const videosHref = `${location.pathname.replace(/\/+$/, "")}/videos`;
-    guide.innerHTML = `
-      <h2>Transcriptly batch save</h2>
-      <p>Open this channel's <a href="${videosHref}">Videos tab</a> to select videos for a batch save.</p>
-    `;
-    document.body.append(guide);
-    return;
+export async function enterBatchSelectionMode(
+  runtime: BatchPageRuntime = defaultRuntime(),
+): Promise<BatchEnterSelectionStatus> {
+  // Idempotent: entering an already-active mode changes nothing.
+  if (activeTeardown) return { ok: true };
+  if (!isBatchSourceUrl(location.href)) {
+    return {
+      ok: false,
+      message:
+        "Video selection is only available on playlist and channel Videos pages.",
+    };
   }
-  document.getElementById(GUIDE_ID)?.remove();
-  if (document.getElementById(ROOT_ID)) return;
+  // The channel root page renders no video cards; the popup guides the
+  // user to its Videos tab instead of injecting anything here.
+  if (isChannelRootUrl(location.href)) {
+    return {
+      ok: false,
+      message: "Open this channel's Videos tab to select videos.",
+    };
+  }
+  addStyles();
 
   // --- select view state -------------------------------------------------
   const knownVideos = new Map<string, BatchVideo>();
@@ -171,6 +182,7 @@ export async function mountBatchPageUi(
   const panel = document.createElement("aside");
   panel.id = ROOT_ID;
   panel.innerHTML = `
+    <button type="button" class="panel-close" data-action="close" aria-label="Exit selection mode">✕</button>
     <h2>Transcriptly batch save</h2>
     <p class="status" aria-live="polite">Scanning loaded videos…</p>
     <div class="select-view">
@@ -259,6 +271,7 @@ export async function mountBatchPageUi(
   }
 
   function updateAllBadges() {
+    if (!isBatchSourceUrl(location.href)) return;
     for (const videoId of knownVideos.keys()) {
       const anchor = document.querySelector<HTMLAnchorElement>(
         `a[href*="watch?v=${videoId}"]`,
@@ -281,6 +294,10 @@ export async function mountBatchPageUi(
   }
 
   function refreshCards() {
+    // Defense in depth (#56): never inject outside a batch source page,
+    // even if the observer fires after SPA navigation (e.g. the watch
+    // page's recommendation feed).
+    if (!isBatchSourceUrl(location.href)) return;
     if (refreshing) {
       refreshQueued = true;
       return;
@@ -600,19 +617,6 @@ export async function mountBatchPageUi(
   void applyCloudDefaults();
   void refreshRecent();
 
-  // Deterministic teardown: the content script only calls mount once per
-  // page, but tests and SPA navigation need a way to stop timers.
-  const handleUnmount = () => {
-    if (pollTimer !== undefined) {
-      clearInterval(pollTimer);
-      pollTimer = undefined;
-    }
-    observer.disconnect();
-    window.removeEventListener("transcriptly-batch-unmount", handleUnmount);
-    panel.remove();
-  };
-  window.addEventListener("transcriptly-batch-unmount", handleUnmount);
-
   // Only react to page mutations outside our own panel.
   const observer = new MutationObserver((mutations) => {
     if (activeTaskId) return;
@@ -620,4 +624,56 @@ export async function mountBatchPageUi(
     refreshCards();
   });
   observer.observe(document.body, { childList: true, subtree: true });
+
+  // Full teardown (#56): panel, styles, every checkbox and badge, card
+  // markers, the observer and every listener - zero page residue.
+  const teardown = () => {
+    if (pollTimer !== undefined) {
+      clearInterval(pollTimer);
+      pollTimer = undefined;
+    }
+    observer.disconnect();
+    window.removeEventListener("transcriptly-batch-unmount", teardown);
+    window.removeEventListener("keydown", handleKeydown);
+    window.removeEventListener("yt-navigate-finish", handleNavigate);
+    panel.remove();
+    document.getElementById(`${ROOT_ID}-styles`)?.remove();
+    for (const element of document.querySelectorAll(
+      ".transcriptly-batch-checkbox, .transcriptly-batch-badge",
+    )) {
+      element.remove();
+    }
+    for (const card of document.querySelectorAll(`[${CARD_MARKER}]`)) {
+      card.removeAttribute(CARD_MARKER);
+    }
+    if (activeTeardown === teardown) activeTeardown = undefined;
+  };
+  window.addEventListener("transcriptly-batch-unmount", teardown);
+
+  // ✕ and Esc exit selection mode; a running task keeps running in the
+  // background worker.
+  panel
+    .querySelector('[data-action="close"]')
+    ?.addEventListener("click", teardown);
+  const handleKeydown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") teardown();
+  };
+  window.addEventListener("keydown", handleKeydown);
+
+  // YouTube is a SPA: watch in-page navigation. Leaving for anything but
+  // another batch source or a watch page tears the mode down; arriving
+  // back on a batch source re-injects over the re-rendered feed.
+  const handleNavigate = () => {
+    const url = location.href;
+    if (isYouTubeWatchUrl(url)) return;
+    if (isBatchSourceUrl(url)) {
+      refreshCards();
+      return;
+    }
+    teardown();
+  };
+  window.addEventListener("yt-navigate-finish", handleNavigate);
+
+  activeTeardown = teardown;
+  return { ok: true };
 }

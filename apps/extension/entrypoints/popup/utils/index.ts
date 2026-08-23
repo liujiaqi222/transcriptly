@@ -4,4 +4,9 @@ export {
   propertyRows,
 } from "./capture-details";
 export { errorMessage } from "./errors";
-export { isBatchSourceUrl, isYouTubeWatchUrl, segmentUrl } from "./youtube";
+export {
+  isBatchSourceUrl,
+  isChannelRootUrl,
+  isYouTubeWatchUrl,
+  segmentUrl,
+} from "./youtube";

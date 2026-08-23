@@ -14,6 +14,11 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Selection mode (#56) guards injection with the live location.href,
+    // so tests run on a YouTube origin and navigate via history.pushState.
+    environmentOptions: {
+      jsdom: { url: "https://www.youtube.com/" },
+    },
     include: ["test/**/*.test.{ts,tsx}"],
   },
 });

@@ -144,7 +144,6 @@ export interface BatchRetryItemMessage {
 /** Which of the given videos Transcriptly already knows as saved (#26). */
 export const BATCH_LOOKUP_REQUEST =
   "transcriptly:batch-lookup-request" as const;
-
 export interface BatchLookupRequestMessage {
   type: typeof BATCH_LOOKUP_REQUEST;
   videoIds: string[];
@@ -159,6 +158,21 @@ export interface BatchLookupVideo {
 export interface BatchLookupResult {
   videos: BatchLookupVideo[];
 }
+
+/**
+ * Popup -> content script (tab-targeted, #56): enter on-demand selection
+ * mode on a batch source page. Not routed through the background worker.
+ */
+export const BATCH_ENTER_SELECTION_REQUEST =
+  "transcriptly:batch-enter-selection-request" as const;
+
+export interface BatchEnterSelectionRequestMessage {
+  type: typeof BATCH_ENTER_SELECTION_REQUEST;
+}
+
+export type BatchEnterSelectionStatus =
+  | { ok: true }
+  | { ok: false; message: string };
 
 export type BatchMessage =
   | BatchStartMessage
