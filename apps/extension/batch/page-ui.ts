@@ -128,10 +128,13 @@ function addStyles() {
     #${TOAST_ID} { position: fixed; left: 50%; bottom: 36px; z-index: 2147483647; transform: translateX(-50%) translateY(8px); max-width: min(480px, 80vw); padding: 10px 18px; border-radius: 999px; background: #232323; color: #fff; font: 13px/1.4 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; box-shadow: 0 8px 28px rgba(15,22,36,.35); opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
     #${TOAST_ID}.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
     [${CARD_MARKER}] { outline: 1px solid rgba(35,35,35,.18); outline-offset: -1px; }
-    .transcriptly-batch-check { position: absolute; top: 0; left: 0; z-index: 3; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; }
-    .transcriptly-batch-check input { width: 20px; height: 20px; margin: 0; accent-color: #1a7f37; border-radius: 4px; box-shadow: 0 0 0 2px rgba(255,255,255,.85); }
+    .transcriptly-batch-check { position: absolute; top: 0; left: 0; z-index: 3; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; -webkit-user-select: none; user-select: none; }
+    .transcriptly-batch-check::before { content: ""; display: block; width: 20px; height: 20px; border: 2px solid #fff; border-radius: 5px; background: rgba(0,0,0,.35); box-shadow: 0 0 0 2px rgba(255,255,255,.85); box-sizing: border-box; }
+    .transcriptly-batch-check:focus-visible { outline: 2px solid #1a7f37; outline-offset: 2px; border-radius: 8px; }
+    .transcriptly-batch-check.is-checked::before { background: #1a7f37; border-color: #fff; }
+    .transcriptly-batch-check.is-checked::after { content: ""; position: absolute; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
     .transcriptly-batch-check.is-disabled { cursor: not-allowed; }
-    .transcriptly-batch-check.is-disabled input { opacity: .4; filter: grayscale(1); }
+    .transcriptly-batch-check.is-disabled::before { opacity: .45; }
     .transcriptly-batch-badge { position: absolute; top: 10px; left: 38px; z-index: 3; padding: 2px 8px; border-radius: 999px; background: #1a7f37; color: #fff; font-size: 11px; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   `;
   document.documentElement.append(style);
@@ -357,12 +360,13 @@ export async function enterBatchSelectionMode(
       ".transcriptly-batch-check",
     )) {
       const videoId = hit.dataset.videoId;
-      const input = hit.querySelector<HTMLInputElement>("input");
-      if (!videoId || !input) continue;
-      input.checked = selectedVideoIds.has(videoId);
+      if (!videoId) continue;
+      const checked = selectedVideoIds.has(videoId);
+      hit.classList.toggle("is-checked", checked);
+      hit.setAttribute("aria-checked", checked ? "true" : "false");
       const disabled = isCheckDisabled(videoId);
       hit.classList.toggle("is-disabled", disabled);
-      input.setAttribute("aria-disabled", disabled ? "true" : "false");
+      hit.setAttribute("aria-disabled", disabled ? "true" : "false");
     }
   }
 
@@ -446,31 +450,45 @@ export async function enterBatchSelectionMode(
         card.setAttribute(CARD_MARKER, "");
         let hit = card.querySelector<HTMLElement>(".transcriptly-batch-check");
         if (!hit) {
-          hit = document.createElement("label");
+          // A native <input type=checkbox> is deliberately NOT used:
+          // Chromium flips its checkedness during pre-click activation
+          // (mouseup) before the click event dispatch, so a handler that
+          // reads/writes input.checked inverts the user's intent (click
+          // to check re-unchecks, click to uncheck re-checks). The hit
+          // area is therefore a model-driven div[role=checkbox] whose
+          // visual state is rendered only from selectedVideoIds.
+          hit = document.createElement("div");
           hit.className = "transcriptly-batch-check";
           hit.dataset.videoId = video.videoId;
-          const input = document.createElement("input");
-          input.type = "checkbox";
-          input.setAttribute("aria-label", `Select ${video.title}`);
-          hit.append(input);
+          hit.setAttribute("role", "checkbox");
+          hit.setAttribute("aria-label", `Select ${video.title}`);
+          hit.setAttribute("aria-checked", "false");
+          hit.tabIndex = 0;
           // ~40 px hot zone, capture phase: a click here must never
           // reach the card's navigation, and a full quota greys out
           // with a toast instead of selecting (#57).
+          const toggle = () => {
+            if (hit?.classList.contains("is-disabled")) {
+              showToast(batchFullToast());
+              return;
+            }
+            setChecked(video.videoId, !selectedVideoIds.has(video.videoId));
+          };
           hit.addEventListener(
             "click",
             (event) => {
               event.preventDefault();
               event.stopPropagation();
-              if (hit?.classList.contains("is-disabled")) {
-                showToast(batchFullToast());
-                return;
-              }
-              if (!input) return;
-              input.checked = !input.checked;
-              setChecked(video.videoId, input.checked);
+              toggle();
             },
             { capture: true },
           );
+          hit.addEventListener("keydown", (event) => {
+            if (event.key !== " " && event.key !== "Enter") return;
+            event.preventDefault();
+            event.stopPropagation();
+            toggle();
+          });
           card.prepend(hit);
         }
         updateBadges(card, video.videoId);

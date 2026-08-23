@@ -496,12 +496,12 @@ describe("selection toolbar (#57)", () => {
     expect(toastText()).toContain(
       `Batch full (${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS})`,
     );
-    const checks = document.querySelectorAll<HTMLInputElement>(
-      ".transcriptly-batch-check input",
+    const checks = document.querySelectorAll<HTMLElement>(
+      ".transcriptly-batch-check",
     );
-    expect([...checks].filter((input) => input.checked)).toHaveLength(
-      BATCH_MAX_ITEMS + 3,
-    );
+    expect(
+      [...checks].filter((hit) => hit.classList.contains("is-checked")),
+    ).toHaveLength(BATCH_MAX_ITEMS + 3);
     // The full counter turns red.
     expect(
       document.querySelector(".counter")?.classList.contains("counter-full"),
@@ -551,9 +551,7 @@ describe("selection toolbar (#57)", () => {
     expect(toastText()).toContain(
       "Start this batch, then start another - batches run one after another.",
     );
-    expect(overflow.querySelector("input")?.hasAttribute("checked")).toBe(
-      false,
-    );
+    expect(overflow.getAttribute("aria-checked")).toBe("false");
     expect(counterText()).toContain(`${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS}`);
   });
 
@@ -570,10 +568,8 @@ describe("selection toolbar (#57)", () => {
     expect(counterText()).toBe(`0/${BATCH_MAX_ITEMS}`);
     expect(
       [
-        ...document.querySelectorAll<HTMLInputElement>(
-          ".transcriptly-batch-check input",
-        ),
-      ].some((input) => input.checked),
+        ...document.querySelectorAll<HTMLElement>(".transcriptly-batch-check"),
+      ].some((hit) => hit.classList.contains("is-checked")),
     ).toBe(false);
   });
 
@@ -769,11 +765,11 @@ describe("selection mode lifecycle (#56)", () => {
     navigateTo(CHANNEL_VIDEOS_PATH);
     feed.innerHTML = videoAnchors();
     await vi.waitFor(() => {
-      const input = document.querySelector<HTMLInputElement>(
-        ".transcriptly-batch-check input",
+      const check = document.querySelector<HTMLElement>(
+        ".transcriptly-batch-check",
       );
-      expect(input).not.toBeNull();
-      expect(input?.checked).toBe(true);
+      expect(check).not.toBeNull();
+      expect(check?.classList.contains("is-checked")).toBe(true);
     });
   });
 
