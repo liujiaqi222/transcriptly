@@ -16,6 +16,7 @@ services:
       retries: 10
 
   migrate:
+    image: ghcr.io/liujiaqi222/transcriptly-migrate:latest
     build:
       context: .
       target: migrator
@@ -27,6 +28,7 @@ services:
     restart: "no"
 
   app:
+    image: ghcr.io/liujiaqi222/transcriptly-app:latest
     build:
       context: .
       target: app
