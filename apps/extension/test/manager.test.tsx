@@ -65,7 +65,12 @@ function createHarness(tasks: BatchTask[]): Harness {
   const sendMessage = vi.fn(async (message: unknown) => {
     sent.push(message);
     if ((message as { type: string }).type === BATCH_STATUS_REQUEST) {
-      return { tasks };
+      const taskId = (message as { taskId?: string }).taskId;
+      return {
+        tasks: taskId
+          ? tasks.filter((task) => task.id === taskId)
+          : tasks.slice(0, 10),
+      };
     }
     const handler = handlers.get((message as { type: string }).type);
     return handler ?? { ok: true };
@@ -138,23 +143,28 @@ describe("batch manager page (#58)", () => {
     ).toBeTruthy();
   });
 
-  it("deep-links to the task in the URL and reports a missing one", async () => {
-    const harness = createHarness([
-      makeTask({ id: "task-1" }),
-      makeTask({ id: "task-2", createdAt: 1 }),
-    ]);
-    await renderManager(harness, "task-1");
+  it("deep-links to a task older than the recent-history limit", async () => {
+    const recent = Array.from({ length: 10 }, (_, index) =>
+      makeTask({ id: `task-${index}`, createdAt: 20 - index }),
+    );
+    const old = makeTask({ id: "task-old", createdAt: 1 });
+    const harness = createHarness([...recent, old]);
 
-    // task-2 is newer, but ?task=task-1 wins.
+    await renderManager(harness, old.id);
+
     expect(screen.getAllByText("Video abc12345678").length).toBeGreaterThan(0);
+    expect(harness.sent).toContainEqual({
+      type: BATCH_STATUS_REQUEST,
+      taskId: old.id,
+    });
+  });
 
-    // A task id that no longer exists shows an explicit message plus
-    // the history instead of a blank page.
-    cleanup();
+  it("reports a missing deep-linked task while preserving history", async () => {
     await renderManager(
       createHarness([makeTask({ id: "task-1" })]),
       "task-gone",
     );
+
     expect(screen.getByText("That batch task no longer exists.")).toBeTruthy();
     expect(screen.getByText("Recent batches")).toBeTruthy();
   });

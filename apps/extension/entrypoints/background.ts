@@ -88,6 +88,11 @@ export default defineBackground({
         receiptStore.getAll(directoryName),
       getCloudStatus: (videoId?: string) => cloudStore.getStatus(videoId),
       getCloudSession: () => cloudClient.getSession(),
+      openManager: async (taskId: string) => {
+        await browser.tabs.create({
+          url: `${browser.runtime.getURL("/manager.html")}?task=${encodeURIComponent(taskId)}`,
+        });
+      },
     });
 
     browser.runtime.onMessage.addListener(

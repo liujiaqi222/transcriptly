@@ -214,6 +214,17 @@ describe("capture", () => {
     expect(result.segments.map((s) => s.start)).toEqual([0, 9, 42]);
   });
 
+  it("does not double-count segments repeated in sibling transcript regions", async () => {
+    const doc = loadDocument("watch-duplicate-transcript-regions.html");
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.segments).toEqual([
+      { start: 0, text: "first segment" },
+      { start: 8, text: "second segment" },
+    ]);
+  });
+
   it("captures CJK transcript text in order", async () => {
     const doc = loadDocument("cjk.html");
 

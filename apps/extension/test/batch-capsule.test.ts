@@ -3,7 +3,9 @@ import type { BatchCapsuleRuntime } from "../batch/capsule";
 import { mountBatchProgressCapsule } from "../batch/capsule";
 import type { BatchItemState, BatchTask } from "../batch/jobs";
 import {
+  BATCH_OPEN_MANAGER,
   BATCH_STATUS_REQUEST,
+  type BatchMutationStatus,
   type BatchStatusResult,
 } from "../shared/messages";
 
@@ -40,22 +42,23 @@ function makeTask(overrides: Partial<BatchTask> = {}): BatchTask {
 }
 
 function createRuntime(tasks: BatchTask[]) {
-  const managerTabs: string[] = [];
   const sendMessage = vi.fn(
-    async (message: unknown): Promise<BatchStatusResult> => {
+    async (
+      message: unknown,
+    ): Promise<BatchStatusResult | BatchMutationStatus> => {
       if ((message as { type: string }).type === BATCH_STATUS_REQUEST) {
         return { tasks };
+      }
+      if ((message as { type: string }).type === BATCH_OPEN_MANAGER) {
+        return { ok: true };
       }
       throw new Error("unexpected message");
     },
   );
   const runtime: BatchCapsuleRuntime = {
     sendMessage: sendMessage as unknown as BatchCapsuleRuntime["sendMessage"],
-    openManagerTab: (taskId: string) => {
-      managerTabs.push(taskId);
-    },
   };
-  return { runtime, sendMessage, managerTabs };
+  return { runtime, sendMessage };
 }
 
 function navigateTo(path: string): void {
@@ -118,23 +121,29 @@ describe("batch progress capsule (#58)", () => {
         },
       ],
     });
-    const { managerTabs } = await mount([
+    const { sendMessage } = await mount([
       makeTask({ id: "task-old", createdAt: 1 }),
       newest,
     ]);
 
     expect(capsule().textContent).toBe("Batch 0/1 ->");
     capsule().click();
-    expect(managerTabs).toEqual(["task-new"]);
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: BATCH_OPEN_MANAGER,
+      taskId: "task-new",
+    });
   });
 
   it("opens the manager page on the running task when clicked", async () => {
     navigateTo(CHANNEL_VIDEOS_PATH);
-    const { managerTabs } = await mount([makeTask()]);
+    const { sendMessage } = await mount([makeTask()]);
 
     capsule().click();
 
-    expect(managerTabs).toEqual(["task-1"]);
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: BATCH_OPEN_MANAGER,
+      taskId: "task-1",
+    });
   });
 
   it("hides the capsule when no batch is running", async () => {

@@ -5,10 +5,11 @@ import { type BatchVideo, createBatchJobStore } from "../batch/jobs";
 import { createBatchMessageRouter } from "../batch/router";
 import type { CloudQueueStatus } from "../cloud/jobs";
 import type { LocalDirectoryHandle } from "../local-save";
-import type {
-  BatchMessage,
-  BatchMutationStatus,
-  CloudSessionStatus,
+import {
+  BATCH_OPEN_MANAGER,
+  type BatchMessage,
+  type BatchMutationStatus,
+  type CloudSessionStatus,
 } from "../shared/messages";
 
 const videos: BatchVideo[] = [
@@ -51,6 +52,7 @@ function createHarness(
     stop: vi.fn(async (): Promise<BatchMutationStatus> => ({ ok: true })),
     retryItem: vi.fn(async (): Promise<BatchMutationStatus> => ({ ok: true })),
   };
+  const openManager = vi.fn(async (_taskId: string) => undefined);
   const router = createBatchMessageRouter({
     store,
     executor,
@@ -92,11 +94,24 @@ function createHarness(
       options.signedIn
         ? { status: "signed-in", email: "user@example.com" }
         : { status: "signed-out" },
+    openManager,
   });
-  return { store, executor, router };
+  return { store, executor, openManager, router };
 }
 
 describe("batch message router", () => {
+  it("opens manager pages through the background dependency", async () => {
+    const { router, openManager } = createHarness();
+
+    const result = await router.handle({
+      type: BATCH_OPEN_MANAGER,
+      taskId: "task-1",
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(openManager).toHaveBeenCalledWith("task-1");
+  });
+
   it("rejects a cloud destination when signed out", async () => {
     const { router, store, executor } = createHarness({
       signedIn: false,

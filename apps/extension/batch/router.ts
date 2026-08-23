@@ -2,6 +2,7 @@ import type { CloudQueueStatus, CloudReceipt } from "@/cloud/jobs";
 import type { LocalDirectoryHandle, LocalSaveReceipt } from "@/local-save";
 import {
   BATCH_LOOKUP_REQUEST,
+  BATCH_OPEN_MANAGER,
   BATCH_PAUSE,
   BATCH_RESUME,
   BATCH_RETRY_ITEM,
@@ -13,6 +14,7 @@ import {
   type BatchLookupVideo,
   type BatchMessage,
   type BatchMessageResult,
+  type BatchMutationStatus,
   type BatchStartMessage,
   type BatchStartStatus,
   type BatchStatusRequestMessage,
@@ -37,6 +39,7 @@ export interface BatchRouterDependencies {
   getLocalReceipts(directoryName?: string): Promise<LocalSaveReceipt[]>;
   getCloudStatus(videoId?: string): Promise<CloudQueueStatus>;
   getCloudSession(): Promise<CloudSessionStatus>;
+  openManager(taskId: string): Promise<void>;
 }
 
 /** How many recent tasks the status request returns without a taskId. */
@@ -148,6 +151,21 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
     return { videos };
   }
 
+  async function openManager(taskId: string): Promise<BatchMutationStatus> {
+    try {
+      await deps.openManager(taskId);
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not open the batch manager.",
+      };
+    }
+  }
+
   return {
     async handle(
       message: BatchMessage,
@@ -161,6 +179,9 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
 
         case BATCH_LOOKUP_REQUEST:
           return lookup(message);
+
+        case BATCH_OPEN_MANAGER:
+          return openManager(message.taskId);
 
         case BATCH_PAUSE:
           return deps.executor.pause(message.taskId);

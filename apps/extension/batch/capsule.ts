@@ -2,7 +2,9 @@ import { isBatchSourceUrl } from "@/batch/discovery";
 import { doneItemCount } from "@/batch/eta";
 import type { BatchTask } from "@/batch/jobs";
 import {
+  BATCH_OPEN_MANAGER,
   BATCH_STATUS_REQUEST,
+  type BatchMutationStatus,
   type BatchStatusResult,
 } from "@/shared/messages";
 
@@ -25,18 +27,11 @@ const CAPSULE_POLL_MS = 2000;
 
 export interface BatchCapsuleRuntime {
   sendMessage<T = unknown>(message: unknown): Promise<T>;
-  openManagerTab(taskId: string): void;
 }
 
 function defaultRuntime(): BatchCapsuleRuntime {
   return {
     sendMessage: (message) => browser.runtime.sendMessage(message),
-    openManagerTab: (taskId) => {
-      window.open(
-        `${browser.runtime.getURL("/manager.html")}?task=${encodeURIComponent(taskId)}`,
-        "_blank",
-      );
-    },
   };
 }
 
@@ -78,7 +73,13 @@ export function mountBatchProgressCapsule(
       button.type = "button";
       button.id = CAPSULE_ID;
       button.addEventListener("click", () => {
-        if (capsuleTaskId) runtime.openManagerTab(capsuleTaskId);
+        if (!capsuleTaskId) return;
+        void runtime
+          .sendMessage<BatchMutationStatus>({
+            type: BATCH_OPEN_MANAGER,
+            taskId: capsuleTaskId,
+          })
+          .catch(() => undefined);
       });
       document.body.append(button);
       capsule = button;

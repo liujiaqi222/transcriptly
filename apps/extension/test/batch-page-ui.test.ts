@@ -7,6 +7,7 @@ import {
 } from "../batch/page-ui";
 import {
   BATCH_LOOKUP_REQUEST,
+  BATCH_OPEN_MANAGER,
   BATCH_START,
   type BatchLookupResult,
   type BatchStartStatus,
@@ -54,7 +55,11 @@ function createRuntime(options: RuntimeOptions = {}) {
   const sent: unknown[] = [];
   const managerTabs: string[] = [];
   const sendMessage = vi.fn(
-    async <T>(message: { type: string; videoIds?: string[] }): Promise<T> => {
+    async <T>(message: {
+      type: string;
+      videoIds?: string[];
+      taskId?: string;
+    }): Promise<T> => {
       sent.push(message);
       switch (message.type) {
         case CLOUD_SESSION_REQUEST:
@@ -74,6 +79,9 @@ function createRuntime(options: RuntimeOptions = {}) {
             ok: true,
             taskId: "task-1",
           }) as T;
+        case BATCH_OPEN_MANAGER:
+          if (message.taskId) managerTabs.push(message.taskId);
+          return { ok: true } as T;
         default:
           return { ok: true } as T;
       }
@@ -86,9 +94,6 @@ function createRuntime(options: RuntimeOptions = {}) {
   } = {
     sendMessage: sendMessage as BatchPageRuntime["sendMessage"],
     getCloudPreference: async () => options.cloudPreference ?? false,
-    openManagerTab: (taskId) => {
-      managerTabs.push(taskId);
-    },
     sent,
     managerTabs,
     callCount: () => sendMessage.mock.calls.length,
@@ -268,6 +273,10 @@ describe("batch page panel", () => {
 
     await vi.waitFor(() => {
       expect(runtime.managerTabs).toEqual(["task-1"]);
+    });
+    expect(runtime.sent).toContainEqual({
+      type: BATCH_OPEN_MANAGER,
+      taskId: "task-1",
     });
     // The task view moved to the manager page: the overlay keeps only
     // the selection toolbar, reset and ready for the next batch.
