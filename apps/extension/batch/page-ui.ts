@@ -127,7 +127,6 @@ function addStyles() {
     #${ROOT_ID} .item-error { margin: 2px 0; color: #b3261e; font-size: 12px; }
     #${TOAST_ID} { position: fixed; left: 50%; bottom: 36px; z-index: 2147483647; transform: translateX(-50%) translateY(8px); max-width: min(480px, 80vw); padding: 10px 18px; border-radius: 999px; background: #232323; color: #fff; font: 13px/1.4 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; box-shadow: 0 8px 28px rgba(15,22,36,.35); opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
     #${TOAST_ID}.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    [${CARD_MARKER}] { outline: 1px solid rgba(35,35,35,.18); outline-offset: -1px; }
     .transcriptly-batch-check { position: absolute; top: 0; left: 0; z-index: 3; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; -webkit-user-select: none; user-select: none; }
     .transcriptly-batch-check::before { content: ""; display: block; width: 20px; height: 20px; border: 2px solid #fff; border-radius: 5px; background: rgba(0,0,0,.35); box-shadow: 0 0 0 2px rgba(255,255,255,.85); box-sizing: border-box; }
     .transcriptly-batch-check:focus-visible { outline: 2px solid #1a7f37; outline-offset: 2px; border-radius: 8px; }
