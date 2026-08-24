@@ -1,4 +1,8 @@
-import { doneItemCount, failedItemCount } from "@/batch/eta";
+import {
+  doneItemCount,
+  failedItemCount,
+  isFinishingCurrentVideo,
+} from "@/batch/eta";
 import type { BatchTask } from "@/batch/jobs";
 
 interface BatchActivityProps {
@@ -83,7 +87,11 @@ export function BatchActivity({
     }
     return (
       <section className="batch-activity" role="status">
-        <p>{`Paused batch · ${summary} - waiting to be resumed`}</p>
+        <p>
+          {isFinishingCurrentVideo(task)
+            ? `Pausing - finishing the current video · ${summary}`
+            : `Paused batch · ${summary} - waiting to be resumed`}
+        </p>
         <button
           type="button"
           className="save-button"

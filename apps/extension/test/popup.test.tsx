@@ -454,13 +454,39 @@ describe("popup batch manager entry (#58)", () => {
   it("keeps the entry for a paused batch, marked as waiting", async () => {
     const harness = createHarness({ tab: youtubeTab });
     harness.deps.getBatchStatus = vi.fn(async () => ({
-      tasks: [batchTask({ state: "paused" })],
+      tasks: [
+        batchTask({
+          state: "paused",
+          // Every pause path but a mid-item user pause re-queues or
+          // settles its running items before pausing.
+          items: batchTask().items.map((item) =>
+            item.local === "running" ? { ...item, local: "queued" } : item,
+          ),
+        }),
+      ],
     }));
     render(<Popup deps={harness.deps} />);
 
     expect(
       await screen.findByText(
         "Paused batch · 2/3 done · 1 failed - waiting to be resumed",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Open batch manager" }),
+    ).toBeTruthy();
+  });
+
+  it("says the current video is still finishing right after a user pause", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.getBatchStatus = vi.fn(async () => ({
+      tasks: [batchTask({ state: "paused", pauseReason: "user" })],
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    expect(
+      await screen.findByText(
+        "Pausing - finishing the current video · 2/3 done · 1 failed",
       ),
     ).toBeTruthy();
     expect(

@@ -4,6 +4,7 @@ import {
   estimateRemainingSeconds,
   failedItemCount,
   formatDuration,
+  isFinishingCurrentVideo,
   pendingItemCount,
 } from "../batch/eta";
 import type { BatchItem, BatchTask } from "../batch/jobs";
@@ -113,5 +114,26 @@ describe("batch ETA (#58)", () => {
     expect(formatDuration(45)).toBe("45 s");
     expect(formatDuration(90)).toBe("2 min");
     expect(formatDuration(180)).toBe("3 min");
+  });
+
+  it("spots the finishing window of a pause", () => {
+    // Mid-item user pause: the in-flight destination is still running.
+    expect(
+      isFinishingCurrentVideo(
+        task({ state: "paused", items: [item({ local: "running" })] }),
+      ),
+    ).toBe(true);
+    // A settled pause (any reason) has nothing running anymore.
+    expect(
+      isFinishingCurrentVideo(
+        task({ state: "paused", items: [item({ local: "queued" })] }),
+      ),
+    ).toBe(false);
+    // A running task is never "finishing".
+    expect(
+      isFinishingCurrentVideo(
+        task({ state: "running", items: [item({ local: "running" })] }),
+      ),
+    ).toBe(false);
   });
 });

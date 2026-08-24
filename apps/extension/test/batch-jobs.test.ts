@@ -1,7 +1,7 @@
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
 import {
-  BATCH_MAX_ITEMS,
+  BATCH_MAX_RUNNABLE_ITEMS,
   type BatchVideo,
   createBatchJobStore,
 } from "../batch/jobs";
@@ -71,7 +71,7 @@ describe("batch job store", () => {
       newId: () => "task-1",
     });
     const savedCount = 50;
-    const runnableCount = BATCH_MAX_ITEMS - 1;
+    const runnableCount = BATCH_MAX_RUNNABLE_ITEMS - 1;
     const selection = Array.from(
       { length: savedCount + runnableCount },
       (_, index) => ({
@@ -103,14 +103,19 @@ describe("batch job store", () => {
 
   it("rejects more than the batch limit", async () => {
     const store = createBatchJobStore({ indexedDB: new IDBFactory() });
-    const tooMany = Array.from({ length: BATCH_MAX_ITEMS + 1 }, (_, index) => ({
-      videoId: `${String(index).padStart(11, "0")}`,
-      url: `https://www.youtube.com/watch?v=${String(index).padStart(11, "0")}`,
-      title: `Video ${index}`,
-    }));
+    const tooMany = Array.from(
+      { length: BATCH_MAX_RUNNABLE_ITEMS + 1 },
+      (_, index) => ({
+        videoId: `${String(index).padStart(11, "0")}`,
+        url: `https://www.youtube.com/watch?v=${String(index).padStart(11, "0")}`,
+        title: `Video ${index}`,
+      }),
+    );
 
     await expect(
       store.create(tooMany, { destinations: ["local"] }),
-    ).rejects.toThrow(`Select no more than ${BATCH_MAX_ITEMS} videos.`);
+    ).rejects.toThrow(
+      `A batch can contain at most ${BATCH_MAX_RUNNABLE_ITEMS} videos that still need saving.`,
+    );
   });
 });

@@ -1,6 +1,6 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BATCH_MAX_ITEMS } from "../batch/jobs";
+import { BATCH_MAX_RUNNABLE_ITEMS } from "../batch/jobs";
 import {
   type BatchPageRuntime,
   enterBatchSelectionMode,
@@ -286,7 +286,7 @@ describe("batch page panel", () => {
         ?.disabled,
     ).toBe(false);
     await vi.waitFor(() => {
-      expect(counterText()).toBe(`0/${BATCH_MAX_ITEMS}`);
+      expect(counterText()).toBe(`0/${BATCH_MAX_RUNNABLE_ITEMS}`);
     });
     expect(
       document
@@ -346,7 +346,7 @@ describe("batch page panel", () => {
     await vi.waitFor(() => {
       expect(toastText()).toContain("folder");
     });
-    expect(counterText()).toBe(`1/${BATCH_MAX_ITEMS} · ~1 min`);
+    expect(counterText()).toBe(`1/${BATCH_MAX_RUNNABLE_ITEMS} · ~1 min`);
     expect(runtime.managerTabs).toEqual([]);
   });
 
@@ -381,9 +381,9 @@ describe("selection toolbar (#57)", () => {
     const runtime = createRuntime();
     await mount(runtime);
 
-    expect(counterText()).toBe(`0/${BATCH_MAX_ITEMS}`);
+    expect(counterText()).toBe(`0/${BATCH_MAX_RUNNABLE_ITEMS}`);
     firstCheck().click();
-    expect(counterText()).toBe(`1/${BATCH_MAX_ITEMS} · ~1 min`);
+    expect(counterText()).toBe(`1/${BATCH_MAX_RUNNABLE_ITEMS} · ~1 min`);
   });
 
   it("Select all prefers unsaved videos, caps at 50 and toasts", async () => {
@@ -398,17 +398,19 @@ describe("selection toolbar (#57)", () => {
     clickAction("select-all");
 
     await vi.waitFor(() => {
-      expect(counterText()).toContain(`${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS}`);
+      expect(counterText()).toContain(
+        `${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}`,
+      );
     });
     expect(toastText()).toContain(
-      `Batch full (${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS})`,
+      `Batch full (${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS})`,
     );
     const checks = document.querySelectorAll<HTMLElement>(
       ".transcriptly-batch-check",
     );
     expect(
       [...checks].filter((hit) => hit.classList.contains("is-checked")),
-    ).toHaveLength(BATCH_MAX_ITEMS + 3);
+    ).toHaveLength(BATCH_MAX_RUNNABLE_ITEMS + 3);
     // The full counter turns red.
     expect(
       document.querySelector(".counter")?.classList.contains("counter-full"),
@@ -422,20 +424,22 @@ describe("selection toolbar (#57)", () => {
 
   it("greys out unchecked videos when the quota is full and restores them on uncheck", async () => {
     const runtime = createRuntime();
-    await mount(runtime, manyVideoAnchors(BATCH_MAX_ITEMS + 1));
+    await mount(runtime, manyVideoAnchors(BATCH_MAX_RUNNABLE_ITEMS + 1));
 
     clickAction("select-all");
 
     await vi.waitFor(() => {
-      expect(counterText()).toContain(`${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS}`);
+      expect(counterText()).toContain(
+        `${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}`,
+      );
     });
-    const overflow = checkAt(BATCH_MAX_ITEMS);
+    const overflow = checkAt(BATCH_MAX_RUNNABLE_ITEMS);
     expect(overflow.classList.contains("is-disabled")).toBe(true);
 
     // Unchecking one immediately frees the quota (#57).
     checkAt(0).click();
     expect(counterText()).toContain(
-      `${BATCH_MAX_ITEMS - 1}/${BATCH_MAX_ITEMS}`,
+      `${BATCH_MAX_RUNNABLE_ITEMS - 1}/${BATCH_MAX_RUNNABLE_ITEMS}`,
     );
     expect(overflow.classList.contains("is-disabled")).toBe(false);
     expect(
@@ -445,13 +449,15 @@ describe("selection toolbar (#57)", () => {
 
   it("clicking a greyed-out checkbox toasts instead of selecting", async () => {
     const runtime = createRuntime();
-    await mount(runtime, manyVideoAnchors(BATCH_MAX_ITEMS + 1));
+    await mount(runtime, manyVideoAnchors(BATCH_MAX_RUNNABLE_ITEMS + 1));
 
     clickAction("select-all");
     await vi.waitFor(() => {
-      expect(counterText()).toContain(`${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS}`);
+      expect(counterText()).toContain(
+        `${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}`,
+      );
     });
-    const overflow = checkAt(BATCH_MAX_ITEMS);
+    const overflow = checkAt(BATCH_MAX_RUNNABLE_ITEMS);
 
     overflow.click();
 
@@ -459,7 +465,9 @@ describe("selection toolbar (#57)", () => {
       "Start this batch, then start another - batches run one after another.",
     );
     expect(overflow.getAttribute("aria-checked")).toBe("false");
-    expect(counterText()).toContain(`${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS}`);
+    expect(counterText()).toContain(
+      `${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}`,
+    );
   });
 
   it("Clear empties the selection", async () => {
@@ -472,7 +480,7 @@ describe("selection toolbar (#57)", () => {
     });
     clickAction("clear");
 
-    expect(counterText()).toBe(`0/${BATCH_MAX_ITEMS}`);
+    expect(counterText()).toBe(`0/${BATCH_MAX_RUNNABLE_ITEMS}`);
     expect(
       [
         ...document.querySelectorAll<HTMLElement>(".transcriptly-batch-check"),

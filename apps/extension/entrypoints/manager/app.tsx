@@ -10,6 +10,7 @@ import {
   estimateRemainingSeconds,
   failedItemCount,
   formatDuration,
+  isFinishingCurrentVideo,
 } from "@/batch/eta";
 import type { BatchDestination, BatchItem, BatchTask } from "@/batch/jobs";
 import type {
@@ -60,6 +61,16 @@ const STATE_LABELS: Record<BatchTask["state"], string> = {
   stopped: "Stopped",
   completed: "Completed",
 };
+
+/**
+ * A pause takes effect between videos: while the current one is still
+ * finishing, the chip says so instead of claiming an instant "Paused".
+ */
+function stateLabel(task: BatchTask): string {
+  return isFinishingCurrentVideo(task)
+    ? "Pausing - finishing current video"
+    : STATE_LABELS[task.state];
+}
 
 const RETRYABLE_STATES = ["failed", "skipped", "cancelled"];
 
@@ -263,9 +274,7 @@ function BatchTaskDetail({
   return (
     <section className="task-detail">
       <div className="task-head">
-        <span className={`state state-${task.state}`}>
-          {STATE_LABELS[task.state]}
-        </span>
+        <span className={`state state-${task.state}`}>{stateLabel(task)}</span>
         <span className="task-date">{formatTimestamp(task.createdAt)}</span>
         <span className="task-destinations">
           {task.destinations.join(" + ")}
@@ -287,6 +296,12 @@ function BatchTaskDetail({
         />
       </div>
       <p className="summary">{summary}</p>
+      {isFinishingCurrentVideo(task) && (
+        <p className="muted" role="status">
+          Pausing - the current video finishes first. It is safe to resume
+          before it ends.
+        </p>
+      )}
       <PauseNotice
         task={task}
         localSaveHost={localSaveHost}
@@ -455,7 +470,7 @@ export function ManagerApp({
                     onClick={() => handleSelect(task.id)}
                   >
                     <span className={`state state-${task.state}`}>
-                      {STATE_LABELS[task.state]}
+                      {stateLabel(task)}
                     </span>
                     <span className="batch-date">
                       {formatTimestamp(task.createdAt)}

@@ -4,7 +4,7 @@ import {
   isBatchSourceUrl,
 } from "@/batch/discovery";
 import {
-  BATCH_MAX_ITEMS,
+  BATCH_MAX_RUNNABLE_ITEMS,
   type BatchDestination,
   type BatchVideo,
 } from "@/batch/jobs";
@@ -128,7 +128,7 @@ function cardFor(anchor: HTMLAnchorElement): Element {
 }
 
 function batchFullToast(): string {
-  return `Batch full (${BATCH_MAX_ITEMS}/${BATCH_MAX_ITEMS}). Start this batch, then start another - batches run one after another.`;
+  return `Batch full (${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}) - a batch can contain at most ${BATCH_MAX_RUNNABLE_ITEMS} videos that still need saving. Start this batch, then start another - batches run one after another.`;
 }
 
 /** Stable identity across a channel root <-> Videos-tab round trip. */
@@ -184,7 +184,7 @@ export async function enterBatchSelectionMode(
     <div class="select-view">
       <div class="panel-head">
         <span class="brand">Transcriptly</span>
-        <span class="counter" aria-live="polite">0/${BATCH_MAX_ITEMS}</span>
+        <span class="counter" aria-live="polite">0/${BATCH_MAX_RUNNABLE_ITEMS}</span>
       </div>
       <div class="actions">
         <button type="button" class="action-btn" data-action="load-more">Load more</button>
@@ -276,7 +276,7 @@ export async function enterBatchSelectionMode(
   }
 
   function quotaFull(): boolean {
-    return runnableSelectedCount() >= BATCH_MAX_ITEMS;
+    return runnableSelectedCount() >= BATCH_MAX_RUNNABLE_ITEMS;
   }
 
   function isCheckDisabled(videoId: string): boolean {
@@ -293,11 +293,14 @@ export async function enterBatchSelectionMode(
     if (!counter) return;
     const runnable = runnableSelectedCount();
     const skipped = selectedVideoIds.size - runnable;
-    let text = `${runnable}/${BATCH_MAX_ITEMS}`;
+    let text = `${runnable}/${BATCH_MAX_RUNNABLE_ITEMS}`;
     if (runnable > 0) text += ` · ~${estimatedMinutes(runnable)} min`;
     if (skipped > 0) text += ` · ${skipped} saved`;
     if (counter.textContent !== text) counter.textContent = text;
-    counter.classList.toggle("counter-full", runnable >= BATCH_MAX_ITEMS);
+    counter.classList.toggle(
+      "counter-full",
+      runnable >= BATCH_MAX_RUNNABLE_ITEMS,
+    );
   }
 
   function syncChecks() {
@@ -526,7 +529,7 @@ export async function enterBatchSelectionMode(
         if (selectedVideoIds.has(video.videoId)) continue;
         if (willBeSkipped(video.videoId)) {
           selectedVideoIds.add(video.videoId);
-        } else if (runnable < BATCH_MAX_ITEMS) {
+        } else if (runnable < BATCH_MAX_RUNNABLE_ITEMS) {
           selectedVideoIds.add(video.videoId);
           runnable += 1;
         } else {
@@ -554,7 +557,7 @@ export async function enterBatchSelectionMode(
       showToast("Select videos and at least one destination.");
       return;
     }
-    if (runnableSelectedCount() > BATCH_MAX_ITEMS) {
+    if (runnableSelectedCount() > BATCH_MAX_RUNNABLE_ITEMS) {
       showToast(batchFullToast());
       return;
     }
