@@ -67,6 +67,9 @@ const dependencies: PopupDependencies = {
     });
     return response as BatchEnterSelectionStatus;
   },
+  async openChannelVideos(tabId: number, url: string): Promise<void> {
+    await browser.tabs.update(tabId, { url });
+  },
   async getBatchStatus(): Promise<BatchStatusResult> {
     const response = await browser.runtime.sendMessage({
       type: BATCH_STATUS_REQUEST,

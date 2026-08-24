@@ -229,6 +229,12 @@ describe("batch page panel", () => {
     });
     // The saved video occupies no quota (#57).
     expect(counterText()).toMatch(/^0\//);
+    expect(document.querySelector(".counter-value")?.textContent).toMatch(
+      /^0\//,
+    );
+    expect(document.querySelector(".counter-meta")?.textContent).toContain(
+      "saved",
+    );
   });
 
   it("requires videos and a destination before starting", async () => {
@@ -545,8 +551,10 @@ describe("Load more (#57)", () => {
       '[data-action="load-more"]',
     );
     if (!loading) throw new Error("missing load-more button");
-    expect(loading.textContent).toContain("Loading…");
-    expect(loading.textContent).toContain("4 videos");
+    expect(loading.textContent).toBe("Stop");
+    expect(document.querySelector(".load-status")?.textContent).toBe(
+      "Loading · 4 videos found",
+    );
     expect(loading.getAttribute("aria-busy")).toBe("true");
 
     vi.advanceTimersByTime(400);
@@ -555,6 +563,9 @@ describe("Load more (#57)", () => {
 
     vi.advanceTimersByTime(10_000);
     expect(loading.textContent).toBe("Load more");
+    expect(document.querySelector(".load-status")?.textContent).toBe(
+      "4 videos found",
+    );
     expect(loading.getAttribute("aria-busy")).toBeNull();
   });
 

@@ -1,5 +1,6 @@
 import { parseVideoId } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
+import { CircleAlert, NotebookText, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BatchTask } from "@/batch/jobs";
 import type { CloudQueueStatus } from "@/cloud/jobs";
@@ -11,9 +12,11 @@ import {
   CaptureView,
   ChannelRootHint,
   CloudStatusPanel,
+  SaveFooter,
   type SaveState,
 } from "@/entrypoints/popup/components";
 import {
+  channelVideosUrl,
   errorMessage,
   isBatchSourceUrl,
   isChannelRootUrl,
@@ -53,6 +56,8 @@ export interface PopupDependencies {
   requestCapture(tabId: number): Promise<CaptureResponseMessage>;
   /** Ask the tab's content script to enter selection mode (#56). */
   enterBatchSelection(tabId: number): Promise<BatchEnterSelectionStatus>;
+  /** Navigate a channel root tab to its batch-selectable Videos tab. */
+  openChannelVideos(tabId: number, url: string): Promise<void>;
   /** Recent batch tasks from the background worker (#58). */
   getBatchStatus(): Promise<BatchStatusResult>;
   /** Open the batch manager page on a task (#58, routed via the worker #59). */
@@ -103,7 +108,9 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     "selection" | "hint" | undefined
   >();
   const [batchTabId, setBatchTabId] = useState<number | undefined>();
+  const [batchTabUrl, setBatchTabUrl] = useState<string | undefined>();
   const [enteringSelection, setEnteringSelection] = useState(false);
+  const [openingVideos, setOpeningVideos] = useState(false);
   const [batchError, setBatchError] = useState<string | undefined>();
   /** Newest running or paused batch, for the manager-page entry (#58). */
   const [activeBatchTask, setActiveBatchTask] = useState<
@@ -122,6 +129,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     setSaveState({ status: "idle" });
     setBatchSource(false);
     setBatchPage(undefined);
+    setBatchTabUrl(undefined);
     setBatchError(undefined);
     try {
       const tab = await deps.getActiveTab();
@@ -139,6 +147,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           // Selection itself is injected on demand from here (#56); the
           // channel root only hints at its Videos tab.
           setBatchTabId(tab.id);
+          setBatchTabUrl(tab.url);
           setBatchPage(isChannelRootUrl(tab.url) ? "hint" : "selection");
           setBatchSource(true);
           setCaptureState({ status: "capturing" });
@@ -367,6 +376,23 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     [deps],
   );
 
+  const handleOpenChannelVideos = async () => {
+    const videosUrl = batchTabUrl ? channelVideosUrl(batchTabUrl) : undefined;
+    if (batchTabId === undefined || !videosUrl) {
+      setBatchError("Could not find this channel's Videos tab.");
+      return;
+    }
+    setOpeningVideos(true);
+    setBatchError(undefined);
+    try {
+      await deps.openChannelVideos(batchTabId, videosUrl);
+      deps.closePopup();
+    } catch (error) {
+      setBatchError(`Could not open the Videos tab: ${errorMessage(error)}`);
+      setOpeningVideos(false);
+    }
+  };
+
   const handleSave = async () => {
     if (captureState.status !== "ready") return;
     setSaveState({ status: "saving" });
@@ -417,67 +443,106 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
 
   return (
     <div className="popup">
-      <h1>Transcriptly</h1>
-      <AccountSection
-        deps={deps.account}
-        onSessionChange={handleSessionChange}
-      />
-      <CloudStatusPanel
-        queueStatus={queueStatus}
-        cloudError={cloudError}
-        signedIn={signedIn}
-        onRetry={(jobId) => void handleRetry(jobId)}
-      />
-
-      {activeBatchTask && (
-        <BatchActivity
-          task={activeBatchTask}
-          directoryName={directoryName}
-          onOpenManager={handleOpenBatchManager}
-          onResume={(taskId) => {
-            void deps.resumeBatch(taskId);
-          }}
-        />
-      )}
-
-      {!batchSource && captureState.status === "capturing" && (
-        <div className="capturing" role="status">
-          <p>Capturing transcript…</p>
-          <div className="skeleton" />
-          <div className="skeleton" />
-          <div className="skeleton short" />
+      <header className="popup-header">
+        <div className="brand-lockup">
+          <span className="brand-mark">
+            <NotebookText />
+          </span>
+          <span>
+            <h1>Transcriptly</h1>
+          </span>
         </div>
-      )}
-
-      {captureState.status === "error" && (
-        <div className="error-banner" role="alert">
-          <p>{captureState.message}</p>
-          <button type="button" onClick={() => void runCapture()}>
-            Try again
-          </button>
-        </div>
-      )}
-
-      {batchSource && batchPage === "selection" && (
-        <BatchSourceView
-          saver={saver}
-          saverError={saverError}
-          directoryName={directoryName}
-          changingFolder={changingFolder}
-          folderReady={folderReady}
-          enteringSelection={enteringSelection}
-          enterError={batchError}
-          onEnterSelection={() => void handleEnterSelection()}
-          onChangeFolder={() => void handleChangeFolder()}
+        <AccountSection
+          deps={deps.account}
+          onSessionChange={handleSessionChange}
         />
-      )}
+      </header>
+      <main
+        className={
+          batchSource ? "popup-content batch-content" : "popup-content"
+        }
+      >
+        <CloudStatusPanel
+          queueStatus={queueStatus}
+          cloudError={cloudError}
+          signedIn={signedIn}
+          onRetry={(jobId) => void handleRetry(jobId)}
+        />
 
-      {batchSource && batchPage === "hint" && <ChannelRootHint />}
+        {activeBatchTask && (
+          <BatchActivity
+            task={activeBatchTask}
+            directoryName={directoryName}
+            onOpenManager={handleOpenBatchManager}
+            onResume={(taskId) => {
+              void deps.resumeBatch(taskId);
+            }}
+          />
+        )}
 
+        {!batchSource && captureState.status === "capturing" && (
+          <div className="capturing" role="status">
+            <div className="capturing-title">
+              <RefreshCw />
+              <p>Capturing transcript…</p>
+            </div>
+            <div className="skeleton" />
+            <div className="skeleton" />
+            <div className="skeleton short" />
+          </div>
+        )}
+
+        {captureState.status === "error" && (
+          <section className="empty-state" role="alert">
+            <div className="state-icon">
+              <CircleAlert />
+            </div>
+            <h2>Open a YouTube video</h2>
+            <p className="state-copy">{captureState.message}</p>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void runCapture()}
+            >
+              <RefreshCw />
+              Try again
+            </button>
+          </section>
+        )}
+
+        {batchSource && batchPage === "selection" && (
+          <BatchSourceView
+            saver={saver}
+            saverError={saverError}
+            directoryName={directoryName}
+            changingFolder={changingFolder}
+            folderReady={folderReady}
+            enteringSelection={enteringSelection}
+            enterError={batchError}
+            onEnterSelection={() => void handleEnterSelection()}
+            onChangeFolder={() => void handleChangeFolder()}
+          />
+        )}
+
+        {batchSource && batchPage === "hint" && (
+          <ChannelRootHint
+            opening={openingVideos}
+            error={batchError}
+            onOpenVideos={() => void handleOpenChannelVideos()}
+          />
+        )}
+
+        {captureState.status === "ready" && (
+          <CaptureView
+            capture={captureState.capture}
+            filename={filename}
+            saveState={saveState}
+            onFilenameChange={setFilename}
+          />
+        )}
+      </main>
       {captureState.status === "ready" && (
-        <CaptureView
-          capture={captureState.capture}
-          filename={filename}
+        <SaveFooter
           saver={saver}
           saverError={saverError}
           directoryName={directoryName}
@@ -486,7 +551,6 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           cloudEnabled={cloudEnabled}
           cloudAvailable={signedIn}
           onCloudToggle={handleCloudToggle}
-          onFilenameChange={setFilename}
           onSave={() => void handleSave()}
           onChangeFolder={() => void handleChangeFolder()}
         />

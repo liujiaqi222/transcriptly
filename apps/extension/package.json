@@ -14,6 +14,8 @@
   "dependencies": {
     "@transcriptly/capture": "workspace:*",
     "@transcriptly/schema": "workspace:*",
+    "lucide": "^1.33.0",
+    "lucide-react": "^1.33.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

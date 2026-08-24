@@ -1,3 +1,4 @@
+import { CircleAlert, LogOut, UserRound } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CloudSessionStatus, CloudSignOutStatus } from "@/shared/messages";
 
@@ -101,8 +102,14 @@ export function AccountSection({
       )}
 
       {state.status === "signed-out" && (
-        <button type="button" onClick={() => void handleSignIn()}>
-          Sign in to Transcriptly
+        <button
+          type="button"
+          className="account-action"
+          aria-label="Sign in to Transcriptly"
+          onClick={() => void handleSignIn()}
+        >
+          <UserRound />
+          <span>Sign in</span>
         </button>
       )}
 
@@ -117,19 +124,29 @@ export function AccountSection({
           <span className="account-email" title={state.email}>
             {state.email}
           </span>
-          <button type="button" onClick={() => void handleSignOut()}>
-            Sign out
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Sign out"
+            title="Sign out"
+            onClick={() => void handleSignOut()}
+          >
+            <LogOut />
           </button>
         </div>
       )}
 
       {state.status === "error" && (
-        <div className="account-error" role="alert">
-          <p>{state.message}</p>
-          <button type="button" onClick={() => void checkSession()}>
-            Try again
-          </button>
-        </div>
+        <button
+          type="button"
+          className="account-action account-unavailable"
+          aria-label="Try again"
+          title={`${state.message} Try again.`}
+          onClick={() => void checkSession()}
+        >
+          <CircleAlert />
+          <span className="sr-only">{state.message}</span>
+        </button>
       )}
     </section>
   );

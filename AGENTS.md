@@ -17,3 +17,7 @@ Single-context layout: root `CONTEXT.md` + `docs/adr/`, created lazily by `/doma
 ### YouTube SPA safety
 
 When changing batch discovery, selection lifecycle, or tab capture, preserve source and target identity. See `docs/agents/youtube-spa-safety.md`.
+
+### Visual design
+
+Use the shared ink, blue-interaction, and yellow-CTA palette plus the 4px spacing rhythm for extension surfaces. See `docs/agents/visual-design.md`.
