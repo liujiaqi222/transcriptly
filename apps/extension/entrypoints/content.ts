@@ -1,6 +1,6 @@
 import { captureOutcome } from "@transcriptly/capture";
-import { mountBatchProgressCapsule } from "@/batch/capsule";
-import { enterBatchSelectionMode } from "@/batch/page-ui";
+import { mountBatchProgressCapsule } from "@/batch/selection/capsule";
+import { enterBatchSelectionMode } from "@/batch/selection/page-ui";
 import {
   BATCH_ENTER_SELECTION_REQUEST,
   type BatchEnterSelectionRequestMessage,

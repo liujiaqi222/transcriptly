@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BatchCapsuleRuntime } from "../batch/capsule";
-import { mountBatchProgressCapsule } from "../batch/capsule";
 import type { BatchItemState, BatchTask } from "../batch/jobs";
+import type { BatchCapsuleRuntime } from "../batch/selection/capsule";
+import { mountBatchProgressCapsule } from "../batch/selection/capsule";
 import {
   BATCH_OPEN_MANAGER,
   BATCH_STATUS_REQUEST,

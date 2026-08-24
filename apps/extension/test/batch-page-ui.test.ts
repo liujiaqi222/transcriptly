@@ -4,7 +4,7 @@ import { BATCH_MAX_RUNNABLE_ITEMS } from "../batch/jobs";
 import {
   type BatchPageRuntime,
   enterBatchSelectionMode,
-} from "../batch/page-ui";
+} from "../batch/selection/page-ui";
 import {
   BATCH_LOOKUP_REQUEST,
   BATCH_OPEN_MANAGER,

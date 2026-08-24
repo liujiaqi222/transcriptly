@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { discoverLoadedVideos, isBatchSourceUrl } from "../batch/discovery";
+import {
+  discoverLoadedVideos,
+  isBatchSourceUrl,
+} from "../batch/selection/discovery";
 
 describe("batch discovery", () => {
   it("accepts playlist and channel videos pages only", () => {
