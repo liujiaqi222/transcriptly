@@ -1,14 +1,14 @@
 # Transcriptly
 
-一个开源 YouTube transcript 工具：Chrome 扩展可把逐段字幕保存成本地 Markdown；可选云端正在 P2 中建设。
+一个开源 YouTube transcript 工具：Chrome 扩展可把逐段字幕保存成本地 Markdown，或上传到私有云端书库；还支持在 playlist / 频道页勾选视频批量捕获。
 
-本地保存仍然无需登录或上传——结果是一份普通 Markdown，可用 `rg`/`grep` 搜索，或交给本地 coding agent 读取。
+本地保存无需登录或上传--结果是一份普通 Markdown，可用 `rg`/`grep` 搜索，或交给本地 coding agent 读取。云端保存是可选的：只有登录并显式选择后，Capture 才会写入你的私有 Library。
 
 ## 产品环
 
 `Capture → Store → Find → Publish`
 
-P1 完成前两环的本地部分：**捕获 YouTube 已渲染的 transcript → 本地 Markdown 落盘**。P2 在不改变本地隐私边界的前提下加入可选云端 Store → Find。
+P1 完成前两环的本地部分：**捕获 YouTube 已渲染的 transcript → 本地 Markdown 落盘**。P2 在不改变本地隐私边界的前提下加入可选云端 Store → Find：扩展共享网站 Session 登录，捕获结果经持久化上传队列进入云端私有 Library，可浏览、阅读、精确全文检索与硬删除。批量捕获（#26）在此基础上支持 playlist / 频道页一次性勾选多个视频。
 
 ## 当前状态
 
@@ -18,11 +18,24 @@ P1 完成前两环的本地部分：**捕获 YouTube 已渲染的 transcript →
 | #16 捕获管线(content script + 环境中立捕获核心) | ✅ 已合入 |
 | #17 本地落盘(File System Access API) | ✅ 已合入 |
 | #18 Popup UI(React + Tailwind v4) | ✅ 已合入 |
-| #19 端到端 Save + 浏览器契约测试 | 待开发 |
-| #30 P2 云端运行骨架（Next.js + PostgreSQL + Drizzle） | ✅ 已实现 |
-| #31 网站登录与私库入口（Better Auth + Google/GitHub） | ✅ 已实现 |
+| #19 端到端 Save + 浏览器契约测试 | ✅ 已合入 |
+| #25 扩展后台调度基建(background SW + 捕获/上传队列) | ✅ 已合入 |
+| #28 扩展↔云上传 API 契约 | ✅ 已合入 |
+| #30 P2 云端运行骨架（Next.js + PostgreSQL + Drizzle） | ✅ 已合入 |
+| #31 网站登录与私库入口（Better Auth + Google/GitHub） | ✅ 已合入 |
+| #32 扩展共享网站 Session 登录 | ✅ 已合入 |
+| #33–#34 首个 Capture 云端入库 + 去重、更新与竞态 | ✅ 已合入 |
+| #35–#36 扩展 Cloud Save 主链 + 上传失败恢复 | ✅ 已合入 |
+| #37–#38 私有 Library 浏览、阅读与硬删除 | ✅ 已合入 |
+| #39–#40 私库精确全文检索 + CJK 与子串检索 | ✅ 已合入 |
+| #26 批量捕获：playlist/频道页一次性勾选 | ✅ 已合入 |
+| #56–#58 批量改造 A/B/C：入口生命周期、选择模式交互、批量管理页 | ✅ 已合入 |
+| #59 批量改造 D：恢复询问制（重启置 paused + 授权等待改暂停） | ✅ 已合入 |
+| #63 批量捕获后续：恢复、授权与双目的地执行语义修正 | 🔨 开发中 |
+| #41 P2 生产部署链路 / #42 异机加密备份 | 待开发 |
+| #64 P3 公开首页与 Transcript SEO 页面 | 待开发 |
 
-> `#17` + `#18` 已合入，popup 已接线「捕获 → 预览 → Save」完整链路，可在真实 YouTube 页手动触发本地落盘。
+> 单视频「捕获 → 预览 → Save」、云端入库与 Library 检索、playlist/频道页批量勾选 + 批量管理页均已在真实浏览器中可用。
 
 ## 目录结构
 
@@ -32,6 +45,9 @@ pnpm workspaces monorepo：
 packages/schema    归一化 Capture 类型契约（单一事实源、纯类型）
 packages/capture   环境中立捕获核心 + serializeToMarkdown()
 apps/extension     WXT 扩展壳（React popup + content script）
+  ├─ batch/        批量捕获：发现、选择、执行、ETA 与 SPA 安全路由
+  ├─ cloud/        云上传：持久化队列与失败恢复
+  └─ entrypoints/  popup、content、background、批量管理页 manager
 apps/web           Next.js App；src/db 分表 schema/migration、src/lib/auth 登录
 docs/adr/          架构决策记录
 CONTEXT.md         领域术语表
@@ -75,6 +91,12 @@ pnpm run db:migrate   # 对本机配置的 DATABASE_URL 执行版本化 migratio
 pnpm run cloud:up     # Compose 构建并启动 migration、App 与 PostgreSQL
 pnpm run cloud:down   # 停止云端容器
 ```
+
+## 批量捕获
+
+在 playlist 或频道页点 popup 的批量入口后进入选择模式：卡片出现复选框，工具栏提供 Load more、Select all 与配额（单批上限 50 个视频），满配额时禁用勾选并以 toast 提示。确认后由 background worker 逐个打开标签页捕获，SPA 导航由 source/target 身份校验保护（详见 `docs/agents/youtube-spa-safety.md`）。
+
+进度统一在批量管理页（`manager` extension page）查看：总进度与滑动 ETA、每个视频的 Local / Cloud 双目的地结果与失败原因、失败项 Retry、Pause / Stop / Resume，以及最近批次历史。源页面关闭后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 可深链到单个批次。管理页同时承载本地保存宿主（目录授权与 Markdown 写入）：浏览器重启或目录授权过期时批次置为 paused，页面显示确切原因与对应操作（继续 / 重新授权），不会静默丢任务。
 
 ## P2 云端骨架
 
@@ -145,7 +167,7 @@ pnpm --filter @transcriptly/extension run test
 
 ## 人工验收边界
 
-`#17`(本地落盘)与 `#18`(Popup UI)已合入,「捕获 → 预览 → Save」链路可在 popup 里手动触发。人工应重点验收:
+`#17`(本地落盘)、`#18`(Popup UI)与 P2 云端链路均已合入，单视频「捕获 → 预览 → Save」、云端上传与 Library 检索、批量捕获均可手动验收。单视频应重点验收:
 
 1. 打开有 transcript 的 YouTube 视频,popup 展示可编辑文件名、可折叠 Properties、只读 transcript 预览(描述 + 逐段时间戳)。
 2. 首次点击 Save 弹目录选择器,保存出包含 frontmatter、来源、描述和时间戳 transcript 的 Markdown。
@@ -153,6 +175,13 @@ pnpm --filter @transcriptly/extension run test
 4. 点击 Change 后选择新目录,后续保存写入新目录。
 5. 重复保存同一视频时旧文件保留,新文件使用数字后缀。
 6. 取消选择、拒绝权限或写入失败时显示明确错误,不显示成功状态,不留下可冒充成功结果的半成品文件。
+
+批量捕获应重点验收：
+
+1. 在 playlist / 频道页点批量入口进入选择模式，Load more、Select all、配额上限 50 与满额 toast 表现正确。
+2. 确认后批量管理页展示总进度、ETA、每个视频的 Local / Cloud 结果与失败原因，失败项可 Retry，可 Pause / Stop / Resume。
+3. 关闭源页面后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 深链到对应批次。
+4. 浏览器重启或目录授权过期后批次置为 paused，管理页显示确切原因与对应操作，不静默丢任务。
 
 ### 开发模式(HMR)
 
