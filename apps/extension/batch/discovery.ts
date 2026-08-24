@@ -6,6 +6,11 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const DURATION_TEXT = /^\d{1,3}(:\d{2})+$/;
 /** The duration suffix of an accessible thumbnail label: "… by Channel 14:19". */
 const TRAILING_DURATION = /\s+\d{1,3}(:\d{2})+$/;
+const VIDEO_CARD_SELECTOR =
+  "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-video-renderer";
+const VIDEO_CARD_LINK_SELECTOR = `${VIDEO_CARD_SELECTOR.split(", ")
+  .map((selector) => `${selector} a[href*="/watch?v="]`)
+  .join(", ")}`;
 
 export { isBatchSourceUrl };
 
@@ -27,9 +32,7 @@ function cleanTitle(text: string | null | undefined): string {
 }
 
 function titleFor(anchor: HTMLAnchorElement): string {
-  const card = anchor.closest(
-    "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-video-renderer",
-  );
+  const card = anchor.closest(VIDEO_CARD_SELECTOR);
   // Title candidates, best first. Durations are filtered from every
   // candidate: thumbnail links carry "14:19" in `title`, and in newer
   // card layouts the duration overlay even sits inside the anchor's
@@ -49,11 +52,28 @@ function titleFor(anchor: HTMLAnchorElement): string {
   return candidates.find((candidate) => candidate.length > 0) ?? "";
 }
 
+/** Finds the source-feed anchor for one video, never a persistent player link. */
+export function findLoadedVideoAnchor(
+  document: Document,
+  videoId: string,
+): HTMLAnchorElement | undefined {
+  for (const anchor of document.querySelectorAll<HTMLAnchorElement>(
+    VIDEO_CARD_LINK_SELECTOR,
+  )) {
+    if (
+      parseVideoId(anchor.href || anchor.getAttribute("href") || "") === videoId
+    ) {
+      return anchor;
+    }
+  }
+  return undefined;
+}
+
 export function discoverLoadedVideos(document: Document): BatchVideo[] {
   const videos: BatchVideo[] = [];
   const seen = new Set<string>();
   for (const anchor of document.querySelectorAll<HTMLAnchorElement>(
-    'a[href*="/watch?v="]',
+    VIDEO_CARD_LINK_SELECTOR,
   )) {
     const videoId = parseVideoId(
       anchor.href || anchor.getAttribute("href") || "",

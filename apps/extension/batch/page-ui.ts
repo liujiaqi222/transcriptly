@@ -1,4 +1,8 @@
-import { discoverLoadedVideos, isBatchSourceUrl } from "@/batch/discovery";
+import {
+  discoverLoadedVideos,
+  findLoadedVideoAnchor,
+  isBatchSourceUrl,
+} from "@/batch/discovery";
 import {
   BATCH_MAX_ITEMS,
   type BatchDestination,
@@ -348,9 +352,7 @@ export async function enterBatchSelectionMode(
   function updateAllBadges() {
     if (!isBatchSourceUrl(location.href)) return;
     for (const videoId of knownVideos.keys()) {
-      const anchor = document.querySelector<HTMLAnchorElement>(
-        `a[href*="watch?v=${videoId}"]`,
-      );
+      const anchor = findLoadedVideoAnchor(document, videoId);
       if (anchor) updateBadges(cardFor(anchor), videoId);
     }
   }
@@ -383,9 +385,7 @@ export async function enterBatchSelectionMode(
       for (const video of discoverLoadedVideos(document)) {
         if (!knownVideos.has(video.videoId)) newVideoIds.push(video.videoId);
         knownVideos.set(video.videoId, video);
-        const anchor = document.querySelector<HTMLAnchorElement>(
-          `a[href*="watch?v=${video.videoId}"]`,
-        );
+        const anchor = findLoadedVideoAnchor(document, video.videoId);
         if (!anchor) continue;
         const card = cardFor(anchor);
         card.setAttribute(CARD_MARKER, "");
