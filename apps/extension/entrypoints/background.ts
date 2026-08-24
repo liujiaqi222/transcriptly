@@ -1,7 +1,9 @@
 import { createBatchExecutor } from "@/batch/executor";
 import { createBatchJobStore } from "@/batch/jobs";
-import { createSaveAgentClient } from "@/batch/local-save-agent";
+import { createLocalSaveClient } from "@/batch/local-save-client";
+import { createManagerTabCoordinator } from "@/batch/manager-tabs";
 import { createBatchMessageRouter } from "@/batch/router";
+import { createBatchSessionGate } from "@/batch/session-gate";
 import { createTabVideoCapture } from "@/batch/tab-capture";
 import { cloudClient } from "@/cloud/client";
 import { createCloudJobStore } from "@/cloud/jobs";
@@ -25,9 +27,16 @@ const QUEUE_ALARM = "transcriptly:cloud-queue";
  * and the only place that runs batch capture (#26): it opens one watch tab
  * per selected video, captures, and persists every per-destination result
  * so progress survives popup close and worker restarts. Local writes are
- * delegated to the save-agent page (the worker cannot request folder
- * permissions); cloud uploads live in an IndexedDB-backed FIFO queue (#35)
- * and are never replayed automatically after a failure (#36).
+ * delegated to the manager page's Local Save Host (the worker cannot
+ * request folder permissions; the page can, via a click, #59); cloud
+ * uploads live in an IndexedDB-backed FIFO queue (#35) and are never
+ * replayed automatically after a failure (#36).
+ *
+ * Batch interruption is ask-first (#59): after a browser restart the
+ * session gate pauses unfinished tasks (reason `browser-restart`) and no
+ * wake entry point may resume them without the user's confirmation.
+ * Within the same browser session a worker restart keeps the old
+ * re-queue-and-continue behavior.
  */
 export default defineBackground({
   main() {
@@ -41,15 +50,25 @@ export default defineBackground({
     const directoryStore = createIndexedDbDirectoryStore();
     const receiptStore = createIndexedDbLocalReceiptStore();
 
-    // Local batch writes go through the save-agent page: the worker cannot
-    // show Chrome's folder-permission prompt, the page can (via a click).
-    const saveAgent = createSaveAgentClient({
+    // One manager tab for everything (#59): Start in selection mode, the
+    // popup entry, the floating capsule, and the Local Save Host client
+    // all reuse it through this coordinator.
+    const managerTabs = createManagerTabCoordinator({
       tabs: {
-        create: (url: string) => browser.tabs.create({ url, active: false }),
+        query: (options) => browser.tabs.query(options),
+        create: (url, createOptions) =>
+          browser.tabs.create({ url, ...createOptions }),
+        update: (tabId, update) => browser.tabs.update(tabId, update),
+      },
+      managerUrl: browser.runtime.getURL("/manager.html"),
+    });
+
+    const localSaveClient = createLocalSaveClient({
+      managerTabs,
+      tabs: {
         sendMessage: <T>(tabId: number, message: unknown) =>
           browser.tabs.sendMessage<unknown, T>(tabId, message),
       },
-      agentUrl: browser.runtime.getURL("/save-agent.html"),
     });
 
     const executor = createBatchExecutor({
@@ -62,7 +81,8 @@ export default defineBackground({
             browser.tabs.sendMessage<unknown, T>(tabId, message),
         },
       }),
-      saveLocal: (capture) => saveAgent.save(capture),
+      preflightLocal: () => localSaveClient.preflight(),
+      saveLocal: (capture) => localSaveClient.save(capture),
       enqueueCloud: async (capture) => {
         const job = await queue.enqueue(capture);
         return { jobId: job.id };
@@ -89,9 +109,7 @@ export default defineBackground({
       getCloudStatus: (videoId?: string) => cloudStore.getStatus(videoId),
       getCloudSession: () => cloudClient.getSession(),
       openManager: async (taskId: string) => {
-        await browser.tabs.create({
-          url: `${browser.runtime.getURL("/manager.html")}?task=${encodeURIComponent(taskId)}`,
-        });
+        await managerTabs.open(taskId);
       },
     });
 
@@ -105,19 +123,36 @@ export default defineBackground({
       },
     );
 
-    const recoverAndDrain = () => {
+    // Created synchronously at worker start: the very first call pauses
+    // unfinished batches after a browser restart, before any wake.
+    const sessionGate = createBatchSessionGate({
+      store: batchStore,
+      storage: {
+        get: async (key) => (await browser.storage.session.get(key))[key],
+        set: (key, value) => browser.storage.session.set({ [key]: value }),
+      },
+    });
+    const sessionReady = sessionGate.ensureSession();
+
+    // Every batch wake entry point - worker init, onStartup, onInstalled,
+    // and the per-minute alarm - passes through the same session gate:
+    // after a browser restart tasks stay paused for explicit confirmation
+    // (#59); within the same browser session a worker restart resumes as
+    // before. Cloud queue recovery keeps its own semantics either way.
+    const recoverAndDrain = async () => {
+      const session = await sessionReady;
       void queue.recoverAndDrain();
-      void executor.wake();
+      if (session === "same-session") void executor.wake();
     };
 
-    browser.runtime.onStartup?.addListener(recoverAndDrain);
-    browser.runtime.onInstalled?.addListener(recoverAndDrain);
+    browser.runtime.onStartup?.addListener(() => void recoverAndDrain());
+    browser.runtime.onInstalled?.addListener(() => void recoverAndDrain());
 
     browser.alarms.create(QUEUE_ALARM, { periodInMinutes: 1 });
     browser.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === QUEUE_ALARM) recoverAndDrain();
+      if (alarm.name === QUEUE_ALARM) void recoverAndDrain();
     });
 
-    recoverAndDrain();
+    void recoverAndDrain();
   },
 });

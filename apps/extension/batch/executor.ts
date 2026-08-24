@@ -4,15 +4,18 @@ import type {
   CloudQueueStatus,
   CloudReceipt,
 } from "@/cloud/jobs";
-import type { LocalSaveReceipt, LocalSaveResult } from "@/local-save";
+import type { LocalSaveReceipt } from "@/local-save";
 import type { BatchMutationStatus } from "@/shared/messages";
 import type {
   BatchDestination,
   BatchItem,
   BatchItemState,
   BatchJobStore,
+  BatchPauseReason,
   BatchTask,
   BatchVideo,
+  LocalPreflightOutcome,
+  LocalSaveOutcome,
 } from "./jobs";
 
 /**
@@ -23,6 +26,12 @@ import type {
  * selected Local / Cloud destinations independently, and persists each
  * per-destination result. One video runs at a time with a pause between
  * videos; a service-worker restart re-queues whatever was mid-flight.
+ *
+ * Interruption is ask-first (#59): before each local save a permission
+ * preflight runs, and a missing folder grant or an unreachable Local
+ * Save Host pauses the whole task with a persisted reason instead of
+ * burning per-item timeouts. Cloud results are never rolled back by a
+ * local pause.
  */
 
 /** Pause between two videos of the same task. */
@@ -37,7 +46,9 @@ export interface BatchExecutorDependencies {
   store: BatchJobStore;
   /** Must be bounded (see createTabVideoCapture). */
   captureVideo(video: BatchVideo): Promise<Capture>;
-  saveLocal(capture: Capture): Promise<LocalSaveResult>;
+  /** Folder permission check before any capture (#59). */
+  preflightLocal(): Promise<LocalPreflightOutcome>;
+  saveLocal(capture: Capture): Promise<LocalSaveOutcome>;
   enqueueCloud(capture: Capture): Promise<{ jobId: string }>;
   getCloudJob(
     jobId: string,
@@ -66,6 +77,12 @@ export interface BatchExecutor {
 type CloudWaitOutcome =
   | { ok: true; receipt: CloudReceipt }
   | { ok: false; message: string };
+
+/** Local problems that pause the whole task (#59). */
+type LocalPauseReason = Extract<
+  BatchPauseReason,
+  "local-permission" | "local-save-unavailable"
+>;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -148,7 +165,23 @@ export function createBatchExecutor(
     }
   }
 
-  async function runItem(taskId: string, videoId: string): Promise<void> {
+  /** Pause a still-active task with a persisted reason (#59). */
+  async function pauseTask(
+    taskId: string,
+    pauseReason: BatchPauseReason,
+  ): Promise<void> {
+    const task = await deps.store.get(taskId);
+    if (!task) return;
+    if (task.state !== "running" && task.state !== "queued") return;
+    task.state = "paused";
+    task.pauseReason = pauseReason;
+    await persist(task);
+  }
+
+  async function runItem(
+    taskId: string,
+    videoId: string,
+  ): Promise<LocalPauseReason | undefined> {
     // Receipts may have appeared since the task was created (a single save
     // from the popup, or an interrupted earlier run that wrote the file).
     const snapshot = await deps.store.get(taskId);
@@ -224,6 +257,11 @@ export function createBatchExecutor(
       captureError = errorMessage(error);
     }
 
+    // A local problem that must pause the whole task (#59). Set below,
+    // applied by runTask after the cloud half of this item finished -
+    // already-enqueued cloud results are never rolled back.
+    let localPause: LocalPauseReason | undefined;
+
     if (runLocal) {
       if (captureError || !capture) {
         const message = captureError ?? "The transcript could not be captured.";
@@ -233,8 +271,9 @@ export function createBatchExecutor(
           item.localError = message;
         });
       } else {
-        try {
-          const result = await deps.saveLocal(capture);
+        const outcome = await deps.saveLocal(capture);
+        if (outcome.status === "saved") {
+          const result = outcome.result;
           await applyItemUpdate(taskId, videoId, (item) => {
             if (item.local !== "running") return;
             item.local = "saved";
@@ -247,12 +286,27 @@ export function createBatchExecutor(
             // The Markdown file exists; an index failure is a warning only.
             item.localError = result.receiptError;
           });
-        } catch (error) {
-          const message = errorMessage(error);
+        } else if (
+          outcome.status === "permission-required" ||
+          outcome.status === "unavailable"
+        ) {
+          // Missing grant or a lost Local Save Host: the item goes back
+          // to `queued` (never `failed`) and the task pauses after this
+          // item's cloud half (#59).
+          localPause =
+            outcome.status === "permission-required"
+              ? "local-permission"
+              : "local-save-unavailable";
+          await applyItemUpdate(taskId, videoId, (item) => {
+            if (item.local !== "running") return;
+            item.local = "queued";
+            item.localError = undefined;
+          });
+        } else {
           await applyItemUpdate(taskId, videoId, (item) => {
             if (item.local !== "running") return;
             item.local = "failed";
-            item.localError = message;
+            item.localError = outcome.message;
           });
         }
       }
@@ -293,7 +347,9 @@ export function createBatchExecutor(
       }
     }
     // Stamp the attempt's end once both destinations are terminal, so
-    // the manager can estimate the remaining time (#58).
+    // the manager can estimate the remaining time (#58). A re-queued
+    // local destination (permission pause) is not terminal and is
+    // re-stamped by its next attempt.
     await applyItemUpdate(taskId, videoId, (item) => {
       const terminal = (state: BatchItemState) =>
         state !== "queued" && state !== "running";
@@ -306,6 +362,8 @@ export function createBatchExecutor(
         item.finishedAt = now();
       }
     });
+
+    return localPause;
   }
 
   async function runTask(taskId: string): Promise<void> {
@@ -322,10 +380,34 @@ export function createBatchExecutor(
       const pending = task.items.find((item) => isQueuedFor(task, item));
       if (!pending) {
         task.state = "completed";
+        task.pauseReason = undefined;
         await persist(task);
         return;
       }
-      await runItem(taskId, pending.video.videoId);
+
+      // Local permission preflight (#59): without a usable folder grant
+      // no watch tab is opened and no capture starts - the task pauses
+      // immediately for an explicit grant instead of waiting per item.
+      if (task.destinations.includes("local") && pending.local === "queued") {
+        const preflight = await deps.preflightLocal();
+        if (
+          preflight.status === "permission-required" ||
+          preflight.status === "no-directory"
+        ) {
+          await pauseTask(taskId, "local-permission");
+          return;
+        }
+        if (preflight.status === "unavailable") {
+          await pauseTask(taskId, "local-save-unavailable");
+          return;
+        }
+      }
+
+      const localPause = await runItem(taskId, pending.video.videoId);
+      if (localPause) {
+        await pauseTask(taskId, localPause);
+        return;
+      }
 
       const after = await deps.store.get(taskId);
       if (
@@ -413,6 +495,7 @@ export function createBatchExecutor(
         };
       }
       task.state = "paused";
+      task.pauseReason = "user";
       await persist(task);
       return { ok: true };
     },
@@ -424,6 +507,8 @@ export function createBatchExecutor(
         return { ok: false, message: "Only a paused batch can be resumed." };
       }
       task.state = "queued";
+      // Whatever paused it no longer applies (#59).
+      task.pauseReason = undefined;
       await persist(task);
       await this.wake();
       return { ok: true };
@@ -444,6 +529,7 @@ export function createBatchExecutor(
         if (item.cloud === "queued") item.cloud = "cancelled";
       }
       task.state = "stopped";
+      task.pauseReason = undefined;
       await persist(task);
       return { ok: true };
     },
@@ -492,6 +578,7 @@ export function createBatchExecutor(
         };
       }
       task.state = "queued";
+      task.pauseReason = undefined;
       await persist(task);
       await this.wake();
       return { ok: true };

@@ -6,8 +6,11 @@ import type { CloudQueueStatus } from "@/cloud/jobs";
 import { createLocalMarkdownSaver } from "@/local-save";
 import {
   BATCH_ENTER_SELECTION_REQUEST,
+  BATCH_OPEN_MANAGER,
+  BATCH_RESUME,
   BATCH_STATUS_REQUEST,
   type BatchEnterSelectionStatus,
+  type BatchMutationStatus,
   type BatchStatusResult,
   CAPTURE_REQUEST,
   type CaptureResponseMessage,
@@ -71,10 +74,17 @@ const dependencies: PopupDependencies = {
     return response as BatchStatusResult;
   },
   openBatchManager: (taskId: string) => {
-    void browser.tabs.create({
-      url: `${browser.runtime.getURL("/manager.html")}?task=${encodeURIComponent(taskId)}`,
-    });
+    // Routed through the background worker's manager-tab coordinator so
+    // an already-open manager page is reused instead of duplicated (#59).
+    void browser.runtime
+      .sendMessage({ type: BATCH_OPEN_MANAGER, taskId })
+      .catch(() => undefined);
   },
+  resumeBatch: async (taskId: string) =>
+    (await browser.runtime.sendMessage({
+      type: BATCH_RESUME,
+      taskId,
+    })) as BatchMutationStatus,
   closePopup: () => window.close(),
   createSaver: () => createLocalMarkdownSaver(),
   cloud: {

@@ -5,7 +5,11 @@ import {
   type BatchExecutorDependencies,
   createBatchExecutor,
 } from "../batch/executor";
-import { type BatchVideo, createBatchJobStore } from "../batch/jobs";
+import {
+  type BatchVideo,
+  createBatchJobStore,
+  type LocalSaveOutcome,
+} from "../batch/jobs";
 import type { CloudFailure, CloudReceipt } from "../cloud/jobs";
 
 const videos: BatchVideo[] = [
@@ -69,9 +73,16 @@ function createHarness(overrides: Partial<BatchExecutorDependencies> = {}) {
   const deps: BatchExecutorDependencies = {
     store,
     captureVideo: async (video) => makeCapture(video.videoId),
+    preflightLocal: async () => ({
+      status: "ok",
+      directoryName: "Vault",
+    }),
     saveLocal: async (capture) => {
       savedCaptures.push(capture);
-      return { directoryName: "Vault", filename: "a.md" };
+      return {
+        status: "saved",
+        result: { directoryName: "Vault", filename: "a.md" },
+      } satisfies LocalSaveOutcome;
     },
     enqueueCloud: async (capture) => {
       const jobId = `job-${capture.source.videoId}`;
@@ -152,9 +163,12 @@ describe("batch executor", () => {
     const harness = createHarness({
       saveLocal: async (capture) => {
         if (capture.source.videoId === "abc12345678") {
-          throw new Error("disk full");
+          return { status: "error", message: "disk full" };
         }
-        return { directoryName: "Vault", filename: "a.md" };
+        return {
+          status: "saved",
+          result: { directoryName: "Vault", filename: "a.md" },
+        };
       },
     });
     const task = await createTask(harness.store, videos.slice(0, 2));
@@ -177,12 +191,16 @@ describe("batch executor", () => {
 
   it("keeps local and cloud failures independent", async () => {
     const harness = createHarness({
-      saveLocal: async (capture) => {
-        if (capture.source.videoId === "abc12345678") {
-          throw new Error("disk full");
-        }
-        return { directoryName: "Vault", filename: "a.md" };
-      },
+      saveLocal: async (capture) =>
+        capture.source.videoId === "abc12345678"
+          ? ({
+              status: "error",
+              message: "disk full",
+            } satisfies LocalSaveOutcome)
+          : {
+              status: "saved",
+              result: { directoryName: "Vault", filename: "a.md" },
+            },
     });
     const task = await createTask(harness.store, videos);
 
@@ -414,11 +432,15 @@ describe("batch executor", () => {
 
   it("keeps a receipt-index failure as a warning on a saved item", async () => {
     const harness = createHarness({
-      saveLocal: async () => ({
-        directoryName: "Vault",
-        filename: "a.md",
-        receiptError: "Could not update the local save index: boom",
-      }),
+      saveLocal: async () =>
+        ({
+          status: "saved",
+          result: {
+            directoryName: "Vault",
+            filename: "a.md",
+            receiptError: "Could not update the local save index: boom",
+          },
+        }) satisfies LocalSaveOutcome,
     });
     const task = await createTask(harness.store, videos.slice(0, 1));
 
@@ -456,5 +478,172 @@ describe("batch executor", () => {
     await harness.executor.wake();
     const outcome = await harness.executor.stop(task.id);
     expect(outcome).toMatchObject({ ok: false });
+  });
+
+  // --- #59: ask-first interruption ---------------------------------
+
+  it("pauses with local-permission when the preflight finds no grant, without opening a watch tab", async () => {
+    const captureCalls: string[] = [];
+    const harness = createHarness({
+      preflightLocal: async () => ({ status: "permission-required" }),
+      captureVideo: async (video) => {
+        captureCalls.push(video.videoId);
+        return makeCapture(video.videoId);
+      },
+    });
+    const task = await createTask(harness.store, videos.slice(0, 2));
+
+    await harness.executor.wake();
+
+    const paused = await harness.store.get(task.id);
+    expect(paused?.state).toBe("paused");
+    expect(paused?.pauseReason).toBe("local-permission");
+    // No watch tab, no capture, no failure - the item waits, queued.
+    expect(captureCalls).toEqual([]);
+    expect(paused?.items[0]).toMatchObject({
+      local: "queued",
+      cloud: "queued",
+    });
+    expect(paused?.items[0]?.localError).toBeUndefined();
+  });
+
+  it("pauses with local-permission when no save folder is selected at all", async () => {
+    const harness = createHarness({
+      preflightLocal: async () => ({ status: "no-directory" }),
+    });
+    const task = await createTask(harness.store, videos.slice(0, 1));
+
+    await harness.executor.wake();
+
+    const paused = await harness.store.get(task.id);
+    expect(paused?.state).toBe("paused");
+    expect(paused?.pauseReason).toBe("local-permission");
+    expect(paused?.items[0]).toMatchObject({ local: "queued" });
+  });
+
+  it("pauses with local-save-unavailable when the preflight host is unreachable", async () => {
+    const harness = createHarness({
+      preflightLocal: async () => ({
+        status: "unavailable",
+        message: "manager page did not respond",
+      }),
+    });
+    const task = await createTask(harness.store, videos.slice(0, 1));
+
+    await harness.executor.wake();
+
+    const paused = await harness.store.get(task.id);
+    expect(paused?.state).toBe("paused");
+    expect(paused?.pauseReason).toBe("local-save-unavailable");
+    expect(paused?.items[0]).toMatchObject({ local: "queued" });
+  });
+
+  it("resumes from the interrupted item after a permission pause", async () => {
+    let preflights = 0;
+    const harness = createHarness({
+      preflightLocal: async () => {
+        preflights += 1;
+        return preflights === 1
+          ? { status: "permission-required" }
+          : { status: "ok" as const, directoryName: "Vault" };
+      },
+    });
+    const task = await createTask(harness.store, videos.slice(0, 2));
+
+    await harness.executor.wake();
+    const paused = await harness.store.get(task.id);
+    expect(paused?.pauseReason).toBe("local-permission");
+
+    expect(await harness.executor.resume(task.id)).toEqual({ ok: true });
+    const finished = await harness.store.get(task.id);
+    expect(finished?.state).toBe("completed");
+    expect(finished?.pauseReason).toBeUndefined();
+    expect(finished?.items.map((item) => [item.local, item.cloud])).toEqual([
+      ["saved", "saved"],
+      ["saved", "saved"],
+    ]);
+  });
+
+  it("re-queues the local destination and keeps cloud results when permission dies mid-item", async () => {
+    const harness = createHarness({
+      saveLocal: async () => ({ status: "permission-required" }),
+    });
+    const task = await createTask(harness.store, videos.slice(0, 2));
+
+    await harness.executor.wake();
+
+    const paused = await harness.store.get(task.id);
+    expect(paused?.state).toBe("paused");
+    expect(paused?.pauseReason).toBe("local-permission");
+    // The interrupted item: local back to queued (never failed), the
+    // already-finished cloud half stays saved.
+    expect(paused?.items[0]).toMatchObject({
+      local: "queued",
+      cloud: "saved",
+      localError: undefined,
+    });
+    // Nothing else ran.
+    expect(paused?.items[1]).toMatchObject({
+      local: "queued",
+      cloud: "queued",
+    });
+  });
+
+  it("pauses with local-save-unavailable when the host dies mid-item", async () => {
+    const harness = createHarness({
+      saveLocal: async () => ({
+        status: "unavailable",
+        message: "stopped responding",
+      }),
+    });
+    const task = await createTask(harness.store, videos.slice(0, 1));
+
+    await harness.executor.wake();
+
+    const paused = await harness.store.get(task.id);
+    expect(paused?.state).toBe("paused");
+    expect(paused?.pauseReason).toBe("local-save-unavailable");
+    expect(paused?.items[0]).toMatchObject({ local: "queued", cloud: "saved" });
+  });
+
+  it("records the user as the pause reason and clears it on resume", async () => {
+    const harness = createHarness();
+    const task = await createTask(harness.store, videos.slice(0, 2));
+    const taskId = task.id;
+    let captureCalls = 0;
+    const originalCapture = harness.deps.captureVideo;
+    harness.deps.captureVideo = async (video) => {
+      captureCalls += 1;
+      if (captureCalls === 2) {
+        await harness.executor.pause(taskId);
+      }
+      return originalCapture(video);
+    };
+
+    await harness.executor.wake();
+    const paused = await harness.store.get(taskId);
+    expect(paused?.pauseReason).toBe("user");
+
+    await harness.executor.resume(taskId);
+    const finished = await harness.store.get(taskId);
+    expect(finished?.state).toBe("completed");
+    expect(finished?.pauseReason).toBeUndefined();
+  });
+
+  it("does not resume a browser-restart pause on its own wake", async () => {
+    const harness = createHarness();
+    const task = await createTask(harness.store, videos.slice(0, 1));
+    // Simulate the session gate's pause after a browser restart (#59):
+    // an alarm-driven wake must leave it waiting for confirmation.
+    task.state = "paused";
+    task.pauseReason = "browser-restart";
+    await harness.store.put(task);
+
+    await harness.executor.wake();
+
+    const still = await harness.store.get(task.id);
+    expect(still?.state).toBe("paused");
+    expect(still?.pauseReason).toBe("browser-restart");
+    expect(harness.savedCaptures).toHaveLength(0);
   });
 });

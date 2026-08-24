@@ -4,6 +4,8 @@ import { isBatchSourceUrl } from "@/entrypoints/popup/utils/youtube";
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 /** "14:19", "1:02:03" - YouTube puts durations in `title` attributes. */
 const DURATION_TEXT = /^\d{1,3}(:\d{2})+$/;
+/** The duration suffix of an accessible thumbnail label: "… by Channel 14:19". */
+const TRAILING_DURATION = /\s+\d{1,3}(:\d{2})+$/;
 
 export { isBatchSourceUrl };
 
@@ -18,19 +20,33 @@ function parseVideoId(rawUrl: string): string | undefined {
   }
 }
 
+/** Text that may serve as a title; durations never qualify. */
+function cleanTitle(text: string | null | undefined): string {
+  const value = text?.trim() ?? "";
+  return value && !DURATION_TEXT.test(value) ? value : "";
+}
+
 function titleFor(anchor: HTMLAnchorElement): string {
   const card = anchor.closest(
     "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-video-renderer",
   );
-  const cardTitle =
-    card
-      ?.querySelector("#video-title, #video-title-link")
-      ?.textContent?.trim() ?? "";
-  const anchorTitle = anchor.getAttribute("title")?.trim() ?? "";
-  // Thumbnail links carry the duration, not the title, in some layouts.
-  if (anchorTitle && !DURATION_TEXT.test(anchorTitle)) return anchorTitle;
-  if (cardTitle && !DURATION_TEXT.test(cardTitle)) return cardTitle;
-  return anchorTitle || cardTitle || anchor.textContent?.trim() || "";
+  // Title candidates, best first. Durations are filtered from every
+  // candidate: thumbnail links carry "14:19" in `title`, and in newer
+  // card layouts the duration overlay even sits inside the anchor's
+  // own text - none of that may ever become a video's title (#59).
+  const candidates = [
+    cleanTitle(anchor.getAttribute("title")),
+    cleanTitle(
+      card?.querySelector("#video-title, #video-title-link, h3 a")?.textContent,
+    ),
+    cleanTitle(card?.querySelector("h3")?.textContent),
+    // Thumbnail aria-label: "Title by Channel 14:19" - strip the suffix.
+    cleanTitle(
+      anchor.getAttribute("aria-label")?.replace(TRAILING_DURATION, ""),
+    ),
+    cleanTitle(anchor.textContent),
+  ];
+  return candidates.find((candidate) => candidate.length > 0) ?? "";
 }
 
 export function discoverLoadedVideos(document: Document): BatchVideo[] {

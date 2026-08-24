@@ -156,6 +156,42 @@ h2 {
   color: var(--danger);
 }
 
+/* Why a batch paused, with its matching action (#59) */
+.pause-notice {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--info);
+  border-radius: 8px;
+  background: var(--info-background);
+}
+
+.pause-notice p {
+  margin: 0;
+  color: var(--text);
+}
+
+.pause-notice button {
+  margin-top: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--info);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--info);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pause-notice button:hover {
+  background: var(--info-background);
+}
+
+.pause-notice button:disabled {
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: default;
+}
+
 .error-banner {
   margin: 12px 0 0;
   padding: 8px 10px;
@@ -164,6 +200,10 @@ h2 {
   background: var(--danger-background);
   color: var(--danger);
   word-break: break-word;
+}
+
+.pause-notice .error-banner {
+  margin: 8px 0 0;
 }
 
 .hint {
@@ -185,12 +225,37 @@ h2 {
   border-top: 1px solid #f0f0f0;
 }
 
+/* Title (opens the video) + video id on one row */
+.item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
 .item-title {
   margin: 0;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.item-head .item-title {
+  color: var(--info);
+  text-decoration: none;
+}
+
+.item-head .item-title:hover {
+  text-decoration: underline;
+}
+
+.item-video-id {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
 }
 
 .chips {

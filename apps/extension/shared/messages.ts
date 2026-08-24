@@ -199,32 +199,52 @@ export type BatchMessageResult =
   | BatchLookupResult;
 
 /**
- * Save-agent page protocol (#26): the service worker cannot show the
- * folder-permission prompt, so local batch writes are delegated to a
- * dedicated extension page that can (with a click as user gesture).
- * All messages are tab-targeted at the save-agent page.
+ * Manager Local Save Host protocol (#59): the service worker cannot
+ * show Chrome's folder-permission prompt, so local batch writes are
+ * delegated to the manager page (one workbench for progress, folder
+ * authorization and writes). Responses are typed results - permission
+ * problems are signaled as `permission-required`, never string-matched,
+ * and permission waits are NOT part of any timeout: the worker pauses
+ * the batch and the page asks the user.
+ * All messages are tab-targeted at the manager page.
  */
-export const SAVE_AGENT_PING = "transcriptly:save-agent-ping" as const;
+export const MANAGER_LOCAL_PING = "transcriptly:manager-local-ping" as const;
 
-export interface SaveAgentPingMessage {
-  type: typeof SAVE_AGENT_PING;
+export interface ManagerLocalPingMessage {
+  type: typeof MANAGER_LOCAL_PING;
 }
 
-export interface SaveAgentPingResponse {
+export interface ManagerLocalPingResponse {
   ok: true;
 }
 
-export const SAVE_AGENT_SAVE = "transcriptly:save-agent-save" as const;
+export const MANAGER_LOCAL_PREFLIGHT =
+  "transcriptly:manager-local-preflight" as const;
 
-export interface SaveAgentSaveMessage {
-  type: typeof SAVE_AGENT_SAVE;
+export interface ManagerLocalPreflightMessage {
+  type: typeof MANAGER_LOCAL_PREFLIGHT;
+}
+
+export type ManagerLocalPreflightResponse =
+  | { ok: true; directoryName: string }
+  | { ok: false; reason: "permission-required"; directoryName?: string }
+  | { ok: false; reason: "no-directory" }
+  | { ok: false; reason: "error"; message: string };
+
+export const MANAGER_LOCAL_SAVE = "transcriptly:manager-local-save" as const;
+
+export interface ManagerLocalSaveMessage {
+  type: typeof MANAGER_LOCAL_SAVE;
   capture: import("@transcriptly/schema").Capture;
 }
 
-export interface SaveAgentSaveResponse {
-  ok: boolean;
-  directoryName?: string;
-  filename?: string;
-  receiptError?: string;
-  message?: string;
-}
+export type ManagerLocalSaveResponse =
+  | {
+      ok: true;
+      directoryName: string;
+      filename: string;
+      receiptError?: string;
+    }
+  | { ok: false; reason: "permission-required"; directoryName?: string }
+  | { ok: false; reason: "no-directory" }
+  | { ok: false; reason: "error"; message: string };

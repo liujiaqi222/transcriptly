@@ -139,6 +139,7 @@ function createHarness(
     enterBatchSelection: vi.fn(async () => ({ ok: true as const })),
     getBatchStatus: vi.fn(async () => ({ tasks: [] })),
     openBatchManager: vi.fn(),
+    resumeBatch: vi.fn(async () => ({ ok: true as const })),
     closePopup: vi.fn(),
     account: {
       getCloudSession: vi.fn(async () => ({ status: "signed-out" as const })),
@@ -464,6 +465,67 @@ describe("popup batch manager entry (#58)", () => {
     ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Open batch manager" }),
+    ).toBeTruthy();
+  });
+
+  it("offers Continue after a browser-restart pause (#59)", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.getBatchStatus = vi.fn(async () => ({
+      tasks: [batchTask({ state: "paused", pauseReason: "browser-restart" })],
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    expect(
+      await screen.findByText(
+        "The browser restarted and paused this batch · 2/3 done · 1 failed",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue batch" }));
+    expect(harness.deps.resumeBatch).toHaveBeenCalledWith("task-1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Open batch manager" }));
+    expect(harness.deps.openBatchManager).toHaveBeenCalledWith("task-1");
+  });
+
+  it("routes a permission pause to the manager with the folder name (#59)", async () => {
+    const harness = createHarness({
+      tab: youtubeTab,
+      rememberedDirectory: new MemoryDirectory("Vault"),
+    });
+    harness.deps.getBatchStatus = vi.fn(async () => ({
+      tasks: [batchTask({ state: "paused", pauseReason: "local-permission" })],
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    expect(
+      await screen.findByText(
+        'Paused - Transcriptly needs access to the folder "Vault" · 2/3 done · 1 failed',
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Grant access in manager" }),
+    );
+    expect(harness.deps.openBatchManager).toHaveBeenCalledWith("task-1");
+  });
+
+  it("explains a local-save-unavailable pause (#59)", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.getBatchStatus = vi.fn(async () => ({
+      tasks: [
+        batchTask({
+          state: "paused",
+          pauseReason: "local-save-unavailable",
+        }),
+      ],
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    expect(
+      await screen.findByText(
+        "Paused - the manager page lost contact with the local save host · 2/3 done · 1 failed",
+      ),
     ).toBeTruthy();
   });
 

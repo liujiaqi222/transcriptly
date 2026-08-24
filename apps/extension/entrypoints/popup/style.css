@@ -297,6 +297,14 @@ h2 {
   cursor: default;
 }
 
+/* Secondary batch entry (Continue + manager link, #59) */
+.save-button.secondary {
+  margin-top: 6px;
+  border-color: var(--border);
+  background: #fff;
+  color: var(--text);
+}
+
 /* Batch manager entry (#58) */
 
 .batch-activity {

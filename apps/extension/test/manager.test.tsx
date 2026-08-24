@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BatchTask } from "../batch/jobs";
 import {
   ManagerApp,
   type ManagerDependencies,
 } from "../entrypoints/manager/app";
+import type { ManagerLocalSaveHost } from "../entrypoints/manager/local-save-host";
 import {
   BATCH_PAUSE,
   BATCH_RESUME,
@@ -91,10 +92,40 @@ function createHarness(tasks: BatchTask[]): Harness {
 async function renderManager(
   harness: ReturnType<typeof createHarness>,
   initialTaskId?: string,
+  localSaveHost?: ManagerLocalSaveHost,
 ) {
-  render(<ManagerApp deps={harness.deps} initialTaskId={initialTaskId} />);
+  render(
+    <ManagerApp
+      deps={harness.deps}
+      initialTaskId={initialTaskId}
+      localSaveHost={localSaveHost}
+    />,
+  );
   await screen.findByText("Recent batches");
   return harness;
+}
+
+function createFakeHost(
+  status: { directoryName?: string; writePermission: boolean } = {
+    directoryName: "Vault",
+    writePermission: false,
+  },
+) {
+  const listeners = new Set<() => void>();
+  let current = { ...status };
+  const host: ManagerLocalSaveHost = {
+    getStatus: () => current,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    grantAccess: vi.fn(async (): Promise<"granted"> => {
+      current = { ...current, writePermission: true };
+      for (const listener of listeners) listener();
+      return "granted";
+    }),
+  };
+  return host;
 }
 
 function mutationMessageTypes(sent: unknown[]): string[] {
@@ -135,6 +166,12 @@ describe("batch manager page (#58)", () => {
       screen.getByText("1/3 done · 1 failed · ~40 s remaining"),
     ).toBeTruthy();
     expect(screen.getByText("Video abc12345678")).toBeTruthy();
+    // The title links to the video and the id is shown next to it (#59).
+    const link = screen.getByRole("link", { name: "Video abc12345678" });
+    expect(link.getAttribute("href")).toBe(
+      "https://www.youtube.com/watch?v=abc12345678",
+    );
+    expect(screen.getByText("abc12345678")).toBeTruthy();
     expect(screen.getByText("local: saved")).toBeTruthy();
     expect(screen.getByText("local: disk full")).toBeTruthy();
     // The honest foreground hint (#58 AC).
@@ -195,6 +232,100 @@ describe("batch manager page (#58)", () => {
       type: BATCH_STOP,
       taskId: "task-1",
     });
+  });
+
+  it("asks to continue after a browser-restart pause (#59)", async () => {
+    const harness = createHarness([
+      makeTask({ state: "paused", pauseReason: "browser-restart" }),
+    ]);
+    await renderManager(harness);
+
+    expect(
+      screen.getByText(
+        "The browser restarted while this batch was running. Continue where it left off?",
+      ),
+    ).toBeTruthy();
+    // The reason-specific action replaces the plain Resume.
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+
+    screen.getByRole("button", { name: "Continue" }).click();
+    expect(harness.sent).toContainEqual({
+      type: BATCH_RESUME,
+      taskId: "task-1",
+    });
+  });
+
+  it("grants folder access and resumes in one gesture (#59)", async () => {
+    const host = createFakeHost();
+    const harness = createHarness([
+      makeTask({ state: "paused", pauseReason: "local-permission" }),
+    ]);
+    await renderManager(harness, undefined, host);
+
+    expect(
+      screen.getByText(
+        'Transcriptly needs write access to the folder "Vault" to continue saving locally.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+
+    await screen
+      .findByRole("button", { name: "Grant folder access & continue" })
+      .then((button) => button.click());
+
+    await waitFor(() => {
+      expect(host.grantAccess).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(harness.sent).toContainEqual({
+        type: BATCH_RESUME,
+        taskId: "task-1",
+      });
+    });
+  });
+
+  it("offers folder selection when no folder is set (#59)", async () => {
+    const host = createFakeHost({ writePermission: false });
+    const harness = createHarness([
+      makeTask({ state: "paused", pauseReason: "local-permission" }),
+    ]);
+    await renderManager(harness, undefined, host);
+
+    expect(
+      screen.getByText(
+        "Transcriptly needs a save folder to continue saving locally.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Choose folder & continue" }),
+    ).toBeTruthy();
+  });
+
+  it("hints at reopening the manager after the save host was lost (#59)", async () => {
+    const harness = createHarness([
+      makeTask({ state: "paused", pauseReason: "local-save-unavailable" }),
+    ]);
+    await renderManager(harness);
+
+    expect(
+      screen.getByText(
+        "The manager page lost contact with the local save host. Reopen or refresh this page, check the target folder for a possibly written file, then continue.",
+      ),
+    ).toBeTruthy();
+    screen.getByRole("button", { name: "Resume" }).click();
+    expect(harness.sent).toContainEqual({
+      type: BATCH_RESUME,
+      taskId: "task-1",
+    });
+  });
+
+  it("keeps the plain Resume for a user pause (#59)", async () => {
+    const harness = createHarness([
+      makeTask({ state: "paused", pauseReason: "user" }),
+    ]);
+    await renderManager(harness);
+
+    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
   });
 
   it("sends a retry for one failed video", async () => {
