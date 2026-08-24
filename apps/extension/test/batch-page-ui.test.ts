@@ -295,6 +295,45 @@ describe("batch page panel", () => {
     ).toBe(false);
   });
 
+  it("binds selection to the source card when a stale player link has the same video id", async () => {
+    const runtime = createRuntime();
+    await mount(
+      runtime,
+      `
+        <div class="html5-video-player">
+          <a class="ytp-next-button" href="https://www.youtube.com/watch?v=abc12345678" title="Next (SHIFT+n)"></a>
+        </div>
+        <div id="feed">
+          <ytd-rich-item-renderer>
+            <a href="https://www.youtube.com/watch?v=abc12345678" title="Bailey video"><span id="video-title">Bailey video</span></a>
+          </ytd-rich-item-renderer>
+        </div>
+      `,
+    );
+
+    const player = document.querySelector(".html5-video-player");
+    const card = document.querySelector("ytd-rich-item-renderer");
+    expect(player?.querySelector(".transcriptly-batch-check")).toBeNull();
+    expect(card?.querySelector(".transcriptly-batch-check")).not.toBeNull();
+
+    selectFirstVideo();
+    clickAction("start");
+
+    await vi.waitFor(() => {
+      expect(runtime.sent).toContainEqual({
+        type: BATCH_START,
+        videos: [
+          {
+            videoId: "abc12345678",
+            url: "https://www.youtube.com/watch?v=abc12345678",
+            title: "Bailey video",
+          },
+        ],
+        destinations: ["local"],
+      });
+    });
+  });
+
   it("keeps the selection when the start request fails", async () => {
     const runtime = createRuntime({
       startStatus: { ok: false, message: "Choose a local save folder first." },

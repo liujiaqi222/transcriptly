@@ -47,6 +47,26 @@ describe("batch discovery", () => {
     ]);
   });
 
+  it("ignores persistent player recommendations outside the source feed", () => {
+    document.body.innerHTML = `
+      <div class="html5-video-player">
+        <a class="ytp-next-button" href="https://www.youtube.com/watch?v=bad12345678" title="Next (SHIFT+n)"></a>
+        <a class="ytp-modern-videowall-still" href="https://www.youtube.com/watch?v=bad87654321">Another creator's video</a>
+      </div>
+      <ytd-rich-item-renderer>
+        <a href="https://www.youtube.com/watch?v=abc12345678" title="Bailey video"><span id="video-title">Bailey video</span></a>
+      </ytd-rich-item-renderer>
+    `;
+
+    expect(discoverLoadedVideos(document)).toEqual([
+      {
+        videoId: "abc12345678",
+        url: "https://www.youtube.com/watch?v=abc12345678",
+        title: "Bailey video",
+      },
+    ]);
+  });
+
   it("never promotes a duration to a title (#59)", () => {
     // Newer card layouts: the title anchor has no #video-title id and
     // the duration overlay sits inside the thumbnail anchor's own text.
