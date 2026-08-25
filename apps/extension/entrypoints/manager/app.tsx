@@ -1,4 +1,13 @@
 import {
+  FolderOpen,
+  LibraryBig,
+  NotebookText,
+  Pause,
+  Play,
+  RotateCw,
+  X,
+} from "lucide-react";
+import {
   type ReactNode,
   useCallback,
   useEffect,
@@ -134,6 +143,7 @@ function PauseNotice({
       "The browser restarted while this batch was running. Continue where it left off?";
     action = (
       <button type="button" onClick={resume}>
+        <Play />
         Continue
       </button>
     );
@@ -166,6 +176,7 @@ function PauseNotice({
             .finally(() => setGranting(false));
         }}
       >
+        <FolderOpen />
         {granting
           ? "Waiting for Chrome…"
           : hasFolder
@@ -178,6 +189,7 @@ function PauseNotice({
       "The manager page lost contact with the local save host. Reopen or refresh this page, check the target folder for a possibly written file, then continue.";
     action = (
       <button type="button" onClick={resume}>
+        <Play />
         Resume
       </button>
     );
@@ -255,7 +267,7 @@ function BatchTaskDetail({
         {isRetryable(task, item) && (
           <button
             type="button"
-            className="secondary"
+            className="retry"
             onClick={() =>
               onMutate({
                 type: BATCH_RETRY_ITEM,
@@ -264,6 +276,7 @@ function BatchTaskDetail({
               })
             }
           >
+            <RotateCw />
             Retry
           </button>
         )}
@@ -314,6 +327,7 @@ function BatchTaskDetail({
               type="button"
               onClick={() => onMutate({ type: BATCH_PAUSE, taskId: task.id })}
             >
+              <Pause />
               Pause
             </button>
           )}
@@ -321,10 +335,12 @@ function BatchTaskDetail({
             (!task.pauseReason || task.pauseReason === "user") && (
               <button
                 type="button"
+                className="cta"
                 onClick={() =>
                   onMutate({ type: BATCH_RESUME, taskId: task.id })
                 }
               >
+                <Play />
                 Resume
               </button>
             )}
@@ -333,6 +349,7 @@ function BatchTaskDetail({
             className="danger"
             onClick={() => onMutate({ type: BATCH_STOP, taskId: task.id })}
           >
+            <X />
             Stop pending items
           </button>
         </div>
@@ -426,66 +443,85 @@ export function ManagerApp({
     selected ?? (selectedTaskId === undefined ? tasks?.[0] : undefined);
 
   return (
-    <main className="manager">
-      <h1>Transcriptly batch</h1>
-
-      {tasks === undefined && <p className="muted">Loading batches…</p>}
-
-      {tasks !== undefined && tasks.length === 0 && (
-        <p className="muted">
-          No batches yet. Select videos on a playlist or channel Videos page to
-          start one.
-        </p>
-      )}
-
-      {tasks !== undefined &&
-        tasks.length > 0 &&
-        selectedTaskId !== undefined &&
-        !selected && (
-          <p className="error-banner" role="alert">
-            That batch task no longer exists.
+    <div className="manager-page">
+      <header className="manager-header">
+        <div className="manager-bar">
+          <div className="brand-lockup">
+            <span className="brand-mark">
+              <NotebookText />
+            </span>
+            <h1>Transcriptly batch</h1>
+          </div>
+        </div>
+      </header>
+      <main className="manager">
+        {tasks === undefined && (
+          <p className="muted loading" role="status">
+            Loading batches…
           </p>
         )}
 
-      {shown && (
-        <BatchTaskDetail
-          task={shown}
-          mutationError={mutationError}
-          localSaveHost={localSaveHost}
-          onMutate={(message) => void handleMutate(message)}
-        />
-      )}
+        {tasks !== undefined && tasks.length === 0 && (
+          <section className="empty-state">
+            <div className="state-icon">
+              <LibraryBig />
+            </div>
+            <h2>No batches yet</h2>
+            <p className="state-copy">
+              Select videos on a playlist or channel Videos page to start one.
+            </p>
+          </section>
+        )}
 
-      {tasks !== undefined && tasks.length > 0 && (
-        <section className="history">
-          <h2>Recent batches</h2>
-          <ul>
-            {tasks.map((task) => {
-              const failed = failedItemCount(task);
-              return (
-                <li key={task.id}>
-                  <button
-                    type="button"
-                    className={`batch-row${task.id === shown?.id ? " is-selected" : ""}`}
-                    onClick={() => handleSelect(task.id)}
-                  >
-                    <span className={`state state-${task.state}`}>
-                      {stateLabel(task)}
-                    </span>
-                    <span className="batch-date">
-                      {formatTimestamp(task.createdAt)}
-                    </span>
-                    <span className="batch-count">
-                      {`${doneItemCount(task)}/${task.items.length} done`}
-                      {failed > 0 ? ` · ${failed} failed` : ""}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-    </main>
+        {tasks !== undefined &&
+          tasks.length > 0 &&
+          selectedTaskId !== undefined &&
+          !selected && (
+            <p className="error-banner" role="alert">
+              That batch task no longer exists.
+            </p>
+          )}
+
+        {shown && (
+          <BatchTaskDetail
+            task={shown}
+            mutationError={mutationError}
+            localSaveHost={localSaveHost}
+            onMutate={(message) => void handleMutate(message)}
+          />
+        )}
+
+        {tasks !== undefined && tasks.length > 0 && (
+          <section className="history">
+            <h2>Recent batches</h2>
+            <ul>
+              {tasks.map((task) => {
+                const failed = failedItemCount(task);
+                return (
+                  <li key={task.id}>
+                    <button
+                      type="button"
+                      className={`batch-row${task.id === shown?.id ? " is-selected" : ""}`}
+                      onClick={() => handleSelect(task.id)}
+                    >
+                      <span className={`state state-${task.state}`}>
+                        {stateLabel(task)}
+                      </span>
+                      <span className="batch-date">
+                        {formatTimestamp(task.createdAt)}
+                      </span>
+                      <span className="batch-count">
+                        {`${doneItemCount(task)}/${task.items.length} done`}
+                        {failed > 0 ? ` · ${failed} failed` : ""}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+      </main>
+    </div>
   );
 }
