@@ -5,6 +5,7 @@ export {
 } from "./capture-details";
 export { errorMessage } from "./errors";
 export {
+  channelVideosUrl,
   isBatchSourceUrl,
   isChannelRootUrl,
   isYouTubeWatchUrl,

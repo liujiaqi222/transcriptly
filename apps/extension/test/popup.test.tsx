@@ -137,6 +137,7 @@ function createHarness(
     getActiveTab: vi.fn(async () => options.tab),
     requestCapture: vi.fn(async () => ({ ok: true as const, capture })),
     enterBatchSelection: vi.fn(async () => ({ ok: true as const })),
+    openChannelVideos: vi.fn(async () => undefined),
     getBatchStatus: vi.fn(async () => ({ tasks: [] })),
     openBatchManager: vi.fn(),
     resumeBatch: vi.fn(async () => ({ ok: true as const })),
@@ -210,6 +211,21 @@ describe("popup capture flow", () => {
     );
   });
 
+  it("keeps capture destinations in a fixed shell below the scrolling content", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    const { container } = render(<Popup deps={harness.deps} />);
+    await screen.findByLabelText("File name");
+
+    const popup = container.querySelector(".popup");
+    const content = popup?.querySelector(":scope > .popup-content");
+    const footer = popup?.querySelector(":scope > .footer");
+    expect(content).toBeTruthy();
+    expect(footer).toBeTruthy();
+    expect(content?.contains(footer ?? null)).toBe(false);
+    expect(footer?.querySelector('[aria-label="Local"]')).toBeTruthy();
+    expect(footer?.querySelector('[aria-label="Cloud"]')).toBeTruthy();
+  });
+
   it("keeps properties collapsed until expanded and formats display-only values", async () => {
     const harness = createHarness({ tab: youtubeTab });
     const capturedAt = "2026-08-17T14:51:43.413Z";
@@ -261,14 +277,21 @@ describe("popup capture flow", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
   });
 
-  it("hints channel root pages to open the Videos tab instead of selecting", async () => {
+  it("opens a channel's Videos tab from the channel-root hint", async () => {
     const harness = createHarness({
       tab: { id: 3, url: "https://www.youtube.com/@eoglobal" },
     });
     render(<Popup deps={harness.deps} />);
-    expect(
-      await screen.findByText(/Open this channel's Videos tab/),
-    ).toBeTruthy();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open Videos tab" }),
+    );
+    await waitFor(() =>
+      expect(harness.deps.openChannelVideos).toHaveBeenCalledWith(
+        3,
+        "https://www.youtube.com/@eoglobal/videos",
+      ),
+    );
+    expect(harness.deps.closePopup).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /Select videos/ })).toBeNull();
     expect(harness.deps.requestCapture).not.toHaveBeenCalled();
     expect(harness.deps.enterBatchSelection).not.toHaveBeenCalled();
@@ -289,10 +312,15 @@ describe("popup capture flow", () => {
     const harness = createHarness({
       tab: { id: 3, url: "https://www.youtube.com/playlist?list=PL1" },
     });
-    render(<Popup deps={harness.deps} />);
+    const { container } = render(<Popup deps={harness.deps} />);
+
+    await screen.findByRole("button", { name: "Select videos on this page" });
+    expect(
+      container.querySelector(".popup-content.batch-content"),
+    ).toBeTruthy();
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Select videos on this page" }),
+      screen.getByRole("button", { name: "Select videos on this page" }),
     );
 
     await waitFor(() =>
@@ -454,13 +482,39 @@ describe("popup batch manager entry (#58)", () => {
   it("keeps the entry for a paused batch, marked as waiting", async () => {
     const harness = createHarness({ tab: youtubeTab });
     harness.deps.getBatchStatus = vi.fn(async () => ({
-      tasks: [batchTask({ state: "paused" })],
+      tasks: [
+        batchTask({
+          state: "paused",
+          // Every pause path but a mid-item user pause re-queues or
+          // settles its running items before pausing.
+          items: batchTask().items.map((item) =>
+            item.local === "running" ? { ...item, local: "queued" } : item,
+          ),
+        }),
+      ],
     }));
     render(<Popup deps={harness.deps} />);
 
     expect(
       await screen.findByText(
         "Paused batch · 2/3 done · 1 failed - waiting to be resumed",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Open batch manager" }),
+    ).toBeTruthy();
+  });
+
+  it("says the current video is still finishing right after a user pause", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.getBatchStatus = vi.fn(async () => ({
+      tasks: [batchTask({ state: "paused", pauseReason: "user" })],
+    }));
+    render(<Popup deps={harness.deps} />);
+
+    expect(
+      await screen.findByText(
+        "Pausing - finishing the current video · 2/3 done · 1 failed",
       ),
     ).toBeTruthy();
     expect(

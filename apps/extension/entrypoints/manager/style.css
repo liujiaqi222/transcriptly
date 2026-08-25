@@ -1,14 +1,25 @@
 :root {
-  --text: #232323;
-  --muted: #6e6e6e;
-  --border: #d9d9d9;
-  --background: #fafafa;
-  --ok: #1a7f37;
-  --ok-background: #e6f4ea;
-  --info: #1a73e8;
-  --info-background: #e8f0fe;
-  --danger: #b3261e;
-  --danger-background: #fce8e6;
+  --primary: #1b90ed;
+  --primary-hover: #147ac9;
+  --primary-text: #0872b9;
+  --primary-soft: #edf7ff;
+  --primary-soft-strong: #dcefff;
+  --primary-border: #b9ddfa;
+  --accent: #f5c451;
+  --accent-hover: #e7b642;
+  --text: #202124;
+  --muted: #64748b;
+  --subtle: #94a3b8;
+  --border: #e2e8f0;
+  --surface: #fff;
+  --background: #f8fafc;
+  --ok: #15803d;
+  --ok-background: #f0fdf4;
+  --warn: #b45309;
+  --warn-background: #fef7e0;
+  --danger: #b91c1c;
+  --danger-background: #fef2f2;
+  --danger-border: #fecaca;
 }
 
 * {
@@ -19,10 +30,68 @@ body {
   margin: 0;
   background: var(--background);
   font-family:
-    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
   color: var(--text);
   font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(27, 144, 237, 0.32);
+  outline-offset: 2px;
+}
+svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* Page shell: brand header over the shared 680px column */
+
+.manager-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.manager-bar {
+  display: flex;
+  align-items: center;
+  max-width: 680px;
+  min-height: 56px;
+  margin: 0 auto;
+  padding: 8px 16px;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text);
+}
+.brand-mark svg {
+  width: 28px;
+  height: 28px;
+}
+h1 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .manager {
@@ -31,21 +100,53 @@ body {
   padding: 24px 16px 48px;
 }
 
-h1 {
-  margin: 0 0 16px;
-  font-size: 18px;
-}
-
 h2 {
-  margin: 24px 0 8px;
-  font-size: 12px;
+  margin: 24px 0 12px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--muted);
 }
 
-.muted {
+.loading {
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* Loading / empty states */
+
+.empty-state {
+  padding: 48px 12px 24px;
+  text-align: center;
+}
+.empty-state h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--text);
+}
+.state-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  border: 1px solid var(--primary-border);
+  border-radius: 13px;
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.state-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.state-copy {
+  margin: 8px 0 0;
   color: var(--muted);
+  line-height: 1.55;
 }
 
 /* Task detail */
@@ -53,16 +154,16 @@ h2 {
 .task-detail {
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 12px;
+  background: var(--surface);
 }
 
 .task-head {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .task-date {
@@ -72,33 +173,36 @@ h2 {
 
 .task-destinations {
   margin-left: auto;
-  padding: 2px 10px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--background);
-  border: 1px solid var(--border);
-  font-size: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
   text-transform: capitalize;
 }
 
 .state {
-  padding: 2px 10px;
+  padding: 4px 8px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 650;
 }
 
-.state-running {
-  background: var(--info-background);
-  color: var(--info);
+.state-running,
+.state-queued {
+  background: var(--primary-soft);
+  color: var(--primary-text);
 }
 
 .state-paused {
-  background: #fef7e0;
-  color: #b06000;
+  background: var(--warn-background);
+  color: var(--warn);
 }
 
 .state-stopped {
-  background: #f1f3f4;
+  background: #f1f5f9;
   color: var(--muted);
 }
 
@@ -122,11 +226,13 @@ h2 {
 }
 
 .summary {
-  margin: 10px 0 0;
-  font-weight: 600;
+  margin: 12px 0 0;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
 
+/* One primary action per state: Resume is the CTA, Pause is ordinary,
+   Stop pending items is destructive. */
 .controls {
   display: flex;
   flex-wrap: wrap;
@@ -134,71 +240,111 @@ h2 {
   margin-top: 12px;
 }
 
-.controls button,
-.item button {
-  padding: 6px 14px;
+.controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: 10px;
+  background: var(--surface);
   color: var(--text);
-  font: inherit;
   font-size: 13px;
+  font-weight: 650;
   cursor: pointer;
 }
 
-.controls button:hover,
-.item button:hover {
-  background: var(--background);
+.controls button:hover {
+  border-color: var(--primary-border);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.controls button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.controls .cta {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.controls .cta:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--text);
 }
 
 .controls .danger {
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.controls .danger:hover {
   border-color: var(--danger);
+  background: var(--danger-background);
   color: var(--danger);
 }
 
 /* Why a batch paused, with its matching action (#59) */
+
 .pause-notice {
   margin: 12px 0 0;
-  padding: 10px 12px;
-  border: 1px solid var(--info);
-  border-radius: 8px;
-  background: var(--info-background);
+  padding: 12px;
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  background: var(--primary-soft);
 }
 
 .pause-notice p {
   margin: 0;
-  color: var(--text);
+  line-height: 1.5;
 }
 
 .pause-notice button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
   margin-top: 8px;
-  padding: 6px 14px;
-  border: 1px solid var(--info);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--info);
-  font: inherit;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--text);
   font-size: 13px;
+  font-weight: 650;
   cursor: pointer;
 }
 
 .pause-notice button:hover {
-  background: var(--info-background);
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 
 .pause-notice button:disabled {
-  border-color: var(--border);
+  border-color: #cbd5e1;
+  background: #e2e8f0;
   color: var(--muted);
   cursor: default;
 }
 
+.pause-notice button svg {
+  width: 15px;
+  height: 15px;
+}
+
 .error-banner {
   margin: 12px 0 0;
-  padding: 8px 10px;
-  border: 1px solid var(--danger);
-  border-radius: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: 10px;
   background: var(--danger-background);
   color: var(--danger);
+  font-size: 12px;
+  line-height: 1.45;
   word-break: break-word;
 }
 
@@ -210,19 +356,20 @@ h2 {
   margin: 12px 0 0;
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.5;
 }
 
 /* Per-video results */
 
 .items {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .item {
-  padding: 10px 0;
-  border-top: 1px solid #f0f0f0;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
 }
 
 /* Title (opens the video) + video id on one row */
@@ -235,19 +382,18 @@ h2 {
 
 .item-title {
   margin: 0;
-  font-weight: 600;
+  font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.item-head .item-title {
-  color: var(--info);
+  color: var(--primary);
   text-decoration: none;
 }
 
 .item-head .item-title:hover {
   text-decoration: underline;
+  text-decoration-color: rgba(27, 144, 237, 0.4);
+  text-underline-offset: 2px;
 }
 
 .item-video-id {
@@ -259,22 +405,25 @@ h2 {
 }
 
 .chips {
-  margin: 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 0;
 }
 
 .chip {
   display: inline-block;
-  margin-right: 6px;
-  padding: 1px 8px;
+  padding: 4px 8px;
   border-radius: 999px;
   font-size: 11px;
-  background: #f1f3f4;
-  color: #5f6368;
+  font-weight: 650;
+  background: #f1f5f9;
+  color: var(--muted);
 }
 
 .chip-saved {
   background: var(--ok-background);
-  color: #137333;
+  color: var(--ok);
 }
 
 .chip-failed,
@@ -284,20 +433,47 @@ h2 {
 }
 
 .chip-running {
-  background: var(--info-background);
-  color: var(--info);
+  background: var(--primary-soft);
+  color: var(--primary-text);
 }
 
 .chip-skipped {
-  background: #f1f3f4;
-  color: #5f6368;
+  background: #f1f5f9;
+  color: var(--muted);
 }
 
 .item-error {
-  margin: 2px 0;
+  margin: 4px 0 0;
   color: var(--danger);
   font-size: 12px;
+  line-height: 1.45;
   word-break: break-word;
+}
+
+/* Retry is a per-video tool: quiet blue text action, never a CTA */
+.item .retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--primary-text);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.item .retry:hover {
+  background: var(--primary-soft-strong);
+}
+
+.item .retry svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* History */
@@ -312,28 +488,31 @@ h2 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 12px;
+  min-height: 48px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: 10px;
+  background: var(--surface);
   font: inherit;
   cursor: pointer;
   text-align: left;
 }
 
 .batch-row:hover {
-  background: var(--background);
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
 }
 
 .batch-row.is-selected {
-  border-color: var(--ok);
+  border-color: var(--primary);
+  background: var(--primary-soft);
 }
 
 .batch-row + .batch-row,
 .history li + li {
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .batch-date {
@@ -343,5 +522,6 @@ h2 {
 
 .batch-count {
   margin-left: auto;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
 }

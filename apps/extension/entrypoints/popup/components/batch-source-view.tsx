@@ -1,3 +1,4 @@
+import { ArrowRight, Folder, LibraryBig } from "lucide-react";
 import type { LocalMarkdownSaver } from "@/local-save";
 
 interface BatchSourceViewProps {
@@ -35,27 +36,23 @@ export function BatchSourceView({
 }: BatchSourceViewProps) {
   return (
     <section className="batch-source" role="status">
-      <p>Select videos on this page for a batch transcript save.</p>
-      <button
-        type="button"
-        className="save-button"
-        onClick={onEnterSelection}
-        disabled={enteringSelection}
-      >
-        {enteringSelection
-          ? "Enabling selection…"
-          : "Select videos on this page"}
-      </button>
-      {enterError && (
-        <p className="error-banner" role="alert">
-          {enterError}
+      <div className="batch-heading">
+        <div className="batch-title">
+          <LibraryBig />
+          <h2>Select videos from this page</h2>
+        </div>
+        <p className="state-copy">
+          Choose up to 50 videos, then save their transcripts together.
         </p>
-      )}
-      <p className="save-to">
-        Save to:{" "}
-        <span className="directory">
-          {directoryName ?? (saver ? "No folder selected" : "…")}
-        </span>{" "}
+      </div>
+      <div className="destination-summary">
+        <Folder />
+        <span>
+          <span className="destination-label">Save to:</span>
+          <strong className="directory">
+            {directoryName ?? (saver ? "No folder selected" : "…")}
+          </strong>
+        </span>
         <button
           type="button"
           className="link"
@@ -64,7 +61,23 @@ export function BatchSourceView({
         >
           {changingFolder ? "Changing…" : "Change"}
         </button>
-      </p>
+      </div>
+      <button
+        type="button"
+        className="save-button batch-primary-button"
+        onClick={onEnterSelection}
+        disabled={enteringSelection}
+      >
+        {enteringSelection
+          ? "Enabling selection…"
+          : "Select videos on this page"}
+        {!enteringSelection && <ArrowRight />}
+      </button>
+      {enterError && (
+        <p className="error-banner" role="alert">
+          {enterError}
+        </p>
+      )}
       {saverError && (
         <p className="error-banner" role="alert">
           {saverError}
@@ -91,10 +104,41 @@ export function BatchSourceView({
  * the former on-page guide overlay became a popup hint pointing at the
  * channel's Videos tab.
  */
-export function ChannelRootHint() {
+export function ChannelRootHint({
+  opening,
+  error,
+  onOpenVideos,
+}: {
+  opening: boolean;
+  error?: string;
+  onOpenVideos(): void;
+}) {
   return (
     <section className="batch-source" role="status">
-      <p>Open this channel's Videos tab to select videos for a batch save.</p>
+      <div className="batch-heading">
+        <div className="batch-title">
+          <LibraryBig />
+          <h2>Continue on the Videos tab</h2>
+        </div>
+        <p className="state-copy">
+          Transcriptly can add selection controls once the channel's video grid
+          is open.
+        </p>
+      </div>
+      <button
+        type="button"
+        className="save-button batch-primary-button"
+        disabled={opening}
+        onClick={onOpenVideos}
+      >
+        {opening ? "Opening Videos…" : "Open Videos tab"}
+        {!opening && <ArrowRight />}
+      </button>
+      {error && (
+        <p className="error-banner" role="alert">
+          {error}
+        </p>
+      )}
     </section>
   );
 }

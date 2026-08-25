@@ -42,6 +42,22 @@ export function failedItemCount(task: BatchTask): number {
 }
 
 /**
+ * A pause lands between videos: the task already shows `paused` while
+ * the in-flight item is still finishing (the executor never aborts a
+ * started video). True only in that window - every other pause path
+ * (preflight, post-item, browser restart) re-queues or completes its
+ * items before pausing, so no destination stays `running`.
+ */
+export function isFinishingCurrentVideo(task: BatchTask): boolean {
+  return (
+    task.state === "paused" &&
+    task.items.some(
+      (item) => item.local === "running" || item.cloud === "running",
+    )
+  );
+}
+
+/**
  * Estimated seconds until the batch finishes, or undefined when nothing
  * is pending or the batch is not running (Paused / Stopped / Completed
  * show no ETA).

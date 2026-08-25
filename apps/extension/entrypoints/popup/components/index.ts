@@ -3,4 +3,4 @@ export { BatchActivity } from "./batch-activity";
 export { BatchSourceView, ChannelRootHint } from "./batch-source-view";
 export { CaptureView } from "./capture-view";
 export { CloudStatusPanel } from "./cloud-status";
-export type { SaveState } from "./save-footer";
+export { SaveFooter, type SaveState } from "./save-footer";

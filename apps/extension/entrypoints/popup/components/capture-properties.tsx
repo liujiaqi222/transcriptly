@@ -1,10 +1,14 @@
 import type { Capture } from "@transcriptly/schema";
+import { ArrowRight } from "lucide-react";
 import { propertyRows } from "@/entrypoints/popup/utils";
 
 export function CaptureProperties({ capture }: { capture: Capture }) {
   return (
     <details className="properties">
-      <summary>Properties</summary>
+      <summary>
+        <span>Properties</span>
+        <ArrowRight />
+      </summary>
       <dl>
         {propertyRows(capture).map((property) => (
           <div className="property" key={property.label}>

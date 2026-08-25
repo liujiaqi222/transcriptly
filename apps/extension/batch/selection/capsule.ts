@@ -1,6 +1,6 @@
-import { isBatchSourceUrl } from "@/batch/discovery";
 import { doneItemCount } from "@/batch/eta";
 import type { BatchTask } from "@/batch/jobs";
+import { isBatchSourceUrl } from "@/batch/selection/discovery";
 import {
   BATCH_OPEN_MANAGER,
   BATCH_STATUS_REQUEST,

@@ -1,3 +1,4 @@
+import { Cloud, Folder, Save } from "lucide-react";
 import type { LocalMarkdownSaver } from "@/local-save";
 
 export type SaveState =
@@ -34,14 +35,14 @@ export function SaveFooter({
 }: SaveFooterProps) {
   return (
     <footer className="footer">
-      <label className="toggle">
-        <input type="checkbox" checked disabled readOnly /> Local
-      </label>
-      <p className="save-to">
-        Save to:{" "}
-        <span className="directory">
-          {directoryName ?? (saver ? "No folder selected" : "…")}
-        </span>{" "}
+      <div className="footer-topline">
+        <span className="save-target">
+          <Folder />
+          <span className="save-to">Save to:</span>
+          <strong title={directoryName}>
+            {directoryName ?? (saver ? "No folder" : "Loading…")}
+          </strong>
+        </span>
         <button
           type="button"
           className="link"
@@ -50,34 +51,52 @@ export function SaveFooter({
         >
           {changingFolder ? "Changing…" : "Change"}
         </button>
-      </p>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={cloudEnabled}
-          disabled={!cloudAvailable}
-          onChange={(event) => onCloudToggle(event.target.checked)}
-        />{" "}
-        Cloud
-      </label>
-      <p className="cloud">
-        {cloudAvailable
-          ? "Save a copy to your private cloud library"
-          : "Sign in to save to cloud"}
-      </p>
+      </div>
+      <div className="footer-actions">
+        <div className="destination-toggles">
+          <label className="toggle">
+            <input
+              type="checkbox"
+              aria-label="Local"
+              checked
+              disabled
+              readOnly
+            />
+            <span>Local</span>
+          </label>
+          <label
+            className="toggle"
+            title={!cloudAvailable ? "Sign in to save to cloud" : undefined}
+          >
+            <input
+              type="checkbox"
+              aria-label="Cloud"
+              checked={cloudEnabled}
+              disabled={!cloudAvailable}
+              onChange={(event) => onCloudToggle(event.target.checked)}
+            />
+            <Cloud />
+            <span>Cloud</span>
+            {!cloudAvailable && (
+              <span className="sr-only">Sign in to save to cloud</span>
+            )}
+          </label>
+        </div>
+        <button
+          type="button"
+          className="save-button"
+          onClick={onSave}
+          disabled={saveState.status === "saving" || !saver}
+        >
+          <Save />
+          {saveState.status === "saving" ? "Saving…" : "Save"}
+        </button>
+      </div>
       {saverError && (
         <p className="error-banner" role="alert">
           {saverError}
         </p>
       )}
-      <button
-        type="button"
-        className="save-button"
-        onClick={onSave}
-        disabled={saveState.status === "saving" || !saver}
-      >
-        {saveState.status === "saving" ? "Saving…" : "Save"}
-      </button>
     </footer>
   );
 }

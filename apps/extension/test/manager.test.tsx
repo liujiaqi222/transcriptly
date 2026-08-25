@@ -328,6 +328,40 @@ describe("batch manager page (#58)", () => {
     expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
   });
 
+  it("says the current video is still finishing right after a pause", async () => {
+    const harness = createHarness([
+      makeTask({ state: "paused", pauseReason: "user" }),
+    ]);
+    await renderManager(harness);
+
+    // The chip must not claim an instant "Paused": the executor finishes
+    // the in-flight video before the pause takes effect.
+    expect(
+      screen.getAllByText("Pausing - finishing current video").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "Pausing - the current video finishes first. It is safe to resume before it ends.",
+      ),
+    ).toBeTruthy();
+    // Settled pause (no running item) keeps the plain label.
+    cleanup();
+    const settled = createHarness([
+      makeTask({
+        state: "paused",
+        pauseReason: "user",
+        items: makeTask().items.map((item) =>
+          item.local === "running" || item.cloud === "running"
+            ? { ...item, local: "queued", cloud: "queued" }
+            : item,
+        ),
+      }),
+    ]);
+    await renderManager(settled);
+    expect(screen.getAllByText("Paused").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Pausing - finishing current video")).toBeNull();
+  });
+
   it("sends a retry for one failed video", async () => {
     const harness = createHarness([
       makeTask({

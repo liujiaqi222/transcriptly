@@ -36,6 +36,14 @@ export function isChannelRootUrl(url: string | undefined): boolean {
   }
 }
 
+/** Turn a supported channel root URL into its batch-selectable Videos tab. */
+export function channelVideosUrl(url: string): string | undefined {
+  if (!isChannelRootUrl(url)) return undefined;
+  const parsed = new URL(url);
+  parsed.pathname = `${parsed.pathname.replace(/\/$/, "")}/videos`;
+  return parsed.toString();
+}
+
 export function isYouTubeWatchUrl(url: string | undefined): boolean {
   if (!url) return false;
   try {
