@@ -368,12 +368,6 @@ h2 {
   background: #e2e8f0;
   cursor: default;
 }
-.save-button.secondary {
-  margin-top: 8px;
-  border-color: var(--border);
-  color: var(--text);
-  background: var(--surface);
-}
 
 /* Capture */
 .field-group {
@@ -679,15 +673,45 @@ h2 {
   margin-bottom: 0;
 }
 .batch-activity {
+  display: grid;
+  gap: 8px;
   margin: 0 0 12px;
-  padding: 12px;
+  padding: 8px 12px;
   border: 1px solid var(--primary-border);
   border-radius: 12px;
   background: var(--primary-soft);
 }
 .batch-activity p {
-  margin: 0 0 8px;
+  margin: 0;
   line-height: 1.45;
+}
+.batch-activity-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.batch-activity .save-button {
+  width: auto;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.batch-activity-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  color: #0872b9;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.batch-activity-link:hover {
+  background: #dcefff;
 }
 .cloud-status {
   margin-bottom: 8px;

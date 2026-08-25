@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   doneItemCount,
   failedItemCount,
@@ -20,6 +21,10 @@ interface BatchActivityProps {
  * unfinished batch. A paused batch shows why (from the persisted
  * `pauseReason`, never guessed): a Continue entry after a browser
  * restart, and a manager jump for folder authorization.
+ *
+ * Every variant renders as one slim strip - the message, then a single
+ * row of inline actions - so the entry never crowds out the capture
+ * view it sits above.
  */
 export function BatchActivity({
   task,
@@ -31,88 +36,63 @@ export function BatchActivity({
   const summary = `${doneItemCount(task)}/${task.items.length} done${
     failed > 0 ? ` · ${failed} failed` : ""
   }`;
+  const managerLink = (
+    <button
+      type="button"
+      className="batch-activity-link"
+      onClick={() => onOpenManager(task.id)}
+    >
+      Open batch manager
+    </button>
+  );
 
-  if (task.state === "paused") {
-    const reason = task.pauseReason;
-    if (reason === "browser-restart") {
-      return (
-        <section className="batch-activity" role="status">
-          <p>{`The browser restarted and paused this batch · ${summary}`}</p>
-          <button
-            type="button"
-            className="save-button"
-            onClick={() => onResume(task.id)}
-          >
-            Continue batch
-          </button>
-          <button
-            type="button"
-            className="save-button secondary"
-            onClick={() => onOpenManager(task.id)}
-          >
-            Open batch manager
-          </button>
-        </section>
-      );
-    }
-    if (reason === "local-permission") {
-      return (
-        <section className="batch-activity" role="status">
-          <p>{`Paused - Transcriptly needs access to ${
-            directoryName ? `the folder "${directoryName}"` : "a save folder"
-          } · ${summary}`}</p>
-          <button
-            type="button"
-            className="save-button"
-            onClick={() => onOpenManager(task.id)}
-          >
-            Grant access in manager
-          </button>
-        </section>
-      );
-    }
-    if (reason === "local-save-unavailable") {
-      return (
-        <section className="batch-activity" role="status">
-          <p>{`Paused - the manager page lost contact with the local save host · ${summary}`}</p>
-          <button
-            type="button"
-            className="save-button"
-            onClick={() => onOpenManager(task.id)}
-          >
-            Open batch manager
-          </button>
-        </section>
-      );
-    }
-    return (
-      <section className="batch-activity" role="status">
-        <p>
-          {isFinishingCurrentVideo(task)
-            ? `Pausing - finishing the current video · ${summary}`
-            : `Paused batch · ${summary} - waiting to be resumed`}
-        </p>
+  let message: string;
+  let actions: ReactNode;
+  if (task.state !== "paused") {
+    message = `Batch capture in progress · ${summary}`;
+    actions = managerLink;
+  } else if (task.pauseReason === "browser-restart") {
+    message = `The browser restarted and paused this batch · ${summary}`;
+    actions = (
+      <>
         <button
           type="button"
           className="save-button"
-          onClick={() => onOpenManager(task.id)}
+          onClick={() => onResume(task.id)}
         >
-          Open batch manager
+          Continue batch
         </button>
-      </section>
+        {managerLink}
+      </>
     );
-  }
-
-  return (
-    <section className="batch-activity" role="status">
-      <p>{`Batch capture in progress · ${summary}`}</p>
+  } else if (task.pauseReason === "local-permission") {
+    message = `Paused - Transcriptly needs access to ${
+      directoryName ? `the folder "${directoryName}"` : "a save folder"
+    } · ${summary}`;
+    actions = (
       <button
         type="button"
         className="save-button"
         onClick={() => onOpenManager(task.id)}
       >
-        Open batch manager
+        Grant access in manager
       </button>
+    );
+  } else if (task.pauseReason === "local-save-unavailable") {
+    message = `Paused - the manager page lost contact with the local save host · ${summary}`;
+    actions = managerLink;
+  } else if (isFinishingCurrentVideo(task)) {
+    message = `Pausing - finishing the current video · ${summary}`;
+    actions = managerLink;
+  } else {
+    message = `Paused batch · ${summary} - waiting to be resumed`;
+    actions = managerLink;
+  }
+
+  return (
+    <section className="batch-activity" role="status">
+      <p>{message}</p>
+      <div className="batch-activity-actions">{actions}</div>
     </section>
   );
 }
