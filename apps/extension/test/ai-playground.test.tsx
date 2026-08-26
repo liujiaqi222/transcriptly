@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   BuiltInAiAvailability,
   BuiltInAiCreateOptions,
+  BuiltInAiStreamChunk,
 } from "../ai/built-in-ai";
 import { getBuiltInAi } from "../ai/built-in-ai";
 import {
@@ -20,8 +21,8 @@ import {
 /**
  * Fake browser API harness (#78): the page only ever sees the
  * `getBuiltInAi` seam, so these tests drive a fake `LanguageModel`
- * global and keep unsupported, downloadable, success, failure, and
- * aborted states deterministic.
+ * global and keep unsupported, downloadable, streaming, thought,
+ * failure, and aborted states deterministic.
  */
 
 interface Deferred<T> {
@@ -44,36 +45,55 @@ function abortError(): DOMException {
   return new DOMException("The request was aborted.", "AbortError");
 }
 
-/** One controllable Prompt API session. */
+/**
+ * One controllable streaming Prompt API session. `promptStreaming`
+ * hands back a real ReadableStream the test drives chunk by chunk, so
+ * the page's streaming loop runs exactly as in production.
+ */
 class FakeSession {
   destroyed = false;
   lastInput?: string;
   lastSignal?: AbortSignal;
-  private current?: Deferred<string>;
+  private controller?: ReadableStreamDefaultController<BuiltInAiStreamChunk>;
+  private queued: BuiltInAiStreamChunk[] = [];
 
-  prompt = vi.fn((input: string, options?: { signal?: AbortSignal }) => {
-    this.lastInput = input;
-    this.lastSignal = options?.signal;
-    const next = deferred<string>();
-    this.current = next;
-    // A well-behaved abortable API rejects immediately when handed an
-    // already-aborted signal (Stop can race ahead of the prompt call).
-    if (options?.signal?.aborted) {
-      next.reject(abortError());
-      return next.promise;
-    }
-    options?.signal?.addEventListener("abort", () => {
-      next.reject(abortError());
-    });
-    return next.promise;
-  });
+  promptStreaming = vi.fn(
+    (input: string, options?: { signal?: AbortSignal }) => {
+      this.lastInput = input;
+      this.lastSignal = options?.signal;
+      const signal = options?.signal;
+      const queued = this.queued;
+      return new ReadableStream<BuiltInAiStreamChunk>({
+        start: (controller) => {
+          // A well-behaved abortable stream errors immediately when
+          // handed an already-aborted signal (Stop can race ahead of
+          // the promptStreaming call).
+          if (signal?.aborted) {
+            controller.error(abortError());
+            return;
+          }
+          signal?.addEventListener("abort", () => {
+            controller.error(abortError());
+          });
+          this.controller = controller;
+          for (const chunk of queued) controller.enqueue(chunk);
+        },
+      });
+    },
+  );
 
-  resolveAnswer(text: string) {
-    this.current?.resolve(text);
+  /** Stream one chunk (also replayed into later-started streams). */
+  emit(chunk: BuiltInAiStreamChunk) {
+    this.queued.push(chunk);
+    this.controller?.enqueue(chunk);
   }
 
-  rejectAnswer(error: unknown) {
-    this.current?.reject(error);
+  finish() {
+    this.controller?.close();
+  }
+
+  fail(error: unknown) {
+    this.controller?.error(error);
   }
 
   destroy() {
@@ -149,6 +169,14 @@ function onlyMonitor(fake: ReturnType<typeof createFakeModel>): FakeMonitor {
   return monitor;
 }
 
+/** Starts a run and waits until its stream is live and readable. */
+async function startRun(input: string) {
+  fireEvent.change(screen.getByLabelText("Prompt"), {
+    target: { value: input },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Run" }));
+}
+
 afterEach(cleanup);
 
 describe("getBuiltInAi seam", () => {
@@ -160,7 +188,7 @@ describe("getBuiltInAi seam", () => {
     ).toBeUndefined();
   });
 
-  it("delegates availability and create to the global", async () => {
+  it("wraps create, promptStreaming, and destroy of the global", async () => {
     const fake = createFakeModel({ availability: "downloadable" });
     const ai = getBuiltInAi({ LanguageModel: fake.languageModel });
     if (!ai) throw new Error("expected an adapter");
@@ -171,9 +199,54 @@ describe("getBuiltInAi seam", () => {
         monitor.addEventListener("downloadprogress", () => {});
       },
     });
-    expect(session).toBe(fake.sessions[0]);
     expect(fake.languageModel.create).toHaveBeenCalledTimes(1);
     expect(fake.monitors).toHaveLength(1);
+
+    await session.promptStreaming("hi");
+    expect(onlySession(fake).promptStreaming).toHaveBeenCalledWith(
+      "hi",
+      undefined,
+    );
+
+    session.destroy();
+    expect(onlySession(fake).destroyed).toBe(true);
+  });
+
+  it("normalizes native stream chunk shapes", async () => {
+    // Native chunks vary by Chrome version: bare strings for plain
+    // text, `{ text, thought }` objects for thought summaries.
+    const nativeSession = {
+      promptStreaming: () =>
+        new ReadableStream<unknown>({
+          start(controller) {
+            controller.enqueue("plain text ");
+            controller.enqueue({ text: "reasoned", thought: true });
+            controller.close();
+          },
+        }),
+      destroy: () => undefined,
+    };
+    const languageModel = {
+      availability: async () => "available" as const,
+      create: async () => nativeSession,
+    };
+
+    const ai = getBuiltInAi({ LanguageModel: languageModel });
+    const session = await ai?.create();
+    const stream = await session?.promptStreaming("hi");
+    if (!stream) throw new Error("expected a stream");
+
+    const reader = stream.getReader();
+    const chunks: BuiltInAiStreamChunk[] = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    expect(chunks).toEqual([
+      { text: "plain text ", thought: false },
+      { text: "reasoned", thought: true },
+    ]);
   });
 
   it("accepts Chrome's callable LanguageModel interface object", async () => {
@@ -277,77 +350,125 @@ describe("AI Playground prompt flow (#78)", () => {
     return { fake };
   }
 
-  it("runs a prompt and shows the response", async () => {
-    const { fake } = await renderReady();
-
-    fireEvent.change(screen.getByLabelText("Prompt"), {
-      target: { value: "Say hi" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
-
-    expect(fake.languageModel.create).toHaveBeenCalledTimes(1);
+  /** Waits for the run's session and live stream. */
+  async function liveSession(fake: ReturnType<typeof createFakeModel>) {
     await waitFor(() => expect(fake.sessions).toHaveLength(1));
     const session = onlySession(fake);
-    expect(session.prompt).toHaveBeenCalled();
+    await waitFor(() => expect(session.promptStreaming).toHaveBeenCalled());
+    return session;
+  }
+
+  it("streams the response as chunks arrive and requests thought summaries", async () => {
+    const { fake } = await renderReady();
+
+    await startRun("Say hi");
+
+    expect(fake.languageModel.create).toHaveBeenCalledTimes(1);
+    expect(fake.createOptions[0]?.thoughtSummaryMode).toBe("concise");
+    const session = await liveSession(fake);
     expect(session.lastInput).toBe("Say hi");
     expect(session.lastSignal).toBeInstanceOf(AbortSignal);
 
-    session.resolveAnswer("Hello from Gemini Nano!");
+    session.emit({ text: "Hello ", thought: false });
+    await screen.findByText(/Hello/);
+    // Partial text is visible while the run is still streaming.
+    expect(screen.getByText(/Running…/)).toBeTruthy();
+
+    session.emit({ text: "from Gemini Nano!", thought: false });
+    session.finish();
+
     expect(await screen.findByText("Hello from Gemini Nano!")).toBeTruthy();
     expect(screen.queryByText(/Running…/)).toBeNull();
-
-    // The run's abort resource is released on completion.
+    // The run's abort resource is released without aborting on success.
     expect(session.lastSignal?.aborted).toBe(false);
   });
 
-  it("shows the failure when the prompt rejects", async () => {
+  it("streams thought summaries into a separate Thinking panel", async () => {
     const { fake } = await renderReady();
 
-    fireEvent.change(screen.getByLabelText("Prompt"), {
-      target: { value: "Explode" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await startRun("Think hard");
+    const session = await liveSession(fake);
 
-    await waitFor(() => expect(fake.sessions).toHaveLength(1));
-    onlySession(fake).rejectAnswer(new Error("model misbehaved"));
+    session.emit({ text: "Weighing options…", thought: true });
+    expect(await screen.findByText("Weighing options…")).toBeTruthy();
+    expect(screen.getByText("Thinking")).toBeTruthy();
+
+    session.emit({ text: "Answer!", thought: false });
+    expect(await screen.findByText("Answer!")).toBeTruthy();
+    session.finish();
+
+    // The answer stays separate from the reasoning panel.
+    expect(screen.getByText("Response")).toBeTruthy();
+  });
+
+  it("turns the output-limit notice into a friendly note", async () => {
+    const { fake } = await renderReady();
+
+    await startRun("Write a lot");
+    const session = await liveSession(fake);
+
+    session.emit({ text: "Short answer. ", thought: false });
+    session.emit({
+      text: "The response exceeded output limits and was truncated.",
+      thought: false,
+    });
+    session.finish();
+
+    expect(await screen.findByText("Short answer.")).toBeTruthy();
+    // The raw notice is stripped from the response…
+    expect(screen.queryByText(/exceeded output limits/)).toBeNull();
+    // …and replaced with an explanation.
+    expect(await screen.findByText(/output token limit/i)).toBeTruthy();
+  });
+
+  it("shows the failure when the stream errors", async () => {
+    const { fake } = await renderReady();
+
+    await startRun("Explode");
+    const session = await liveSession(fake);
+
+    session.fail(new Error("model misbehaved"));
     expect(await screen.findByText("model misbehaved")).toBeTruthy();
     // Run is usable again after a failure.
     expect(screen.getByRole("button", { name: "Run" })).toBeTruthy();
   });
 
-  it("stops an in-flight request via the abort signal", async () => {
+  it("stops an in-flight stream via the abort signal and keeps the partial answer", async () => {
     const { fake } = await renderReady();
 
-    fireEvent.change(screen.getByLabelText("Prompt"), {
-      target: { value: "Long thought" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await startRun("Long thought");
+    const session = await liveSession(fake);
     expect(screen.getByText(/Running…/)).toBeTruthy();
+
+    session.emit({ text: "Partial answer", thought: false });
+    expect(await screen.findByText(/Partial answer/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
     expect(await screen.findByText("Stopped.")).toBeTruthy();
     expect(screen.queryByText(/Running…/)).toBeNull();
-    await waitFor(() => expect(fake.sessions).toHaveLength(1));
-    expect(onlySession(fake).lastSignal?.aborted).toBe(true);
+    expect(screen.getByText(/Partial answer/)).toBeTruthy();
+    expect(session.lastSignal?.aborted).toBe(true);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("clears the prompt and the response", async () => {
+  it("clears the prompt, thinking, and the response", async () => {
     const { fake } = await renderReady();
 
-    fireEvent.change(screen.getByLabelText("Prompt"), {
-      target: { value: "Say hi" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    await waitFor(() => expect(fake.sessions).toHaveLength(1));
-    onlySession(fake).resolveAnswer("Hello!");
+    await startRun("Say hi");
+    const session = await liveSession(fake);
+    session.emit({ text: "Pondering…", thought: true });
+    session.emit({ text: "Hello!", thought: false });
+    session.finish();
     await screen.findByText("Hello!");
+    await screen.findByText("Pondering…");
 
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
 
     expect(screen.getByLabelText("Prompt")).toHaveProperty("value", "");
     expect(screen.queryByText("Hello!")).toBeNull();
+    expect(screen.queryByText("Pondering…")).toBeNull();
+    expect(screen.queryByText("Thinking")).toBeNull();
     expect(screen.getByText(/answer will appear here/i)).toBeTruthy();
   });
 });
@@ -358,12 +479,12 @@ describe("AI Playground cleanup (#78)", () => {
     const view = render(<PlaygroundApp deps={playgroundDeps(fake)} />);
     await screen.findByLabelText("Prompt");
 
-    fireEvent.change(screen.getByLabelText("Prompt"), {
-      target: { value: "Pending" },
+    await startRun("Pending");
+    const session = await waitFor(async () => {
+      expect(fake.sessions).toHaveLength(1);
+      return onlySession(fake);
     });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
-    await waitFor(() => expect(fake.sessions).toHaveLength(1));
-    const session = onlySession(fake);
+    await waitFor(() => expect(session.promptStreaming).toHaveBeenCalled());
 
     view.unmount();
 
@@ -376,12 +497,10 @@ describe("AI Playground cleanup (#78)", () => {
     render(<PlaygroundApp deps={playgroundDeps(fake)} />);
     await screen.findByLabelText("Prompt");
 
-    fireEvent.change(screen.getByLabelText("Prompt"), {
-      target: { value: "Pending" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await startRun("Pending");
     await waitFor(() => expect(fake.sessions).toHaveLength(1));
     const session = onlySession(fake);
+    await waitFor(() => expect(session.promptStreaming).toHaveBeenCalled());
 
     fireEvent(window, new Event("pagehide"));
 
