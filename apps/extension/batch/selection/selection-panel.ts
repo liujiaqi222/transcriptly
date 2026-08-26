@@ -3,11 +3,11 @@ import {
   Cloud,
   createElement,
   type IconNode,
-  NotebookText,
   RefreshCw,
   X,
 } from "lucide";
 import { BATCH_MAX_RUNNABLE_ITEMS, type BatchDestination } from "@/batch/jobs";
+import { logoSvg } from "@/brand/logo";
 
 /**
  * DOM for the selection-mode toolbar (#57): the floating panel, its
@@ -120,7 +120,7 @@ export function createSelectionPanel(
     <button type="button" class="panel-close" data-action="close" aria-label="Exit selection mode">${icon(X)}</button>
     <div class="select-view">
       <div class="panel-head">
-        <span class="brand-mark">${icon(NotebookText)}</span>
+        <span class="brand-mark">${logoSvg(24)}</span>
         <span class="brand">Transcriptly</span>
       </div>
       <div class="summary-row">
