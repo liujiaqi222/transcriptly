@@ -1,6 +1,6 @@
 import { parseVideoId } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
-import { CircleAlert, NotebookText, RefreshCw } from "lucide-react";
+import { CircleAlert, NotebookText, RefreshCw, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BatchTask } from "@/batch/jobs";
 import type { CloudQueueStatus } from "@/cloud/jobs";
@@ -72,6 +72,8 @@ export interface PopupDependencies {
   createSaver(): Promise<LocalMarkdownSaver>;
   account: AccountDependencies;
   cloud: CloudDependencies;
+  /** Open the built-in AI Playground page in a new tab (#78). */
+  openAiPlayground(): void;
 }
 
 type CaptureState =
@@ -597,6 +599,12 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           onChangeFolder={() => void handleChangeFolder()}
         />
       )}
+      <footer className="playground-entry">
+        <button type="button" onClick={deps.openAiPlayground}>
+          <Sparkles />
+          AI Playground
+        </button>
+      </footer>
     </div>
   );
 }

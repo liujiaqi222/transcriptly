@@ -832,3 +832,39 @@ h2 {
   color: var(--muted);
   font-size: 10px;
 }
+
+/* AI Playground entry (#78): a quiet always-present link to the
+   standalone built-in AI page. Discovery action, not a CTA. */
+
+.playground-entry {
+  display: flex;
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.playground-entry button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.playground-entry button:hover {
+  color: var(--primary-text);
+  background: var(--primary-soft);
+}
+
+.playground-entry button svg {
+  width: 14px;
+  height: 14px;
+}
