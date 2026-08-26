@@ -157,6 +157,10 @@ function createHarness(
       getCloudPreference: vi.fn(async () => false),
       setCloudPreference: vi.fn(async () => undefined),
     },
+    markdown: {
+      getPreference: vi.fn(async () => "timeline" as const),
+      setPreference: vi.fn(async () => undefined),
+    },
     createSaver: () =>
       createLocalMarkdownSaver({
         store,
@@ -174,6 +178,33 @@ async function captureSuccessfulPopup(harness: Harness) {
 }
 
 describe("popup capture flow", () => {
+  it("loads the remembered format, persists changes, and saves Article once", async () => {
+    const directory = new MemoryDirectory("Notes");
+    const harness = createHarness({
+      tab: youtubeTab,
+      rememberedDirectory: directory,
+    });
+    harness.deps.markdown.getPreference = vi.fn(async () => "article" as const);
+
+    await captureSuccessfulPopup(harness);
+    await waitFor(() => {
+      expect(
+        (screen.getByRole("radio", { name: "Article" }) as HTMLInputElement)
+          .checked,
+      ).toBe(true);
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "Timeline" }));
+    expect(harness.deps.markdown.setPreference).toHaveBeenCalledWith(
+      "timeline",
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Article" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/Saved to Notes\//)).toBeTruthy();
+    expect(directory.files.size).toBe(1);
+    expect([...directory.files.values()][0]).not.toContain("- [00:00](");
+  });
+
   it("shows a loading state, then renders the captured preview as plain text", async () => {
     const pending = deferred<{ ok: true; capture: Capture }>();
     const harness = createHarness({ tab: youtubeTab });
@@ -224,6 +255,10 @@ describe("popup capture flow", () => {
     expect(content?.contains(footer ?? null)).toBe(false);
     expect(footer?.querySelector('[aria-label="Local"]')).toBeTruthy();
     expect(footer?.querySelector('[aria-label="Cloud"]')).toBeTruthy();
+    expect(
+      (screen.getByRole("radio", { name: "Timeline" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
   });
 
   it("keeps properties collapsed until expanded and formats display-only values", async () => {

@@ -1,3 +1,4 @@
+import type { MarkdownFormat } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 import {
   MANAGER_LOCAL_PING,
@@ -54,7 +55,10 @@ export interface LocalSaveClient {
   /** Ask the host whether local saving can proceed without a prompt. */
   preflight(): Promise<LocalPreflightOutcome>;
   /** Save one capture locally through the host. */
-  save(capture: Capture): Promise<LocalSaveOutcome>;
+  save(
+    capture: Capture,
+    markdownFormat?: MarkdownFormat,
+  ): Promise<LocalSaveOutcome>;
 }
 
 export function createLocalSaveClient(
@@ -152,7 +156,10 @@ export function createLocalSaveClient(
     return { status: "unavailable", message: response.message };
   }
 
-  async function save(capture: Capture): Promise<LocalSaveOutcome> {
+  async function save(
+    capture: Capture,
+    markdownFormat: MarkdownFormat = "timeline",
+  ): Promise<LocalSaveOutcome> {
     let response: ManagerLocalSaveResponse;
     try {
       const tabId = await ensureHost();
@@ -160,6 +167,7 @@ export function createLocalSaveClient(
         deps.tabs.sendMessage<ManagerLocalSaveResponse>(tabId, {
           type: MANAGER_LOCAL_SAVE,
           capture,
+          markdownFormat,
         }),
         LOCAL_SAVE_TIMEOUT_MS,
         "Timed out waiting for the Transcriptly manager page while saving.",

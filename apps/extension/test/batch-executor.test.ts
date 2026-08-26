@@ -121,6 +121,28 @@ async function createTask(
 }
 
 describe("batch executor", () => {
+  it("uses the task's fixed Markdown format for every Local save", async () => {
+    const formats: string[] = [];
+    const harness = createHarness({
+      saveLocal: async (_capture, format) => {
+        formats.push(format);
+        return {
+          status: "saved",
+          result: { directoryName: "Vault", filename: "a.md" },
+        };
+      },
+    });
+    const task = await harness.store.create(videos.slice(0, 2), {
+      destinations: ["local"],
+      markdownFormat: "article",
+    });
+
+    await harness.executor.wake();
+
+    expect((await harness.store.get(task.id))?.state).toBe("completed");
+    expect(formats).toEqual(["article", "article"]);
+  });
+
   it("saves every video to both destinations and completes the task", async () => {
     const harness = createHarness();
     const task = await createTask(harness.store, videos);
