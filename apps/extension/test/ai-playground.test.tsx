@@ -175,6 +175,19 @@ describe("getBuiltInAi seam", () => {
     expect(fake.languageModel.create).toHaveBeenCalledTimes(1);
     expect(fake.monitors).toHaveLength(1);
   });
+
+  it("accepts Chrome's callable LanguageModel interface object", async () => {
+    const fake = createFakeModel({ availability: "available" });
+    const languageModel = Object.assign(
+      function LanguageModel() {},
+      fake.languageModel,
+    );
+
+    const ai = getBuiltInAi({ LanguageModel: languageModel });
+
+    expect(ai).toBeDefined();
+    expect(await ai?.availability()).toBe("available");
+  });
 });
 
 describe("AI Playground states (#78)", () => {

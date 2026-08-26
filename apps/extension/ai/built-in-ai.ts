@@ -54,7 +54,15 @@ interface LanguageModelGlobal {
 }
 
 function isLanguageModel(value: unknown): value is LanguageModelGlobal {
-  if (typeof value !== "object" || value === null) return false;
+  // Web IDL exposes `LanguageModel` as an interface object (a callable
+  // constructor with static methods), so Chrome reports its type as
+  // `function`. Object-shaped fakes are also useful for deterministic tests.
+  if (
+    (typeof value !== "object" && typeof value !== "function") ||
+    value === null
+  ) {
+    return false;
+  }
   const candidate = value as Partial<LanguageModelGlobal>;
   return (
     typeof candidate.availability === "function" &&
