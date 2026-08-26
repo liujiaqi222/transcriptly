@@ -44,6 +44,14 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * The literal notice Chrome's Prompt API appends when a response hits
+ * the model's output token quota (OutputEnglishTokens per session).
+ * Surfaced as a friendly note instead of raw model text.
+ */
+const TRUNCATION_NOTICE =
+  "The response exceeded output limits and was truncated.";
+
 /** Prompt API rejections for aborted requests surface as AbortError. */
 function isAbortError(error: unknown): boolean {
   return (
@@ -65,6 +73,8 @@ export function PlaygroundApp({ deps }: { deps: PlaygroundDependencies }) {
   });
   const [promptInput, setPromptInput] = useState("");
   const [response, setResponse] = useState<string | undefined>();
+  /** Thought-summary chunks from the model's visible reasoning. */
+  const [thought, setThought] = useState<string | undefined>();
   const [runPhase, setRunPhase] = useState<"idle" | "running">("idle");
   const [runNote, setRunNote] = useState<string | undefined>();
   const [runError, setRunError] = useState<string | undefined>();
@@ -166,17 +176,42 @@ export function PlaygroundApp({ deps }: { deps: PlaygroundDependencies }) {
     setRunError(undefined);
     setRunNote(undefined);
     setResponse(undefined);
+    setThought(undefined);
     const controller = new AbortController();
     runAbortRef.current = controller;
+    let answer = "";
     try {
-      const session = sessionRef.current ?? (await deps.ai.create());
+      const session =
+        sessionRef.current ??
+        (await deps.ai.create({ thoughtSummaryMode: "concise" }));
       sessionRef.current = session;
-      const result = await session.prompt(text, {
+      const stream = await session.promptStreaming(text, {
         signal: controller.signal,
       });
-      setResponse(result);
+      const reader = stream.getReader();
+      // Chunks stream in as they are generated: thought summaries go to
+      // the Thinking panel, answer text grows the Response live.
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value.thought) {
+          setThought((current) => (current ?? "") + value.text);
+        } else {
+          answer += value.text;
+          setResponse(answer);
+        }
+      }
+      if (answer.endsWith(TRUNCATION_NOTICE)) {
+        setResponse(
+          answer.slice(0, answer.length - TRUNCATION_NOTICE.length).trimEnd(),
+        );
+        setRunNote(
+          "The response hit the built-in model's output token limit and was truncated. Try a shorter prompt or split the task.",
+        );
+      }
     } catch (error) {
       if (isAbortError(error)) {
+        // The partial streamed response stays on screen.
         setRunNote("Stopped.");
       } else {
         setRunError(errorMessage(error));
@@ -197,6 +232,7 @@ export function PlaygroundApp({ deps }: { deps: PlaygroundDependencies }) {
   const clearPage = useCallback(() => {
     setPromptInput("");
     setResponse(undefined);
+    setThought(undefined);
     setRunNote(undefined);
     setRunError(undefined);
   }, []);
@@ -367,6 +403,12 @@ export function PlaygroundApp({ deps }: { deps: PlaygroundDependencies }) {
               </button>
             </div>
             <div className="response" aria-live="polite">
+              {thought ? (
+                <details className="thinking" open>
+                  <summary>Thinking</summary>
+                  <pre>{thought}</pre>
+                </details>
+              ) : null}
               <h3>Response</h3>
               {runPhase === "running" && (
                 <p className="status-title" role="status">
@@ -384,6 +426,7 @@ export function PlaygroundApp({ deps }: { deps: PlaygroundDependencies }) {
               )}
               {runPhase === "idle" &&
                 response === undefined &&
+                thought === undefined &&
                 runNote === undefined &&
                 runError === undefined && (
                   <p className="response-empty">

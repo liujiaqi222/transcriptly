@@ -281,3 +281,32 @@ h1 {
   background: var(--danger-background);
   line-height: 1.55;
 }
+
+/* Thought summaries: the model's visible reasoning, quieter than the
+   answer so streaming thoughts never compete with the response. */
+
+.thinking {
+  margin: 0 0 12px;
+}
+
+.thinking summary {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.thinking pre {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--muted);
+  background: var(--background);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+}
