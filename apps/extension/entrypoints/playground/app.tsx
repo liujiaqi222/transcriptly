@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BuiltInAi, BuiltInAiSession } from "@/ai/built-in-ai";
+import { LogoMark } from "@/brand/logo-mark";
 
 /**
  * The built-in AI Playground page (#78): a standalone tab where the user
@@ -209,7 +210,7 @@ export function PlaygroundApp({ deps }: { deps: PlaygroundDependencies }) {
       <header className="playground-header">
         <div className="brand-lockup">
           <span className="brand-mark">
-            <Sparkles />
+            <LogoMark />
           </span>
           <h1>Transcriptly AI Playground</h1>
         </div>

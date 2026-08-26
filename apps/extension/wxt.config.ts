@@ -30,6 +30,9 @@ export default defineConfig({
       strictPort: true,
     },
   },
+  // Toolbar and store icons live in `public/icon-<size>.png`; WXT
+  // discovers them automatically and writes manifest.icons. Regenerate
+  // them from `assets/logo.svg` with `pnpm icons`.
   manifest: {
     name: "Transcriptly",
     description:

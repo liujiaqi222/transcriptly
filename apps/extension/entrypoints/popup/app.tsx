@@ -1,8 +1,9 @@
 import { parseVideoId } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
-import { CircleAlert, NotebookText, RefreshCw, Sparkles } from "lucide-react";
+import { CircleAlert, RefreshCw, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BatchTask } from "@/batch/jobs";
+import { LogoMark } from "@/brand/logo-mark";
 import type { CloudQueueStatus } from "@/cloud/jobs";
 import {
   type AccountDependencies,
@@ -482,7 +483,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       <header className="popup-header">
         <div className="brand-lockup">
           <span className="brand-mark">
-            <NotebookText />
+            <LogoMark size={28} />
           </span>
           <span>
             <h1>Transcriptly</h1>

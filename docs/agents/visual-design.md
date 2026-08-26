@@ -23,7 +23,7 @@ surfaces feel like one product.
 ## Usage rules
 
 - White and very light neutral surfaces should occupy most of the interface.
-- The logo is a black Lucide icon without a colored tile or shadow.
+- The logo is the "play to text" mark: an ink play glyph shooting a CTA-yellow beam (the saved transcript) flanked by two ink text lines. No colored tile, no shadow. The source of truth is `apps/extension/assets/logo.svg`; every surface renders the same artwork.
 - Use `#1b90ed` for interaction and selection, not for large filled areas.
 - Reserve `#f5c451` for the few actions that advance or complete the primary
   task. Do not spend yellow on decoration, counters, or ordinary tools.
