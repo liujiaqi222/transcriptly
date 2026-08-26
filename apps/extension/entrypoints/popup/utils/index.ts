@@ -10,4 +10,5 @@ export {
   isChannelRootUrl,
   isYouTubeWatchUrl,
   segmentUrl,
+  watchPlaylistUrl,
 } from "./youtube";

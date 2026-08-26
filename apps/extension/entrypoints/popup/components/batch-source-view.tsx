@@ -1,4 +1,4 @@
-import { ArrowRight, Folder, LibraryBig } from "lucide-react";
+import { ArrowRight, Folder, LibraryBig, ListVideo } from "lucide-react";
 import type { LocalMarkdownSaver } from "@/local-save";
 
 interface BatchSourceViewProps {
@@ -134,6 +134,51 @@ export function ChannelRootHint({
         {opening ? "Opening Videos…" : "Open Videos tab"}
         {!opening && <ArrowRight />}
       </button>
+      {error && (
+        <p className="error-banner" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Shown on a watch page that is playing inside a playlist (#69): batch
+ * selection only runs on the pure /playlist page, so this quiet strip
+ * above the capture view offers the jump. It stays secondary - saving
+ * the current video remains that view's primary action - and the
+ * capture preview below keeps working either way.
+ */
+export function PlaylistBatchHint({
+  opening,
+  error,
+  onOpenPlaylist,
+}: {
+  opening: boolean;
+  error?: string;
+  onOpenPlaylist(): void;
+}) {
+  return (
+    <section className="playlist-hint" role="status">
+      <div className="playlist-hint-message">
+        <ListVideo aria-hidden="true" />
+        <p>
+          This video is part of a playlist. Batch selection runs on the playlist
+          page.
+        </p>
+      </div>
+      <div className="playlist-hint-actions">
+        <button
+          type="button"
+          className="playlist-hint-button"
+          disabled={opening}
+          onClick={onOpenPlaylist}
+        >
+          {opening ? "Opening playlist…" : "Open playlist page"}
+          {!opening && <ArrowRight />}
+        </button>
+      </div>
       {error && (
         <p className="error-banner" role="alert">
           {error}

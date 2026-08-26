@@ -713,6 +713,66 @@ h2 {
 .batch-activity-link:hover {
   background: #dcefff;
 }
+/* Playlist jump strip (#69): the same quiet blue strip as the batch
+   activity entry, but its action is a navigation hint, so the button
+   stays secondary - the view's yellow Save CTA stays primary. */
+.playlist-hint {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+.playlist-hint-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.playlist-hint-message svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--primary);
+}
+.playlist-hint-message p {
+  margin: 0;
+  line-height: 1.45;
+}
+.playlist-hint-actions {
+  display: flex;
+  align-items: center;
+}
+.playlist-hint-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.playlist-hint-button svg {
+  width: 14px;
+  height: 14px;
+}
+.playlist-hint-button:hover {
+  border-color: var(--primary-border);
+  color: var(--primary);
+  background: #fff;
+}
+.playlist-hint-button:disabled {
+  border-color: #cbd5e1;
+  color: var(--muted);
+  background: #e2e8f0;
+  cursor: default;
+}
 .cloud-status {
   margin-bottom: 8px;
 }

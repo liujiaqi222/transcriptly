@@ -14,7 +14,7 @@ import {
   type PopupDependencies,
   type PopupTab,
 } from "../entrypoints/popup/app";
-import { formatCapturedAt } from "../entrypoints/popup/utils";
+import { formatCapturedAt, watchPlaylistUrl } from "../entrypoints/popup/utils";
 import {
   createLocalMarkdownSaver,
   type LocalDirectoryHandle,
@@ -137,7 +137,7 @@ function createHarness(
     getActiveTab: vi.fn(async () => options.tab),
     requestCapture: vi.fn(async () => ({ ok: true as const, capture })),
     enterBatchSelection: vi.fn(async () => ({ ok: true as const })),
-    openChannelVideos: vi.fn(async () => undefined),
+    navigateTab: vi.fn(async () => undefined),
     getBatchStatus: vi.fn(async () => ({ tasks: [] })),
     openBatchManager: vi.fn(),
     resumeBatch: vi.fn(async () => ({ ok: true as const })),
@@ -286,7 +286,7 @@ describe("popup capture flow", () => {
       await screen.findByRole("button", { name: "Open Videos tab" }),
     );
     await waitFor(() =>
-      expect(harness.deps.openChannelVideos).toHaveBeenCalledWith(
+      expect(harness.deps.navigateTab).toHaveBeenCalledWith(
         3,
         "https://www.youtube.com/@eoglobal/videos",
       ),
@@ -418,6 +418,97 @@ describe("popup capture flow", () => {
     expect(
       await screen.findByText(/No transcript found on this video/),
     ).toBeTruthy();
+  });
+
+  it("keeps capturing normally on a watch page inside a playlist (#69)", async () => {
+    const harness = createHarness({
+      tab: {
+        id: 7,
+        url: "https://www.youtube.com/watch?v=abc123&list=PL123",
+      },
+    });
+    await captureSuccessfulPopup(harness);
+    expect(harness.deps.requestCapture).toHaveBeenCalledWith(7);
+    expect(
+      await screen.findByText(/This video is part of a playlist/),
+    ).toBeTruthy();
+  });
+
+  it("opens the pure playlist page from the playlist hint (#69)", async () => {
+    const harness = createHarness({
+      tab: {
+        id: 7,
+        url: "https://www.youtube.com/watch?v=abc123&list=PL123&index=4",
+      },
+    });
+    await captureSuccessfulPopup(harness);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open playlist page" }));
+
+    await waitFor(() =>
+      expect(harness.deps.navigateTab).toHaveBeenCalledWith(
+        7,
+        "https://www.youtube.com/playlist?list=PL123",
+      ),
+    );
+    expect(harness.deps.closePopup).toHaveBeenCalled();
+    expect(harness.deps.enterBatchSelection).not.toHaveBeenCalled();
+  });
+
+  it("shows an error and stays open when the playlist jump fails (#69)", async () => {
+    const harness = createHarness({
+      tab: {
+        id: 7,
+        url: "https://www.youtube.com/watch?v=abc123&list=PL123",
+      },
+    });
+    harness.deps.navigateTab = vi.fn(async () => {
+      throw new Error("tab is gone");
+    });
+    await captureSuccessfulPopup(harness);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open playlist page" }));
+
+    expect(await screen.findByText(/Could not open the playlist/)).toBeTruthy();
+    expect(harness.deps.closePopup).not.toHaveBeenCalled();
+  });
+
+  it("offers no playlist jump on a plain watch page (#69)", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    await captureSuccessfulPopup(harness);
+    expect(screen.queryByText(/part of a playlist/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Open playlist page" }),
+    ).toBeNull();
+  });
+});
+
+describe("watchPlaylistUrl (#69)", () => {
+  it("maps a watch-in-playlist URL to its pure playlist page", () => {
+    expect(
+      watchPlaylistUrl(
+        "https://www.youtube.com/watch?v=abc123&list=PL123&index=4",
+      ),
+    ).toBe("https://www.youtube.com/playlist?list=PL123");
+    // Mobile watch pages land on the desktop playlist host, the only one
+    // batch source detection accepts.
+    expect(
+      watchPlaylistUrl("https://m.youtube.com/watch?v=abc123&list=PL123"),
+    ).toBe("https://www.youtube.com/playlist?list=PL123");
+  });
+
+  it("returns undefined without a usable list parameter", () => {
+    expect(
+      watchPlaylistUrl("https://www.youtube.com/watch?v=abc123"),
+    ).toBeUndefined();
+    expect(
+      watchPlaylistUrl("https://www.youtube.com/watch?v=abc123&list="),
+    ).toBeUndefined();
+    expect(
+      watchPlaylistUrl("https://www.youtube.com/playlist?list=PL123"),
+    ).toBeUndefined();
+    expect(watchPlaylistUrl("https://vimeo.com/12345")).toBeUndefined();
+    expect(watchPlaylistUrl(undefined)).toBeUndefined();
   });
 });
 
