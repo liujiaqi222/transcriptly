@@ -6,11 +6,8 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const DURATION_TEXT = /^\d{1,3}(:\d{2})+$/;
 /** The duration suffix of an accessible thumbnail label: "… by Channel 14:19". */
 const TRAILING_DURATION = /\s+\d{1,3}(:\d{2})+$/;
-const VIDEO_CARD_SELECTOR =
-  "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-video-renderer";
-const VIDEO_CARD_LINK_SELECTOR = `${VIDEO_CARD_SELECTOR.split(", ")
-  .map((selector) => `${selector} a[href*="/watch?v="]`)
-  .join(", ")}`;
+const VIDEO_CARD_SELECTOR = "yt-lockup-view-model";
+const VIDEO_CARD_LINK_SELECTOR = `${VIDEO_CARD_SELECTOR} a[href*="/watch?v="]`;
 
 export { isBatchSourceUrl };
 
@@ -31,8 +28,12 @@ function cleanTitle(text: string | null | undefined): string {
   return value && !DURATION_TEXT.test(value) ? value : "";
 }
 
+export function findLoadedVideoCard(anchor: HTMLAnchorElement): Element {
+  return anchor.closest(VIDEO_CARD_SELECTOR) ?? anchor;
+}
+
 function titleFor(anchor: HTMLAnchorElement): string {
-  const card = anchor.closest(VIDEO_CARD_SELECTOR);
+  const card = findLoadedVideoCard(anchor);
   // Title candidates, best first. Durations are filtered from every
   // candidate: thumbnail links carry "14:19" in `title`, and in newer
   // card layouts the duration overlay even sits inside the anchor's

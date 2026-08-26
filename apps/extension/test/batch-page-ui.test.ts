@@ -20,12 +20,12 @@ const CHANNEL_VIDEOS_PATH = "/@eoglobal/videos";
 function videoAnchors(): string {
   return `
     <div id="feed">
-      <ytd-rich-item-renderer>
+      <yt-lockup-view-model>
         <a id="link-a" href="https://www.youtube.com/watch?v=abc12345678" title="First video"><span id="video-title">First video</span></a>
-      </ytd-rich-item-renderer>
-      <ytd-rich-item-renderer>
+      </yt-lockup-view-model>
+      <yt-lockup-view-model>
         <a id="link-b" href="https://www.youtube.com/watch?v=def12345678" title="Second video"><span id="video-title">Second video</span></a>
-      </ytd-rich-item-renderer>
+      </yt-lockup-view-model>
     </div>
   `;
 }
@@ -39,7 +39,7 @@ function videoIdFor(index: number): string {
 function manyVideoAnchors(count: number): string {
   const cards = Array.from({ length: count }, (_, index) => {
     const videoId = videoIdFor(index);
-    return `<ytd-rich-item-renderer><a href="https://www.youtube.com/watch?v=${videoId}" title="Video ${index}"><span id="video-title">Video ${index}</span></a></ytd-rich-item-renderer>`;
+    return `<yt-lockup-view-model><a href="https://www.youtube.com/watch?v=${videoId}" title="Video ${index}"><span id="video-title">Video ${index}</span></a></yt-lockup-view-model>`;
   });
   return `<div id="feed">${cards.join("")}</div>`;
 }
@@ -183,6 +183,18 @@ afterEach(() => {
 });
 
 describe("batch page panel", () => {
+  it("anchors injected controls to the current YouTube lockup card", async () => {
+    const runtime = createRuntime();
+    await mount(runtime);
+
+    const card = document.querySelector("yt-lockup-view-model");
+    const styles = document.getElementById("transcriptly-batch-panel-styles");
+    expect(card?.hasAttribute("data-transcriptly-batch")).toBe(true);
+    expect(styles?.textContent).toContain(
+      "yt-lockup-view-model[data-transcriptly-batch] { position: relative; }",
+    );
+  });
+
   it("disables the Cloud destination for signed-out users", async () => {
     const runtime = createRuntime({ session: { status: "signed-out" } });
     await mount(runtime);
@@ -216,9 +228,7 @@ describe("batch page panel", () => {
     });
     await mount(runtime);
 
-    const card = document.querySelector(
-      "ytd-rich-item-renderer",
-    ) as HTMLElement;
+    const card = document.querySelector("yt-lockup-view-model") as HTMLElement;
     const badge = card.querySelector(".transcriptly-batch-badge");
     expect(badge?.textContent).toBe("Saved");
 
@@ -310,15 +320,15 @@ describe("batch page panel", () => {
           <a class="ytp-next-button" href="https://www.youtube.com/watch?v=abc12345678" title="Next (SHIFT+n)"></a>
         </div>
         <div id="feed">
-          <ytd-rich-item-renderer>
+          <yt-lockup-view-model>
             <a href="https://www.youtube.com/watch?v=abc12345678" title="Bailey video"><span id="video-title">Bailey video</span></a>
-          </ytd-rich-item-renderer>
+          </yt-lockup-view-model>
         </div>
       `,
     );
 
     const player = document.querySelector(".html5-video-player");
-    const card = document.querySelector("ytd-rich-item-renderer");
+    const card = document.querySelector("yt-lockup-view-model");
     expect(player?.querySelector(".transcriptly-batch-check")).toBeNull();
     expect(card?.querySelector(".transcriptly-batch-check")).not.toBeNull();
 
@@ -506,7 +516,7 @@ describe("selection toolbar (#57)", () => {
     // so verify the click never bubbles past the hit area.
     const cardHandler = vi.fn();
     document
-      .querySelector("ytd-rich-item-renderer")
+      .querySelector("yt-lockup-view-model")
       ?.addEventListener("click", cardHandler);
     const documentHandler = vi.fn();
     document.addEventListener("click", documentHandler);
@@ -707,12 +717,12 @@ describe("selection mode lifecycle (#56)", () => {
     const feed = document.getElementById("feed");
     if (!feed) throw new Error("missing feed");
     feed.innerHTML = `
-      <ytd-rich-item-renderer>
+      <yt-lockup-view-model>
         <a href="https://www.youtube.com/watch?v=dan12345678" title="Dan video one"><span id="video-title">Dan video one</span></a>
-      </ytd-rich-item-renderer>
-      <ytd-rich-item-renderer>
+      </yt-lockup-view-model>
+      <yt-lockup-view-model>
         <a href="https://www.youtube.com/watch?v=dan87654321" title="Dan video two"><span id="video-title">Dan video two</span></a>
-      </ytd-rich-item-renderer>
+      </yt-lockup-view-model>
     `;
     navigateTo("/@DanKoeTalks/videos");
 
@@ -746,12 +756,12 @@ describe("selection mode lifecycle (#56)", () => {
     if (!feed) throw new Error("missing feed");
     feed.insertAdjacentHTML(
       "beforeend",
-      '<ytd-rich-item-renderer><a href="https://www.youtube.com/watch?v=ghi12345678" title="Third video"><span id="video-title">Third video</span></a></ytd-rich-item-renderer>',
+      '<yt-lockup-view-model><a href="https://www.youtube.com/watch?v=ghi12345678" title="Third video"><span id="video-title">Third video</span></a></yt-lockup-view-model>',
     );
     // Let the observer's microtask run.
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    const cards = document.querySelectorAll("ytd-rich-item-renderer");
+    const cards = document.querySelectorAll("yt-lockup-view-model");
     expect(cards).toHaveLength(3);
     const thirdCard = cards.item(2);
     expect(thirdCard?.querySelector(".transcriptly-batch-check")).toBeNull();
