@@ -1,4 +1,7 @@
-import { serializeToMarkdown } from "@transcriptly/capture";
+import {
+  type MarkdownFormat,
+  serializeToMarkdown,
+} from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 
 const DATABASE_NAME = "transcriptly";
@@ -65,7 +68,11 @@ export interface LocalMarkdownSaver {
    * when there is no folder or the user denies.
    */
   requestWritePermission(): Promise<boolean>;
-  save(capture: Capture, filename?: string): Promise<LocalSaveResult>;
+  save(
+    capture: Capture,
+    filename?: string,
+    format?: MarkdownFormat,
+  ): Promise<LocalSaveResult>;
 }
 
 export interface LocalMarkdownSaverOptions {
@@ -408,7 +415,11 @@ export async function createLocalMarkdownSaver(
         return false;
       }
     },
-    async save(capture, filename = suggestedMarkdownFilename(capture)) {
+    async save(
+      capture,
+      filename = suggestedMarkdownFilename(capture),
+      format = "timeline",
+    ) {
       let directory: LocalDirectoryHandle;
       try {
         directory = savedDirectory ?? (await selectDirectory());
@@ -437,7 +448,7 @@ export async function createLocalMarkdownSaver(
         await writeNewFile(
           directory,
           safeFilename,
-          serializeToMarkdown(capture),
+          serializeToMarkdown(capture, format),
         );
 
         let receiptError: string | undefined;

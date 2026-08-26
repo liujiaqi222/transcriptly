@@ -6,6 +6,7 @@ import type {
 } from "@transcriptly/schema";
 import { describe, expect, it } from "vitest";
 import {
+  articleBlocks,
   formatTimestamp,
   serializeToMarkdown,
   transcriptBlocks,
@@ -203,6 +204,159 @@ describe("serializeToMarkdown", () => {
       "### Chapter &lt;script&gt;alert(1)&lt;/script&gt;",
     );
     expect(markdown).not.toContain("### Chapter <script>");
+  });
+
+  it("keeps Timeline output as the default and supports the explicit format", () => {
+    const implicit = serializeToMarkdown(makeCapture());
+    const explicit = serializeToMarkdown(makeCapture(), "timeline");
+
+    expect(explicit).toBe(implicit);
+    expect(implicit).toContain("- [00:00]");
+  });
+
+  it("renders Article paragraphs with one start timestamp and no list marker", () => {
+    const markdown = serializeToMarkdown(
+      makeCapture({
+        segments: [
+          { start: 0, text: "First sentence." },
+          { start: 5, text: "Second sentence." },
+        ],
+      }),
+      "article",
+    );
+
+    expect(markdown).toContain(
+      "[00:00](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=0s) First sentence. Second sentence.",
+    );
+    expect(markdown).not.toContain("- [00:00]");
+    expect(markdown).not.toContain("[00:05]");
+  });
+});
+
+describe("articleBlocks", () => {
+  it("preserves English segment order and text while preferring sentence endings", () => {
+    const longPrefix = "alpha ".repeat(39);
+    const blocks = articleBlocks(
+      makeCapture({
+        segments: [
+          { start: 0, text: longPrefix },
+          { start: 10, text: "sentence ends here." },
+          { start: 15, text: "next paragraph" },
+        ],
+      }),
+    );
+
+    expect(blocks).toEqual([
+      {
+        kind: "paragraph",
+        start: 0,
+        text: `${longPrefix}sentence ends here.`,
+      },
+      { kind: "paragraph", start: 15, text: "next paragraph" },
+    ]);
+  });
+
+  it("joins CJK captions without injecting spaces and recognizes CJK punctuation", () => {
+    const blocks = articleBlocks(
+      makeCapture({
+        segments: [
+          { start: 0, text: "这是第一段" },
+          { start: 5, text: `${"很长的内容".repeat(50)}。` },
+          { start: 10, text: "这是下一段" },
+        ],
+      }),
+    );
+
+    expect(blocks).toEqual([
+      {
+        kind: "paragraph",
+        start: 0,
+        text: `这是第一段${"很长的内容".repeat(50)}。`,
+      },
+      { kind: "paragraph", start: 10, text: "这是下一段" },
+    ]);
+  });
+
+  it("never merges text across Chapter boundaries", () => {
+    const blocks = articleBlocks(
+      makeCapture({
+        chapters: [
+          { start: 0, title: "Intro" },
+          { start: 10, title: "Core" },
+        ],
+        segments: [
+          { start: 0, text: "hello" },
+          { start: 5, text: "world" },
+          { start: 10, text: "core starts" },
+        ],
+      }),
+    );
+
+    expect(blocks).toEqual([
+      { kind: "chapter", title: "Intro" },
+      { kind: "paragraph", start: 0, text: "hello world" },
+      { kind: "chapter", title: "Core" },
+      { kind: "paragraph", start: 10, text: "core starts" },
+    ]);
+  });
+
+  it("bounds punctuation-poor captions by time and text size", () => {
+    const textBlocks = articleBlocks(
+      makeCapture({
+        segments: [
+          { start: 0, text: "a".repeat(400) },
+          { start: 10, text: "b".repeat(400) },
+          { start: 20, text: "tail" },
+        ],
+      }),
+    );
+    const timeBlocks = articleBlocks(
+      makeCapture({
+        segments: [
+          { start: 0, text: "first" },
+          { start: 61, text: "second" },
+        ],
+      }),
+    );
+
+    expect(textBlocks).toHaveLength(2);
+    expect(textBlocks[0]).toMatchObject({ start: 0, text: "a".repeat(400) });
+    expect(textBlocks[1]).toMatchObject({ start: 10 });
+    expect(timeBlocks).toEqual([
+      { kind: "paragraph", start: 0, text: "first" },
+      { kind: "paragraph", start: 61, text: "second" },
+    ]);
+  });
+
+  it("backs up to an internal sentence boundary before the hard text limit", () => {
+    const blocks = articleBlocks(
+      makeCapture({
+        segments: [
+          {
+            start: 0,
+            text: "lead ".repeat(80),
+          },
+          { start: 20, text: "comfort. Not" },
+          { start: 27, text: "going should remain with this sentence" },
+          { start: 30, text: "more context ".repeat(20) },
+        ],
+      }),
+    );
+
+    expect(blocks[0]).toMatchObject({
+      kind: "paragraph",
+      start: 0,
+      text: expect.stringMatching(/comfort\.$/),
+    });
+    expect(blocks[1]).toMatchObject({
+      kind: "paragraph",
+      start: 20,
+      text: expect.stringMatching(/^Not going should remain/),
+    });
+  });
+
+  it("returns no Article blocks for an empty edge input", () => {
+    expect(articleBlocks(makeCapture({ segments: [] }))).toEqual([]);
   });
 });
 

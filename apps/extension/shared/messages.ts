@@ -86,6 +86,8 @@ export interface BatchStartMessage {
   type: typeof BATCH_START;
   videos: import("@/batch/jobs").BatchVideo[];
   destinations: import("@/batch/jobs").BatchDestination[];
+  /** Missing only from an older content script; the router defaults it. */
+  markdownFormat?: import("@transcriptly/capture").MarkdownFormat;
 }
 
 export type BatchStartStatus =
@@ -236,6 +238,7 @@ export const MANAGER_LOCAL_SAVE = "transcriptly:manager-local-save" as const;
 export interface ManagerLocalSaveMessage {
   type: typeof MANAGER_LOCAL_SAVE;
   capture: import("@transcriptly/schema").Capture;
+  markdownFormat: import("@transcriptly/capture").MarkdownFormat;
 }
 
 export type ManagerLocalSaveResponse =

@@ -1,8 +1,10 @@
+import type { MarkdownFormat } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 import {
   createLocalMarkdownSaver,
   type LocalMarkdownSaver,
 } from "@/local-save";
+import { normalizeMarkdownFormat } from "@/markdown-format";
 import {
   MANAGER_LOCAL_PING,
   MANAGER_LOCAL_PREFLIGHT,
@@ -99,7 +101,10 @@ export function mountManagerLocalSaveHost(
     }
   }
 
-  async function save(capture: Capture): Promise<ManagerLocalSaveResponse> {
+  async function save(
+    capture: Capture,
+    markdownFormat: MarkdownFormat,
+  ): Promise<ManagerLocalSaveResponse> {
     let saver: LocalMarkdownSaver;
     try {
       saver = await getSaver();
@@ -120,7 +125,7 @@ export function mountManagerLocalSaveHost(
       return { ok: false, reason: "permission-required", directoryName };
     }
     try {
-      const result = await saver.save(capture);
+      const result = await saver.save(capture, undefined, markdownFormat);
       setStatus(directoryName, true);
       return { ok: true, ...result };
     } catch (error) {
@@ -139,7 +144,14 @@ export function mountManagerLocalSaveHost(
     if (type === MANAGER_LOCAL_PING) return Promise.resolve({ ok: true });
     if (type === MANAGER_LOCAL_PREFLIGHT) return preflight();
     if (type === MANAGER_LOCAL_SAVE) {
-      return save((message as { capture: Capture }).capture);
+      const saveMessage = message as {
+        capture: Capture;
+        markdownFormat?: MarkdownFormat;
+      };
+      return save(
+        saveMessage.capture,
+        normalizeMarkdownFormat(saveMessage.markdownFormat),
+      );
     }
     // Not ours: let another listener (the background worker) answer.
     return undefined;
