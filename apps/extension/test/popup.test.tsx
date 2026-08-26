@@ -142,6 +142,7 @@ function createHarness(
     openBatchManager: vi.fn(),
     resumeBatch: vi.fn(async () => ({ ok: true as const })),
     closePopup: vi.fn(),
+    openAiPlayground: vi.fn(),
     account: {
       getCloudSession: vi.fn(async () => ({ status: "signed-out" as const })),
       openCloudSignIn: vi.fn(async () => undefined),
@@ -685,6 +686,18 @@ describe("popup batch manager entry (#58)", () => {
     expect(
       screen.queryByRole("button", { name: "Open batch manager" }),
     ).toBeNull();
+  });
+
+  it("opens the AI Playground page from the footer entry (#78)", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    render(<Popup deps={harness.deps} />);
+
+    const entry = await screen.findByRole("button", {
+      name: /AI Playground/i,
+    });
+    fireEvent.click(entry);
+
+    expect(harness.deps.openAiPlayground).toHaveBeenCalledTimes(1);
   });
 });
 
