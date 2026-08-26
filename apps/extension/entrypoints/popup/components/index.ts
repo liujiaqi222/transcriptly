@@ -7,5 +7,4 @@ export {
 } from "./batch-source-view";
 export { CaptureView } from "./capture-view";
 export { CloudStatusPanel } from "./cloud-status";
-export { MarkdownFormatPicker } from "./markdown-format-picker";
 export { SaveFooter, type SaveState } from "./save-footer";

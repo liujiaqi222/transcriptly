@@ -1,7 +1,5 @@
-import type { MarkdownFormat } from "@transcriptly/capture";
 import { Cloud, Folder, Save } from "lucide-react";
 import type { LocalMarkdownSaver } from "@/local-save";
-import { MarkdownFormatPicker } from "./markdown-format-picker";
 
 export type SaveState =
   | { status: "idle" }
@@ -18,8 +16,6 @@ interface SaveFooterProps {
   /** Cloud destination toggle (#35): only offered to signed-in users. */
   cloudEnabled: boolean;
   cloudAvailable: boolean;
-  markdownFormat: MarkdownFormat;
-  onMarkdownFormatChange(format: MarkdownFormat): void;
   onCloudToggle(enabled: boolean): void;
   onSave(): void;
   onChangeFolder(): void;
@@ -33,8 +29,6 @@ export function SaveFooter({
   saveState,
   cloudEnabled,
   cloudAvailable,
-  markdownFormat,
-  onMarkdownFormatChange,
   onCloudToggle,
   onSave,
   onChangeFolder,
@@ -58,10 +52,6 @@ export function SaveFooter({
           {changingFolder ? "Changing…" : "Change"}
         </button>
       </div>
-      <MarkdownFormatPicker
-        value={markdownFormat}
-        onChange={onMarkdownFormatChange}
-      />
       <div className="footer-actions">
         <div className="destination-toggles">
           <label className="toggle">

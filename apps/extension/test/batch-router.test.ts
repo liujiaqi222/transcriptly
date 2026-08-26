@@ -157,7 +157,6 @@ describe("batch message router", () => {
       type: "transcriptly:batch-start",
       videos,
       destinations: ["local", "cloud"],
-      markdownFormat: "article",
     });
 
     expect(result).toMatchObject({ ok: true });
@@ -165,7 +164,6 @@ describe("batch message router", () => {
     const task = (await store.list())[0];
     if (!task) throw new Error("missing task");
     expect(task.destinations).toEqual(["local", "cloud"]);
-    expect(task.markdownFormat).toBe("article");
     expect(task.items[0]).toMatchObject({ local: "skipped", cloud: "queued" });
     expect(task.items[1]).toMatchObject({ local: "queued", cloud: "skipped" });
   });

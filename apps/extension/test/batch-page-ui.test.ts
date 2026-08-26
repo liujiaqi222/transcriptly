@@ -47,7 +47,6 @@ function manyVideoAnchors(count: number): string {
 interface RuntimeOptions {
   session?: CloudSessionStatus;
   cloudPreference?: boolean;
-  markdownFormat?: "timeline" | "article";
   startStatus?: BatchStartStatus;
   saved?: Record<string, { local: boolean; cloud: boolean }>;
 }
@@ -95,7 +94,6 @@ function createRuntime(options: RuntimeOptions = {}) {
   } = {
     sendMessage: sendMessage as BatchPageRuntime["sendMessage"],
     getCloudPreference: async () => options.cloudPreference ?? false,
-    getMarkdownFormat: async () => options.markdownFormat ?? "timeline",
     sent,
     managerTabs,
     callCount: () => sendMessage.mock.calls.length,
@@ -267,7 +265,6 @@ describe("batch page panel", () => {
     const runtime = createRuntime({
       session: { status: "signed-in", email: "user@example.com" },
       cloudPreference: false,
-      markdownFormat: "article",
     });
     await mount(runtime);
 
@@ -282,7 +279,6 @@ describe("batch page panel", () => {
           type: string;
           videos: unknown[];
           destinations: string[];
-          markdownFormat: string;
         } => (message as { type: string }).type === BATCH_START,
       );
       if (!message) throw new Error("start message missing");
@@ -290,7 +286,6 @@ describe("batch page panel", () => {
     });
     expect(start.videos).toHaveLength(1);
     expect(start.destinations).toEqual(["local"]);
-    expect(start.markdownFormat).toBe("article");
 
     await vi.waitFor(() => {
       expect(runtime.managerTabs).toEqual(["task-1"]);
@@ -351,7 +346,6 @@ describe("batch page panel", () => {
           },
         ],
         destinations: ["local"],
-        markdownFormat: "timeline",
       });
     });
   });

@@ -1,4 +1,3 @@
-import type { MarkdownFormat } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 import type {
   CloudJobRecord,
@@ -49,10 +48,7 @@ export interface BatchExecutorDependencies {
   captureVideo(video: BatchVideo): Promise<Capture>;
   /** Folder permission check before any capture (#59). */
   preflightLocal(): Promise<LocalPreflightOutcome>;
-  saveLocal(
-    capture: Capture,
-    markdownFormat: MarkdownFormat,
-  ): Promise<LocalSaveOutcome>;
+  saveLocal(capture: Capture): Promise<LocalSaveOutcome>;
   enqueueCloud(capture: Capture): Promise<{ jobId: string }>;
   getCloudJob(
     jobId: string,
@@ -275,10 +271,7 @@ export function createBatchExecutor(
           item.localError = message;
         });
       } else {
-        const outcome = await deps.saveLocal(
-          capture,
-          fresh.markdownFormat ?? "timeline",
-        );
+        const outcome = await deps.saveLocal(capture);
         if (outcome.status === "saved") {
           const result = outcome.result;
           await applyItemUpdate(taskId, videoId, (item) => {

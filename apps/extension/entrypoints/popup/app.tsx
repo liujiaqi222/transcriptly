@@ -1,4 +1,4 @@
-import { type MarkdownFormat, parseVideoId } from "@transcriptly/capture";
+import { parseVideoId } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 import { CircleAlert, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -71,10 +71,6 @@ export interface PopupDependencies {
   /** Close the popup window once selection mode is on. */
   closePopup(): void;
   createSaver(): Promise<LocalMarkdownSaver>;
-  markdown: {
-    getPreference(): Promise<MarkdownFormat>;
-    setPreference(format: MarkdownFormat): Promise<void>;
-  };
   account: AccountDependencies;
   cloud: CloudDependencies;
 }
@@ -101,8 +97,6 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     "unknown",
   );
   const [cloudEnabled, setCloudEnabled] = useState(false);
-  const [markdownFormat, setMarkdownFormat] =
-    useState<MarkdownFormat>("timeline");
   const [queueStatus, setQueueStatus] = useState<
     CloudQueueStatus | undefined
   >();
@@ -222,21 +216,6 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
 
   useEffect(() => {
     let cancelled = false;
-    deps.markdown
-      .getPreference()
-      .then((format) => {
-        if (!cancelled) setMarkdownFormat(format);
-      })
-      .catch(() => {
-        // Timeline is the safe, backward-compatible default.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [deps]);
-
-  useEffect(() => {
-    let cancelled = false;
     deps
       .createSaver()
       .then(async (created) => {
@@ -339,14 +318,6 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     (enabled: boolean) => {
       setCloudEnabled(enabled);
       void deps.cloud.setCloudPreference(enabled).catch(() => {});
-    },
-    [deps],
-  );
-
-  const handleMarkdownFormatChange = useCallback(
-    (format: MarkdownFormat) => {
-      setMarkdownFormat(format);
-      void deps.markdown.setPreference(format).catch(() => {});
     },
     [deps],
   );
@@ -479,11 +450,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
 
     if (!saver) return;
     try {
-      const result = await saver.save(
-        captureState.capture,
-        filename,
-        markdownFormat,
-      );
+      const result = await saver.save(captureState.capture, filename);
       setFilename(result.filename);
       setDirectoryName(result.directoryName);
       setSaveState({
@@ -595,8 +562,6 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
             folderReady={folderReady}
             enteringSelection={enteringSelection}
             enterError={batchError}
-            markdownFormat={markdownFormat}
-            onMarkdownFormatChange={handleMarkdownFormatChange}
             onEnterSelection={() => void handleEnterSelection()}
             onChangeFolder={() => void handleChangeFolder()}
           />
@@ -628,8 +593,6 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           saveState={saveState}
           cloudEnabled={cloudEnabled}
           cloudAvailable={signedIn}
-          markdownFormat={markdownFormat}
-          onMarkdownFormatChange={handleMarkdownFormatChange}
           onCloudToggle={handleCloudToggle}
           onSave={() => void handleSave()}
           onChangeFolder={() => void handleChangeFolder()}

@@ -514,61 +514,6 @@ h2 {
   justify-content: space-between;
   min-height: 24px;
 }
-.format-picker {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-  margin: 8px 0 0;
-  padding: 0;
-  border: 0;
-}
-.format-label {
-  color: var(--muted);
-  font-size: 11px;
-}
-.format-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: 176px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--background);
-}
-.format-options label {
-  position: relative;
-  min-width: 0;
-  cursor: pointer;
-}
-.format-options input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-.format-options span {
-  display: grid;
-  place-items: center;
-  min-height: 28px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 650;
-}
-.format-options label:hover span {
-  color: var(--primary-hover);
-}
-.format-options input:checked + span {
-  color: #0872b9;
-  background: var(--primary-soft);
-}
-.format-options label:has(input:focus-visible) span {
-  outline: 3px solid rgba(27, 144, 237, 0.32);
-  outline-offset: 2px;
-}
 .save-target {
   gap: 4px;
   min-width: 0;
@@ -688,9 +633,6 @@ h2 {
   border: 0;
   border-radius: 0;
   background: transparent;
-}
-.batch-source .format-picker {
-  margin-top: 12px;
 }
 .batch-source .destination-summary > svg {
   color: var(--text);

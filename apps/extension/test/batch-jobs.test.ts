@@ -27,7 +27,6 @@ describe("batch job store", () => {
     });
     const task = await store.create(videos, {
       destinations: ["local", "cloud"],
-      markdownFormat: "article",
       localReceipts: [
         {
           videoId: "abc12345678",
@@ -55,7 +54,6 @@ describe("batch job store", () => {
       "local",
       "cloud",
     ]);
-    expect((await store.get("task-1"))?.markdownFormat).toBe("article");
   });
 
   it("persists task-local destinations without changing any global setting", async () => {
