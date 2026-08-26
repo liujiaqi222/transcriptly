@@ -7,7 +7,7 @@
  * rasterizes strokes at ~1.25px, so small sizes use a thickened
  * stroke to keep the beam legible.
  */
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -29,14 +29,14 @@ await mkdir(outDir, { recursive: true });
 for (const size of SIZES) {
   let svg = source;
   if (size < THICKEN_BELOW) {
-    svg = svg.replaceAll('stroke-width="2.5"', `stroke-width="${THICK_STROKE}"`);
+    svg = svg.replaceAll(
+      'stroke-width="2.5"',
+      `stroke-width="${THICK_STROKE}"`,
+    );
   }
   // Inject an explicit raster size so sharp renders the vector at the
   // target resolution instead of upscaling a 32px bitmap.
-  svg = svg.replace(
-    "<svg ",
-    `<svg width="${size}" height="${size}" `,
-  );
+  svg = svg.replace("<svg ", `<svg width="${size}" height="${size}" `);
 
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
   const out = path.join(outDir, `icon-${size}.png`);
