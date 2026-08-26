@@ -140,7 +140,7 @@ describe("local save client (#59)", () => {
   });
 
   it("returns a saved outcome with the host's result", async () => {
-    const { client } = createHarness({
+    const { client, sendMessage } = createHarness({
       saveResponse: {
         ok: true,
         directoryName: "Vault",
@@ -149,7 +149,7 @@ describe("local save client (#59)", () => {
       },
     });
 
-    await expect(client.save(capture)).resolves.toEqual({
+    await expect(client.save(capture, "article")).resolves.toEqual({
       status: "saved",
       result: {
         directoryName: "Vault",
@@ -157,6 +157,13 @@ describe("local save client (#59)", () => {
         receiptError: "index failed",
       },
     });
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(Number),
+      expect.objectContaining({
+        type: MANAGER_LOCAL_SAVE,
+        markdownFormat: "article",
+      }),
+    );
   });
 
   it("maps a permission-required save answer immediately (no user wait)", async () => {

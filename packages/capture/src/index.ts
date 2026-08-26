@@ -26,7 +26,11 @@ export {
   youtubeSelectors,
 } from "./selectors";
 export {
+  type ArticleBlock,
+  type ArticleParagraph,
+  articleBlocks,
   formatTimestamp,
+  type MarkdownFormat,
   serializeToMarkdown,
   type TranscriptBlock,
   transcriptBlocks,

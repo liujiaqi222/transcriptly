@@ -82,7 +82,8 @@ export default defineBackground({
         },
       }),
       preflightLocal: () => localSaveClient.preflight(),
-      saveLocal: (capture) => localSaveClient.save(capture),
+      saveLocal: (capture, markdownFormat) =>
+        localSaveClient.save(capture, markdownFormat),
       enqueueCloud: async (capture) => {
         const job = await queue.enqueue(capture);
         return { jobId: job.id };

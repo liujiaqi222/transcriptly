@@ -5,6 +5,10 @@ import { webOrigin } from "@/cloud/client";
 import type { CloudQueueStatus } from "@/cloud/jobs";
 import { createLocalMarkdownSaver } from "@/local-save";
 import {
+  MARKDOWN_FORMAT_PREFERENCE_KEY,
+  normalizeMarkdownFormat,
+} from "@/markdown-format";
+import {
   BATCH_ENTER_SELECTION_REQUEST,
   BATCH_OPEN_MANAGER,
   BATCH_RESUME,
@@ -97,6 +101,19 @@ const dependencies: PopupDependencies = {
     void browser.tabs
       .create({ url: browser.runtime.getURL("/playground.html") })
       .catch(() => undefined);
+  },
+  markdown: {
+    async getPreference() {
+      const stored = await browser.storage.local.get(
+        MARKDOWN_FORMAT_PREFERENCE_KEY,
+      );
+      return normalizeMarkdownFormat(stored[MARKDOWN_FORMAT_PREFERENCE_KEY]);
+    },
+    async setPreference(format) {
+      await browser.storage.local.set({
+        [MARKDOWN_FORMAT_PREFERENCE_KEY]: format,
+      });
+    },
   },
   cloud: {
     async enqueueCloudSave(capture: Capture): Promise<CloudSaveEnqueueStatus> {

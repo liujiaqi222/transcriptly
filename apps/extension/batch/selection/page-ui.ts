@@ -1,3 +1,4 @@
+import type { MarkdownFormat } from "@transcriptly/capture";
 import { BATCH_MAX_RUNNABLE_ITEMS } from "@/batch/jobs";
 import { isBatchSourceUrl } from "@/batch/selection/discovery";
 import { createCardLayer } from "@/batch/selection/selection-cards";
@@ -10,6 +11,10 @@ import {
   isChannelRootUrl,
   isYouTubeWatchUrl,
 } from "@/entrypoints/popup/utils/youtube";
+import {
+  MARKDOWN_FORMAT_PREFERENCE_KEY,
+  normalizeMarkdownFormat,
+} from "@/markdown-format";
 import {
   BATCH_LOOKUP_REQUEST,
   BATCH_OPEN_MANAGER,
@@ -64,6 +69,7 @@ const LOAD_MORE_SCROLL_INTERVAL_MS = 400;
 export interface BatchPageRuntime {
   sendMessage<T = unknown>(message: unknown): Promise<T>;
   getCloudPreference(): Promise<boolean>;
+  getMarkdownFormat?(): Promise<MarkdownFormat>;
 }
 
 function defaultRuntime(): BatchPageRuntime {
@@ -72,6 +78,12 @@ function defaultRuntime(): BatchPageRuntime {
     getCloudPreference: async () => {
       const stored = await browser.storage.local.get(CLOUD_PREFERENCE_KEY);
       return stored[CLOUD_PREFERENCE_KEY] === true;
+    },
+    getMarkdownFormat: async () => {
+      const stored = await browser.storage.local.get(
+        MARKDOWN_FORMAT_PREFERENCE_KEY,
+      );
+      return normalizeMarkdownFormat(stored[MARKDOWN_FORMAT_PREFERENCE_KEY]);
     },
   };
 }
@@ -253,10 +265,14 @@ export async function enterBatchSelectionMode(
     }
     panel.setStarting(true);
     try {
+      const markdownFormat = runtime.getMarkdownFormat
+        ? await runtime.getMarkdownFormat().catch(() => "timeline" as const)
+        : "timeline";
       const result = await runtime.sendMessage<BatchStartStatus>({
         type: BATCH_START,
         videos,
         destinations,
+        markdownFormat,
       });
       if (!result.ok) {
         panel.showToast(result.message);
