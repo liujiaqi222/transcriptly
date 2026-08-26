@@ -1,3 +1,4 @@
+import type { MarkdownFormat } from "@transcriptly/capture";
 import type { CloudReceipt } from "@/cloud/jobs";
 import type { LocalSaveReceipt, LocalSaveResult } from "@/local-save";
 
@@ -76,6 +77,8 @@ export interface BatchItem {
 export interface BatchTask {
   id: string;
   destinations: BatchDestination[];
+  /** Fixed when the batch starts so every Local item uses one format. */
+  markdownFormat?: MarkdownFormat;
   items: BatchItem[];
   state: "queued" | "running" | "paused" | "completed" | "stopped";
   /** Why a `paused` task is paused; absent on records from before #59. */
@@ -89,6 +92,7 @@ export interface BatchJobStore {
     videos: BatchVideo[],
     options: {
       destinations: BatchDestination[];
+      markdownFormat?: MarkdownFormat;
       localReceipts?: LocalSaveReceipt[];
       cloudReceipts?: CloudReceipt[];
       now?: number;
@@ -191,6 +195,7 @@ export function createBatchJobStore(
       const task: BatchTask = {
         id: (createOptions.newId ?? newId)(),
         destinations,
+        markdownFormat: createOptions.markdownFormat ?? "timeline",
         items: videos.map((video) => {
           const localReceipt = localByVideo.get(video.videoId);
           const cloudReceipt = cloudByVideo.get(video.videoId);

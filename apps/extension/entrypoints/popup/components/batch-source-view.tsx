@@ -1,5 +1,7 @@
+import type { MarkdownFormat } from "@transcriptly/capture";
 import { ArrowRight, Folder, LibraryBig, ListVideo } from "lucide-react";
 import type { LocalMarkdownSaver } from "@/local-save";
+import { MarkdownFormatPicker } from "./markdown-format-picker";
 
 interface BatchSourceViewProps {
   saver?: LocalMarkdownSaver;
@@ -12,6 +14,8 @@ interface BatchSourceViewProps {
   enteringSelection: boolean;
   /** Refusal from the content script, or a transport error. */
   enterError?: string;
+  markdownFormat: MarkdownFormat;
+  onMarkdownFormatChange(format: MarkdownFormat): void;
   onEnterSelection(): void;
   onChangeFolder(): void;
 }
@@ -31,6 +35,8 @@ export function BatchSourceView({
   folderReady,
   enteringSelection,
   enterError,
+  markdownFormat,
+  onMarkdownFormatChange,
   onEnterSelection,
   onChangeFolder,
 }: BatchSourceViewProps) {
@@ -62,6 +68,10 @@ export function BatchSourceView({
           {changingFolder ? "Changing…" : "Change"}
         </button>
       </div>
+      <MarkdownFormatPicker
+        value={markdownFormat}
+        onChange={onMarkdownFormatChange}
+      />
       <button
         type="button"
         className="save-button batch-primary-button"

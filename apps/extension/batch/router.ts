@@ -1,5 +1,6 @@
 import type { CloudQueueStatus, CloudReceipt } from "@/cloud/jobs";
 import type { LocalDirectoryHandle, LocalSaveReceipt } from "@/local-save";
+import { normalizeMarkdownFormat } from "@/markdown-format";
 import {
   BATCH_LOOKUP_REQUEST,
   BATCH_OPEN_MANAGER,
@@ -103,6 +104,7 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
 
       const task = await deps.store.create(message.videos, {
         destinations,
+        markdownFormat: normalizeMarkdownFormat(message.markdownFormat),
         localReceipts,
         cloudReceipts,
       });

@@ -111,17 +111,24 @@ describe("manager local save host (#59)", () => {
   });
 
   it("saves when permission is granted", async () => {
-    const { send } = createHost(
-      createSaverStub({ directoryName: "Vault", permission: "granted" }),
-    );
+    const saver = createSaverStub({
+      directoryName: "Vault",
+      permission: "granted",
+    });
+    const { send } = createHost(saver);
 
     await expect(
-      send({ type: "transcriptly:manager-local-save", capture }),
+      send({
+        type: "transcriptly:manager-local-save",
+        capture,
+        markdownFormat: "article",
+      }),
     ).resolves.toEqual({
       ok: true,
       directoryName: "Vault",
       filename: "a.md",
     });
+    expect(saver.save).toHaveBeenCalledWith(capture, undefined, "article");
   });
 
   it("returns permission-required immediately instead of waiting for a click", async () => {

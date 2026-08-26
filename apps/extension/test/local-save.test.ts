@@ -240,6 +240,17 @@ describe("local Markdown saving", () => {
     expect(directory.files.get("notes (3).md")).toContain("Start here.");
   });
 
+  it("writes exactly one selected Article file", async () => {
+    const directory = new MemoryDirectory("Vault");
+    const saver = await createLocalMarkdownSaver(createSaverOptions(directory));
+
+    const result = await saver.save(capture, "article.md", "article");
+
+    expect([...directory.files.keys()]).toEqual([result.filename]);
+    expect(directory.files.get(result.filename)).toContain("[00:00](");
+    expect(directory.files.get(result.filename)).not.toContain("- [00:00](");
+  });
+
   it("keeps a completed file when the local receipt cannot be written", async () => {
     const directory = new MemoryDirectory("Vault");
     const receiptStore = {
