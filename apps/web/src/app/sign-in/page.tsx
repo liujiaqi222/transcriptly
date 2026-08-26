@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { LogoMark } from "@/components/logo-mark";
 import { auth } from "@/lib/auth/auth";
 import { safeCallbackUrl } from "@/lib/auth/callback-url";
 import { SignInButtons } from "./sign-in-buttons";
@@ -21,9 +22,10 @@ export default async function SignInPage({
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-20">
       <a
-        className="text-sm font-bold tracking-[-0.02em] text-zinc-950"
+        className="flex items-center gap-2 text-sm font-bold tracking-[-0.02em] text-zinc-950"
         href="/"
       >
+        <LogoMark />
         Transcriptly
       </a>
       <p className="mt-12 text-xs font-semibold tracking-[0.16em] text-zinc-500 uppercase">

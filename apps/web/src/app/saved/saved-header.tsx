@@ -1,3 +1,4 @@
+import { LogoMark } from "@/components/logo-mark";
 import { MAX_SEARCH_QUERY_LENGTH } from "@/lib/search/search";
 import { signOut } from "./actions";
 
@@ -14,9 +15,10 @@ export function SavedHeader({
     <header className="border-b border-zinc-200 bg-white">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-6">
         <a
-          className="font-bold tracking-[-0.02em] whitespace-nowrap"
+          className="flex items-center gap-2 font-bold tracking-[-0.02em] whitespace-nowrap"
           href="/saved"
         >
+          <LogoMark />
           Transcriptly
         </a>
 

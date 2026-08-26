@@ -1,12 +1,4 @@
-import {
-  FolderOpen,
-  LibraryBig,
-  NotebookText,
-  Pause,
-  Play,
-  RotateCw,
-  X,
-} from "lucide-react";
+import { FolderOpen, LibraryBig, Pause, Play, RotateCw, X } from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -22,6 +14,7 @@ import {
   isFinishingCurrentVideo,
 } from "@/batch/eta";
 import type { BatchDestination, BatchItem, BatchTask } from "@/batch/jobs";
+import { LogoMark } from "@/brand/logo-mark";
 import type {
   ManagerLocalSaveHost,
   ManagerLocalSaveHostStatus,
@@ -448,7 +441,7 @@ export function ManagerApp({
         <div className="manager-bar">
           <div className="brand-lockup">
             <span className="brand-mark">
-              <NotebookText />
+              <LogoMark />
             </span>
             <h1>Transcriptly batch</h1>
           </div>
