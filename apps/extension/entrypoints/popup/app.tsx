@@ -12,6 +12,7 @@ import {
   CaptureView,
   ChannelRootHint,
   CloudStatusPanel,
+  PlaylistBatchHint,
   SaveFooter,
   type SaveState,
 } from "@/entrypoints/popup/components";
@@ -21,6 +22,7 @@ import {
   isBatchSourceUrl,
   isChannelRootUrl,
   isYouTubeWatchUrl,
+  watchPlaylistUrl,
 } from "@/entrypoints/popup/utils";
 import {
   type LocalMarkdownSaver,
@@ -56,8 +58,9 @@ export interface PopupDependencies {
   requestCapture(tabId: number): Promise<CaptureResponseMessage>;
   /** Ask the tab's content script to enter selection mode (#56). */
   enterBatchSelection(tabId: number): Promise<BatchEnterSelectionStatus>;
-  /** Navigate a channel root tab to its batch-selectable Videos tab. */
-  openChannelVideos(tabId: number, url: string): Promise<void>;
+  /** Navigate a tab to another YouTube page (channel Videos tab #56,
+   *  playlist page #69) so a batch source becomes selectable. */
+  navigateTab(tabId: number, url: string): Promise<void>;
   /** Recent batch tasks from the background worker (#58). */
   getBatchStatus(): Promise<BatchStatusResult>;
   /** Open the batch manager page on a task (#58, routed via the worker #59). */
@@ -112,6 +115,12 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   const [enteringSelection, setEnteringSelection] = useState(false);
   const [openingVideos, setOpeningVideos] = useState(false);
   const [batchError, setBatchError] = useState<string | undefined>();
+  /** Playlist-page jump target on a watch page inside a playlist (#69). */
+  const [playlistTarget, setPlaylistTarget] = useState<
+    { tabId: number; url: string } | undefined
+  >();
+  const [openingPlaylist, setOpeningPlaylist] = useState(false);
+  const [playlistError, setPlaylistError] = useState<string | undefined>();
   /** Newest running or paused batch, for the manager-page entry (#58). */
   const [activeBatchTask, setActiveBatchTask] = useState<
     BatchTask | undefined
@@ -131,6 +140,8 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     setBatchPage(undefined);
     setBatchTabUrl(undefined);
     setBatchError(undefined);
+    setPlaylistTarget(undefined);
+    setPlaylistError(undefined);
     try {
       const tab = await deps.getActiveTab();
       if (!tab) {
@@ -164,6 +175,14 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       setActiveVideoId(
         tab.url ? (parseVideoId(tab.url) ?? undefined) : undefined,
       );
+
+      // A watch page playing inside a playlist (#69): remember the pure
+      // playlist page so the hint strip can offer the batch jump. Capture
+      // continues regardless - single-video saving still works here.
+      const playlistPage = watchPlaylistUrl(tab.url);
+      if (playlistPage) {
+        setPlaylistTarget({ tabId: tab.id, url: playlistPage });
+      }
 
       const response = await deps.requestCapture(tab.id);
       if (!response.ok) {
@@ -385,11 +404,26 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     setOpeningVideos(true);
     setBatchError(undefined);
     try {
-      await deps.openChannelVideos(batchTabId, videosUrl);
+      await deps.navigateTab(batchTabId, videosUrl);
       deps.closePopup();
     } catch (error) {
       setBatchError(`Could not open the Videos tab: ${errorMessage(error)}`);
       setOpeningVideos(false);
+    }
+  };
+
+  // Same-tab jump as the channel-root Videos hint (#69): the popup closes
+  // after navigating because its capture state belongs to the old page.
+  const handleOpenPlaylist = async () => {
+    if (!playlistTarget) return;
+    setOpeningPlaylist(true);
+    setPlaylistError(undefined);
+    try {
+      await deps.navigateTab(playlistTarget.tabId, playlistTarget.url);
+      deps.closePopup();
+    } catch (error) {
+      setPlaylistError(`Could not open the playlist: ${errorMessage(error)}`);
+      setOpeningPlaylist(false);
     }
   };
 
@@ -477,6 +511,14 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
             onResume={(taskId) => {
               void deps.resumeBatch(taskId);
             }}
+          />
+        )}
+
+        {playlistTarget && (
+          <PlaylistBatchHint
+            opening={openingPlaylist}
+            error={playlistError}
+            onOpenPlaylist={() => void handleOpenPlaylist()}
           />
         )}
 

@@ -96,6 +96,7 @@ function addStyles() {
     #${ROOT_ID} .start-button svg { width: 16px; height: 16px; }
     #${TOAST_ID} { position: fixed; left: 50%; bottom: 36px; z-index: 2147483647; transform: translateX(-50%) translateY(8px); max-width: min(480px,80vw); padding: 12px 20px; border-radius: 999px; background: #202124; color: #fff; font: 13px/1.4 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; opacity: 0; pointer-events: none; transition: opacity .18s ease,transform .18s ease; }
     #${TOAST_ID}.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    yt-lockup-view-model[data-transcriptly-batch] { position: relative; }
     .transcriptly-batch-check { position: absolute; top: 0; left: 0; z-index: 3; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; -webkit-user-select: none; user-select: none; }
     .transcriptly-batch-check::before { content: ""; display: block; width: 20px; height: 20px; border: 2px solid #fff; border-radius: 6px; background: rgba(15,23,42,.55); box-sizing: border-box; }
     .transcriptly-batch-check:focus-visible { outline: 3px solid rgba(27,144,237,.55); outline-offset: 1px; border-radius: 9px; }

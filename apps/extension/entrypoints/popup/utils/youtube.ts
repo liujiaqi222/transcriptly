@@ -44,6 +44,23 @@ export function channelVideosUrl(url: string): string | undefined {
   return parsed.toString();
 }
 
+/**
+ * The pure playlist page for a watch URL playing inside a playlist
+ * (`watch?v=X&list=Y`), or undefined (#69). Batch selection only runs on
+ * /playlist pages, so the popup guides the user there instead of building
+ * selection UI into the watch page's playlist sidebar.
+ */
+export function watchPlaylistUrl(url: string | undefined): string | undefined {
+  if (!url || !isYouTubeWatchUrl(url)) return undefined;
+  const listId = new URL(url).searchParams.get("list");
+  if (!listId) return undefined;
+  // Always target the desktop host: batch source detection only accepts
+  // www.youtube.com, even when the watch page itself was open on m.youtube.
+  const playlistPage = new URL("https://www.youtube.com/playlist");
+  playlistPage.searchParams.set("list", listId);
+  return playlistPage.toString();
+}
+
 export function isYouTubeWatchUrl(url: string | undefined): boolean {
   if (!url) return false;
   try {

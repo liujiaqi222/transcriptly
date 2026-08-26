@@ -26,12 +26,12 @@ describe("batch discovery", () => {
 
   it("discovers unique videos already rendered in the document", () => {
     document.body.innerHTML = `
-      <ytd-grid-video-renderer>
+      <yt-lockup-view-model>
         <a id="video-title" href="https://www.youtube.com/watch?v=abc12345678" title="First title">First title</a>
-      </ytd-grid-video-renderer>
-      <ytd-grid-video-renderer>
+      </yt-lockup-view-model>
+      <yt-lockup-view-model>
         <a id="video-title" href="https://www.youtube.com/watch?v=def12345678">Second title</a>
-      </ytd-grid-video-renderer>
+      </yt-lockup-view-model>
       <a href="https://www.youtube.com/watch?v=abc12345678">Duplicate</a>
       <a href="https://www.youtube.com/watch?v=not-an-id">Invalid</a>
     `;
@@ -50,15 +50,37 @@ describe("batch discovery", () => {
     ]);
   });
 
+  it("discovers videos from YouTube's current lockup cards", () => {
+    document.body.innerHTML = `
+      <yt-lockup-view-model>
+        <a href="/watch?v=abc12345678&list=PL123&index=1">20:30</a>
+        <h3>
+          <a
+            href="/watch?v=abc12345678&list=PL123&index=1"
+            aria-label="Current playlist title 20 minutes"
+          >Current playlist title</a>
+        </h3>
+      </yt-lockup-view-model>
+    `;
+
+    expect(discoverLoadedVideos(document)).toEqual([
+      {
+        videoId: "abc12345678",
+        url: "https://www.youtube.com/watch?v=abc12345678",
+        title: "Current playlist title",
+      },
+    ]);
+  });
+
   it("ignores persistent player recommendations outside the source feed", () => {
     document.body.innerHTML = `
       <div class="html5-video-player">
         <a class="ytp-next-button" href="https://www.youtube.com/watch?v=bad12345678" title="Next (SHIFT+n)"></a>
         <a class="ytp-modern-videowall-still" href="https://www.youtube.com/watch?v=bad87654321">Another creator's video</a>
       </div>
-      <ytd-rich-item-renderer>
+      <yt-lockup-view-model>
         <a href="https://www.youtube.com/watch?v=abc12345678" title="Bailey video"><span id="video-title">Bailey video</span></a>
-      </ytd-rich-item-renderer>
+      </yt-lockup-view-model>
     `;
 
     expect(discoverLoadedVideos(document)).toEqual([
@@ -74,13 +96,13 @@ describe("batch discovery", () => {
     // Newer card layouts: the title anchor has no #video-title id and
     // the duration overlay sits inside the thumbnail anchor's own text.
     document.body.innerHTML = `
-      <ytd-rich-item-renderer>
+      <yt-lockup-view-model>
         <a id="thumbnail" href="https://www.youtube.com/watch?v=abc12345678" title="14:19">14:19</a>
         <h3><a href="https://www.youtube.com/watch?v=abc12345678">Real title</a></h3>
-      </ytd-rich-item-renderer>
-      <ytd-rich-item-renderer>
+      </yt-lockup-view-model>
+      <yt-lockup-view-model>
         <a id="thumbnail" href="https://www.youtube.com/watch?v=def12345678">3:41</a>
-      </ytd-rich-item-renderer>
+      </yt-lockup-view-model>
     `;
 
     const videos = discoverLoadedVideos(document);
@@ -97,13 +119,13 @@ describe("batch discovery", () => {
 
   it("falls back to the thumbnail aria-label without its duration suffix", () => {
     document.body.innerHTML = `
-      <ytd-rich-item-renderer>
+      <yt-lockup-view-model>
         <a
           id="thumbnail"
           href="https://www.youtube.com/watch?v=abc12345678"
           aria-label="Fallback title by Ship It Weekly 14:19"
         ></a>
-      </ytd-rich-item-renderer>
+      </yt-lockup-view-model>
     `;
 
     expect(discoverLoadedVideos(document)).toEqual([

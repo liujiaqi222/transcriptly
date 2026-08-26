@@ -2,6 +2,7 @@ import type { BatchVideo } from "@/batch/jobs";
 import {
   discoverLoadedVideos,
   findLoadedVideoAnchor,
+  findLoadedVideoCard,
   isBatchSourceUrl,
 } from "@/batch/selection/discovery";
 import {
@@ -34,14 +35,6 @@ export interface CardLayer {
   sync(): void;
   /** Removes every injected element and card marker. */
   strip(): void;
-}
-
-function cardFor(anchor: HTMLAnchorElement): Element {
-  return (
-    anchor.closest(
-      "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-video-renderer",
-    ) ?? anchor
-  );
 }
 
 export function createCardLayer(options: {
@@ -122,7 +115,7 @@ export function createCardLayer(options: {
       for (const video of videos) {
         const anchor = findLoadedVideoAnchor(document, video.videoId);
         if (!anchor) continue;
-        const card = cardFor(anchor);
+        const card = findLoadedVideoCard(anchor);
         card.setAttribute(CARD_MARKER, "");
         if (!card.querySelector(".transcriptly-batch-check")) {
           card.prepend(createHit(video));
@@ -137,7 +130,7 @@ export function createCardLayer(options: {
       if (!isBatchSourceUrl(location.href)) return;
       for (const videoId of model.videoIds()) {
         const anchor = findLoadedVideoAnchor(document, videoId);
-        if (anchor) updateBadges(cardFor(anchor), videoId);
+        if (anchor) updateBadges(findLoadedVideoCard(anchor), videoId);
       }
     },
     sync() {
