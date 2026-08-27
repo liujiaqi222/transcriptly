@@ -52,8 +52,12 @@ export async function getPublicConsent(
  * advisory lock serializes transactions, so the last transaction to acquire
  * the lock commits the current version. No client timestamp participates in
  * the decision.
+ *
+ * Module-private transaction seam: contributePublicly is the only entry
+ * point. If a store-level test ever needs to call this directly, re-export
+ * it then - not before.
  */
-export async function storePublicContribution(
+async function storePublicContribution(
   db: Database,
   userId: string,
   capture: Capture,

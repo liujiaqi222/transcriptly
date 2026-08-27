@@ -42,5 +42,3 @@ export function useBatchStatus(deps: PopupDependencies) {
 
   return { activeBatchTask };
 }
-
-export type BatchStatus = ReturnType<typeof useBatchStatus>;

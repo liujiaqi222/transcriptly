@@ -84,5 +84,3 @@ export function useCloudSession(deps: PopupDependencies) {
     handleCloudToggle,
   };
 }
-
-export type CloudSession = ReturnType<typeof useCloudSession>;

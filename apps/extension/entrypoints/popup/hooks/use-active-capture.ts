@@ -138,5 +138,3 @@ export function useActiveCapture(deps: PopupDependencies) {
     runCapture,
   };
 }
-
-export type ActiveCapture = ReturnType<typeof useActiveCapture>;

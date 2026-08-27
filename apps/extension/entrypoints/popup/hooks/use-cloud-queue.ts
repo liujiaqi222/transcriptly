@@ -67,5 +67,3 @@ export function useCloudQueue(deps: PopupDependencies, activeVideoId?: string) {
     handleRetry,
   };
 }
-
-export type CloudQueue = ReturnType<typeof useCloudQueue>;

@@ -107,5 +107,3 @@ export function useLocalSave(deps: PopupDependencies) {
     changeDirectory,
   };
 }
-
-export type LocalSave = ReturnType<typeof useLocalSave>;

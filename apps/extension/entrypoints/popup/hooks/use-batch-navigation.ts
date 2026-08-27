@@ -106,5 +106,3 @@ export function useBatchNavigation(
     resetErrors,
   };
 }
-
-export type BatchNavigation = ReturnType<typeof useBatchNavigation>;
