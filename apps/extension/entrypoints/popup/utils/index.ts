@@ -3,7 +3,7 @@ export {
   type PropertyRow,
   propertyRows,
 } from "./capture-details";
-export { errorMessage } from "./errors";
+export { errorDetailIncludes, errorMessage } from "./errors";
 export {
   channelVideosUrl,
   isBatchSourceUrl,

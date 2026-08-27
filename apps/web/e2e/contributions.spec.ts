@@ -36,6 +36,36 @@ const capture = {
   chapters: [{ start: 0, title: "Reliability foundations" }],
 };
 
+/** A later, differently-worded capture of the same video (#73). */
+const replacementCapture = {
+  ...capture,
+  capturedAt: "2026-08-20T11:00:00.000Z",
+  segments: [
+    { start: 0, text: "Replacement transcript about observable convergence." },
+    { start: 50, text: "The latest qualified capture wins the publication." },
+  ],
+  chapters: [{ start: 0, title: "Latest qualified" }],
+};
+
+/** Two distinct captures raced by different users in the concurrency test. */
+const concurrentFirstCapture = {
+  ...capture,
+  capturedAt: "2026-08-20T12:00:00.000Z",
+  segments: [
+    { start: 0, text: "Concurrency race candidate one claims the version." },
+    { start: 30, text: "Only one transcript may remain current." },
+  ],
+};
+
+const concurrentSecondCapture = {
+  ...capture,
+  capturedAt: "2026-08-20T12:01:00.000Z",
+  segments: [
+    { start: 0, text: "Concurrency race candidate two claims the version." },
+    { start: 30, text: "Only one transcript may remain current." },
+  ],
+};
+
 let sql: ReturnType<typeof postgres>;
 
 async function sessionCookie(token = sessionToken): Promise<string> {
@@ -244,4 +274,190 @@ test("serves only active publications through detail, search, and sitemap", asyn
   expect(await (await request.get("/sitemap.xml")).text()).not.toContain(
     `/videos/${videoId}`,
   );
+});
+
+test("rejects empty and duplicated transcripts with specific failures (#73)", async ({
+  request,
+}) => {
+  const headers = {
+    Origin: baseURL,
+    Cookie: await sessionCookie(),
+    "Content-Type": "application/json",
+  };
+
+  const empty = await request.post("/api/v1/contributions", {
+    headers,
+    data: {
+      capture: { ...capture, segments: [] },
+      targetVideoId: videoId,
+    },
+  });
+  expect(empty.status()).toBe(422);
+  expect((await empty.json()).error.code).toBe("empty_transcript");
+
+  const duplicated = await request.post("/api/v1/contributions", {
+    headers,
+    data: {
+      capture: {
+        ...capture,
+        segments: [...capture.segments, ...capture.segments],
+      },
+      targetVideoId: videoId,
+    },
+  });
+  expect(duplicated.status()).toBe(422);
+  expect((await duplicated.json()).error.code).toBe("duplicate_transcript");
+
+  // Rejections leave no trace: neither a Contribution row nor a Transcript
+  // version was created for the faulty captures.
+  const rows = await sql`
+    select
+      (select count(*)::int from transcripts t join canonical_videos cv on cv.id = t.video_id where cv.youtube_video_id = ${videoId}) as transcripts
+  `;
+  expect(rows[0].transcripts).toBe(1);
+});
+
+test("replaces the current publication with the latest qualified capture and prunes older transcripts (#73)", async ({
+  page,
+  request,
+}) => {
+  // The previous test unpublished the video; a new qualified contribution
+  // from the second contributor replaces the transcript and republishes.
+  const replaced = await request.post("/api/v1/contributions", {
+    headers: {
+      Origin: baseURL,
+      Cookie: await sessionCookie(secondSessionToken),
+      "Content-Type": "application/json",
+    },
+    data: { capture: replacementCapture, targetVideoId: videoId },
+  });
+  expect(replaced.status()).toBe(200);
+  expect((await replaced.json()).data).toEqual(
+    expect.objectContaining({ videoId, outcome: "replaced" }),
+  );
+
+  // Exactly one current publication and one referenced transcript remain;
+  // the older transcript content is pruned only after the new publication
+  // is durable, and every contributor stays attributed at the video level.
+  const rows = await sql`
+    select
+      (select count(*)::int from contributions c join canonical_videos cv on cv.id = c.video_id where cv.youtube_video_id = ${videoId}) as contributions,
+      (select count(*)::int from public_publications pp join canonical_videos cv on cv.id = pp.video_id where cv.youtube_video_id = ${videoId}) as publications,
+      (select count(*)::int from transcripts t join canonical_videos cv on cv.id = t.video_id where cv.youtube_video_id = ${videoId}) as transcripts,
+      (select pp.active from public_publications pp join canonical_videos cv on cv.id = pp.video_id where cv.youtube_video_id = ${videoId}) as active,
+      (select count(*)::int from segments s join transcripts t on t.id = s.transcript_id join canonical_videos cv on cv.id = t.video_id where cv.youtube_video_id = ${videoId}) as segments
+  `;
+  expect(rows[0]).toEqual({
+    contributions: 2,
+    publications: 1,
+    transcripts: 1,
+    active: true,
+    segments: 2,
+  });
+
+  // The public surface serves the replacement with the new attribution.
+  await page.goto(`/videos/${videoId}`);
+  await expect(
+    page.getByRole("heading", { name: "Public archive E2E transcript" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("The latest qualified capture wins the publication."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Contributed by Second Contributor"),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Observable behavior makes agent systems reliable."),
+  ).toHaveCount(0);
+
+  // A same-content retry stays idempotent: no swap, no churn.
+  const retry = await request.post("/api/v1/contributions", {
+    headers: {
+      Origin: baseURL,
+      Cookie: await sessionCookie(secondSessionToken),
+      "Content-Type": "application/json",
+    },
+    data: { capture: replacementCapture, targetVideoId: videoId },
+  });
+  expect((await retry.json()).data.outcome).toBe("unchanged");
+  const afterRetry = await sql`
+    select count(*)::int as transcripts
+    from transcripts t join canonical_videos cv on cv.id = t.video_id
+    where cv.youtube_video_id = ${videoId}
+  `;
+  expect(afterRetry[0].transcripts).toBe(1);
+});
+
+test("converges deterministically under concurrent contributions (#73)", async ({
+  request,
+}) => {
+  const contribute = (capturePayload: unknown, cookie: string) =>
+    request.post("/api/v1/contributions", {
+      headers: {
+        Origin: baseURL,
+        Cookie: cookie,
+        "Content-Type": "application/json",
+      },
+      data: { capture: capturePayload, targetVideoId: videoId },
+    });
+
+  // Two different captures race for the same video. The server-received
+  // sequence under the per-video lock decides the winner: the last
+  // transaction to commit owns the current version.
+  const [first, second] = await Promise.all([
+    contribute(concurrentFirstCapture, await sessionCookie()),
+    contribute(
+      concurrentSecondCapture,
+      await sessionCookie(secondSessionToken),
+    ),
+  ]);
+  expect(first.status()).toBe(200);
+  expect(second.status()).toBe(200);
+  expect([
+    (await first.json()).data.outcome,
+    (await second.json()).data.outcome,
+  ]).toEqual(["replaced", "replaced"]);
+
+  // Deterministic convergence: one publication, exactly one referenced
+  // complete transcript (bounded retention), and the current version is one
+  // of the raced captures - never a mix, never a duplicate publication.
+  const rows = await sql`
+    select
+      (select count(*)::int from public_publications pp join canonical_videos cv on cv.id = pp.video_id where cv.youtube_video_id = ${videoId}) as publications,
+      (select count(*)::int from transcripts t join canonical_videos cv on cv.id = t.video_id where cv.youtube_video_id = ${videoId}) as transcripts,
+      (select count(*)::int from contributions c join canonical_videos cv on cv.id = c.video_id where cv.youtube_video_id = ${videoId}) as contributions,
+      (select s.text from segments s join public_publications pp on pp.current_transcript_id = s.transcript_id join canonical_videos cv on cv.id = pp.video_id join transcripts t on t.id = s.transcript_id where cv.youtube_video_id = ${videoId} and s.position = 0) as current_first_segment
+  `;
+  expect(rows[0].publications).toBe(1);
+  expect(rows[0].transcripts).toBe(1);
+  expect(rows[0].contributions).toBe(2);
+  expect([
+    "Concurrency race candidate one claims the version.",
+    "Concurrency race candidate two claims the version.",
+  ]).toContain(rows[0].current_first_segment);
+
+  // Retrying the winner after the race changes nothing: the outcome is
+  // idempotent and retention stays bounded.
+  const winnerCapture = rows[0].current_first_segment.includes("candidate one")
+    ? concurrentFirstCapture
+    : concurrentSecondCapture;
+  const winnerCookie = rows[0].current_first_segment.includes("candidate one")
+    ? await sessionCookie()
+    : await sessionCookie(secondSessionToken);
+  const retry = await request.post("/api/v1/contributions", {
+    headers: {
+      Origin: baseURL,
+      Cookie: winnerCookie,
+      "Content-Type": "application/json",
+    },
+    data: { capture: winnerCapture, targetVideoId: videoId },
+  });
+  expect(retry.status()).toBe(200);
+  expect((await retry.json()).data.outcome).toBe("unchanged");
+  const afterRetry = await sql`
+    select count(*)::int as transcripts
+    from transcripts t join canonical_videos cv on cv.id = t.video_id
+    where cv.youtube_video_id = ${videoId}
+  `;
+  expect(afterRetry[0].transcripts).toBe(1);
 });

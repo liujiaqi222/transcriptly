@@ -15,10 +15,34 @@ const contributionPayloadSchema = z.strictObject({
   confirmPublicProfile: z.literal(true).optional(),
 });
 
+/**
+ * Objective, provable structural faults (#73). This map is the single
+ * source of truth: a key added here joins the rejection-code union and the
+ * route's 422 mapping together, so they cannot drift apart.
+ */
+const STRUCTURAL_REJECTIONS = {
+  target_video_mismatch: true,
+  empty_transcript: true,
+  invalid_timeline: true,
+  duplicate_transcript: true,
+} as const;
+
+export type StructuralRejectionCode = keyof typeof STRUCTURAL_REJECTIONS;
+
 export type PublicContributionValidationErrorCode =
   | CaptureValidationError["code"]
-  | "target_video_mismatch"
-  | "invalid_timeline";
+  | StructuralRejectionCode;
+
+/**
+ * Structural faults reject with 422; every other validation failure is a
+ * malformed payload (400). Single source of truth for both the code union
+ * and the API status mapping (#73).
+ */
+export function isStructuralRejection(
+  code: string,
+): code is StructuralRejectionCode {
+  return code in STRUCTURAL_REJECTIONS;
+}
 
 export type ValidPublicContribution = {
   ok: true;
@@ -43,12 +67,52 @@ function isMonotonic(values: readonly { start: number }[]): boolean {
   );
 }
 
+/**
+ * A provable whole-transcript duplication (#73): the segment sequence is
+ * itself repeated exactly end to end (the first half equals the second
+ * half). This is a capture-side artifact, not a semantic quality judgment.
+ */
+function isWholeTranscriptDuplication(
+  segments: readonly { start: number; text: string }[],
+): boolean {
+  const length = segments.length;
+  if (length < 2 || length % 2 !== 0) return false;
+  const half = length / 2;
+  return segments.every(
+    (segment, index) =>
+      index >= half ||
+      (segment.start === segments[index + half]?.start &&
+        segment.text === segments[index + half]?.text),
+  );
+}
+
+/**
+ * True when the payload presents a capture whose segments array is empty.
+ * Checked against the payload's own shape rather than zod issue internals,
+ * so the specific `empty_transcript` code cannot silently degrade into the
+ * generic `invalid_capture` when the schema evolves (#73).
+ */
+function presentsEmptySegments(payload: unknown): boolean {
+  if (typeof payload !== "object" || payload === null) return false;
+  const capture = (payload as { capture?: unknown }).capture;
+  if (typeof capture !== "object" || capture === null) return false;
+  const segments = (capture as { segments?: unknown }).segments;
+  return Array.isArray(segments) && segments.length === 0;
+}
+
 export function validatePublicContributionPayload(
   payload: unknown,
   now = new Date(),
 ): PublicContributionValidationResult {
   const parsed = contributionPayloadSchema.safeParse(payload);
   if (!parsed.success) {
+    if (presentsEmptySegments(payload)) {
+      return {
+        ok: false,
+        code: "empty_transcript",
+        message: "The transcript has no segments.",
+      };
+    }
     return {
       ok: false,
       code: "invalid_capture",
@@ -71,6 +135,18 @@ export function validatePublicContributionPayload(
       ok: false,
       code: "captured_at_in_future",
       message: "capturedAt is more than 10 minutes in the future.",
+    };
+  }
+
+  // Duplication is checked before the timeline: a duplicated sequence with
+  // restarted start times also fails monotonicity, and the duplication code
+  // is the more specific, actionable diagnosis of a capture-side bug.
+  if (isWholeTranscriptDuplication(capture.segments)) {
+    return {
+      ok: false,
+      code: "duplicate_transcript",
+      message:
+        "The transcript is a whole-transcript duplication; capture the video again.",
     };
   }
 

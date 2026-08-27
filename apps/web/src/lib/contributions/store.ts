@@ -1,10 +1,11 @@
 import type { Capture } from "@transcriptly/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, notInArray, sql } from "drizzle-orm";
 import type { Database } from "../../db/client";
 import {
   contributions,
   publicProfileConsents,
   publicPublications,
+  transcripts,
 } from "../../db/schema";
 import { transcriptContentHash } from "../captures/hash";
 import {
@@ -26,7 +27,9 @@ export class PublicConfirmationRequiredError extends Error {
 export type PublicContributionOutcome = {
   contributionId: string;
   videoId: string;
-  outcome: "published" | "contributed" | "unchanged";
+  /** Canonical Video row id; the pruning seam, not part of the API contract. */
+  canonicalVideoId: string;
+  outcome: "published" | "contributed" | "replaced" | "unchanged";
   publicationId: string;
   currentTranscriptId: string;
 };
@@ -44,11 +47,17 @@ export async function getPublicConsent(
 }
 
 /**
- * Stores the first public contribution atomically. Publication selection is
- * intentionally first-valid-capture-wins in #64; replacement ordering belongs
- * to #73 and must not be smuggled into this transaction.
+ * Repeated public contributions converge on one current Public Publication
+ * per video (#73). Ordering is the server-received sequence: the per-video
+ * advisory lock serializes transactions, so the last transaction to acquire
+ * the lock commits the current version. No client timestamp participates in
+ * the decision.
+ *
+ * Module-private transaction seam: contributePublicly is the only entry
+ * point. If a store-level test ever needs to call this directly, re-export
+ * it then - not before.
  */
-export async function storePublicContribution(
+async function storePublicContribution(
   db: Database,
   userId: string,
   capture: Capture,
@@ -120,9 +129,46 @@ export async function storePublicContribution(
         id: publicPublications.id,
         currentTranscriptId: publicPublications.currentTranscriptId,
       });
-    const insertedPublication = insertedPublications[0];
-    const [publication] = insertedPublication
-      ? [insertedPublication]
+
+    // First publication for the video: nothing to replace.
+    if (insertedPublications[0]) {
+      return {
+        contributionId: existingContribution.id,
+        publicationId: insertedPublications[0].id,
+        currentTranscriptId: insertedPublications[0].currentTranscriptId,
+        canonicalVideoId: videoId,
+        videoId: capture.source.videoId,
+        outcome: "published",
+      };
+    }
+
+    // Latest qualified capture wins: swap the current Transcript (and the
+    // attribution to its contributor) whenever the content hash differs. A
+    // reactivating replacement also restores `active = true` so a video
+    // unpublished by a future withdrawal can be republished. An identical
+    // content hash is idempotent: the Publication stays untouched.
+    const updatedPublications = await tx
+      .update(publicPublications)
+      .set({
+        currentTranscriptId: transcriptId,
+        contributionId: existingContribution.id,
+        active: true,
+        publishedAt: sql`now()`,
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(publicPublications.videoId, videoId),
+          ne(publicPublications.currentTranscriptId, transcriptId),
+        ),
+      )
+      .returning({
+        id: publicPublications.id,
+        currentTranscriptId: publicPublications.currentTranscriptId,
+      });
+
+    const [publication] = updatedPublications[0]
+      ? [updatedPublications[0]]
       : await tx
           .select({
             id: publicPublications.id,
@@ -137,12 +183,74 @@ export async function storePublicContribution(
       contributionId: existingContribution.id,
       publicationId: publication.id,
       currentTranscriptId: publication.currentTranscriptId,
+      canonicalVideoId: videoId,
       videoId: capture.source.videoId,
-      outcome: insertedPublication
-        ? "published"
+      outcome: updatedPublications[0]
+        ? "replaced"
         : insertedContribution
           ? "contributed"
           : "unchanged",
     };
   });
+}
+
+/**
+ * Remove older Transcript content for a video once the new current
+ * Publication is durable (#73). Only unreferenced rows are deleted - the
+ * current Transcript of any remaining Publication row (including an
+ * inactive one) is retained. Pruning runs after the transaction commits and
+ * must never fail the contribution itself.
+ */
+export async function pruneUnreferencedTranscripts(
+  db: Database,
+  canonicalVideoId: string,
+): Promise<number> {
+  const referenced = db
+    .select({ id: publicPublications.currentTranscriptId })
+    .from(publicPublications)
+    .where(eq(publicPublications.videoId, canonicalVideoId));
+  const deleted = await db
+    .delete(transcripts)
+    .where(
+      and(
+        eq(transcripts.videoId, canonicalVideoId),
+        notInArray(transcripts.id, referenced),
+      ),
+    )
+    .returning({ id: transcripts.id });
+  return deleted.length;
+}
+
+/**
+ * The route-facing entry point: commit the latest-qualified contribution,
+ * then prune. A pruning failure is logged, never surfaced to the client -
+ * the contribution itself is already durable.
+ */
+export async function contributePublicly(
+  db: Database,
+  userId: string,
+  capture: Capture,
+  capturedAt: Date,
+  confirmPublicProfile: boolean,
+): Promise<PublicContributionOutcome> {
+  const result = await storePublicContribution(
+    db,
+    userId,
+    capture,
+    capturedAt,
+    confirmPublicProfile,
+  );
+  try {
+    await pruneUnreferencedTranscripts(db, result.canonicalVideoId);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "transcript_prune_failed",
+        videoId: result.videoId,
+        canonicalVideoId: result.canonicalVideoId,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+  return result;
 }

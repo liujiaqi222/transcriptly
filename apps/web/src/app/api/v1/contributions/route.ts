@@ -6,10 +6,13 @@ import { auth } from "@/lib/auth/auth";
 import { errorResponse } from "@/lib/captures/response";
 import { readJsonBody } from "@/lib/captures/validation";
 import {
+  contributePublicly,
   PublicConfirmationRequiredError,
-  storePublicContribution,
 } from "@/lib/contributions/store";
-import { validatePublicContributionPayload } from "@/lib/contributions/validation";
+import {
+  isStructuralRejection,
+  validatePublicContributionPayload,
+} from "@/lib/contributions/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -50,22 +53,16 @@ export async function POST(request: Request): Promise<Response> {
   }
   const validated = validatePublicContributionPayload(body.payload);
   if (!validated.ok) {
-    return errorResponse(
-      validated.code === "invalid_timeline" ||
-        validated.code === "target_video_mismatch"
-        ? 422
-        : 400,
-      {
-        code: validated.code,
-        message: validated.message,
-        retryable: false,
-        requestId,
-      },
-    );
+    return errorResponse(isStructuralRejection(validated.code) ? 422 : 400, {
+      code: validated.code,
+      message: validated.message,
+      retryable: false,
+      requestId,
+    });
   }
 
   try {
-    const result = await storePublicContribution(
+    const result = await contributePublicly(
       getDatabase(),
       session.user.id,
       validated.capture,

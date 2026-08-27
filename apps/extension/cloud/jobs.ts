@@ -35,7 +35,13 @@ export interface CloudReceipt {
   contributionId?: string;
   /** Legacy private receipt retained so existing IndexedDB records still load. */
   libraryItemId?: string;
-  outcome: "published" | "contributed" | "unchanged" | "created" | "updated";
+  outcome:
+    | "published"
+    | "contributed"
+    | "replaced"
+    | "unchanged"
+    | "created"
+    | "updated";
   /** ISO timestamp of the successful upload. */
   contributedAt?: string;
   /** Legacy timestamp retained for pre-#64 receipts. */

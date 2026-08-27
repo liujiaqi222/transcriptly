@@ -19,7 +19,7 @@ import type {
 /** Successful upload parsed from the #28 response contract. */
 interface UploadSuccess {
   contributionId: string;
-  outcome: "published" | "contributed" | "unchanged";
+  outcome: "published" | "contributed" | "replaced" | "unchanged";
 }
 
 class UploadResponseError extends Error {
@@ -71,6 +71,7 @@ async function parseUploadResponse(response: Response): Promise<UploadSuccess> {
       parsed?.success === true &&
       (outcome === "published" ||
         outcome === "contributed" ||
+        outcome === "replaced" ||
         outcome === "unchanged") &&
       typeof contributionId === "string"
     ) {
@@ -191,7 +192,18 @@ export function createCloudUploadQueue(
         contributedAt: new Date(now()).toISOString(),
       });
     } catch (error) {
-      await store.completeFailed(job.id, classifyUploadFailure(error));
+      const failure = classifyUploadFailure(error);
+      // A whole-transcript duplication is provably a capture-side bug (#73):
+      // the server never sees one from a healthy capture pipeline. Log it
+      // loudly so the extension defect is noticed and fixed, not just filed
+      // as another permanent failure the user cannot retry.
+      if (failure.code === "duplicate_transcript") {
+        console.error(
+          "Transcriptly capture bug: the transcript was captured as a whole-transcript duplication. Please report this video at https://github.com/liujiaqi222/transcriptly/issues.",
+          { videoId: job.videoId, title: job.title, failure },
+        );
+      }
+      await store.completeFailed(job.id, failure);
     } finally {
       activeJobId = undefined;
     }
