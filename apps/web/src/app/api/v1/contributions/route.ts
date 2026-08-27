@@ -9,7 +9,10 @@ import {
   contributePublicly,
   PublicConfirmationRequiredError,
 } from "@/lib/contributions/store";
-import { validatePublicContributionPayload } from "@/lib/contributions/validation";
+import {
+  isStructuralRejection,
+  validatePublicContributionPayload,
+} from "@/lib/contributions/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -50,13 +53,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const validated = validatePublicContributionPayload(body.payload);
   if (!validated.ok) {
-    const structural = [
-      "invalid_timeline",
-      "target_video_mismatch",
-      "empty_transcript",
-      "duplicate_transcript",
-    ].includes(validated.code);
-    return errorResponse(structural ? 422 : 400, {
+    return errorResponse(isStructuralRejection(validated.code) ? 422 : 400, {
       code: validated.code,
       message: validated.message,
       retryable: false,

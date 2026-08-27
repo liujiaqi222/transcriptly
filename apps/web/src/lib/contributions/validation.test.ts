@@ -1,6 +1,9 @@
 import type { Capture } from "@transcriptly/schema";
 import { describe, expect, it } from "vitest";
-import { validatePublicContributionPayload } from "./validation";
+import {
+  isStructuralRejection,
+  validatePublicContributionPayload,
+} from "./validation";
 
 function capture(overrides: Partial<Capture> = {}): Capture {
   return {
@@ -157,5 +160,22 @@ describe("public contribution validation", () => {
       new Date("2026-08-26T08:01:00.000Z"),
     );
     expect(result.ok).toBe(true);
+  });
+
+  it("keeps payload-shape failures out of the structural 422 set", () => {
+    // Only provable structural faults reject with 422; malformed payloads
+    // stay 400s so the status mapping cannot drift from the code union.
+    for (const code of [
+      "invalid_capture",
+      "captured_at_in_future",
+      "unsupported_media_type",
+      "payload_too_large",
+    ]) {
+      expect(isStructuralRejection(code)).toBe(false);
+    }
+    expect(isStructuralRejection("target_video_mismatch")).toBe(true);
+    expect(isStructuralRejection("empty_transcript")).toBe(true);
+    expect(isStructuralRejection("invalid_timeline")).toBe(true);
+    expect(isStructuralRejection("duplicate_transcript")).toBe(true);
   });
 });

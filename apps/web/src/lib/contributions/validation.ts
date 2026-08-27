@@ -15,12 +15,34 @@ const contributionPayloadSchema = z.strictObject({
   confirmPublicProfile: z.literal(true).optional(),
 });
 
+/**
+ * Objective, provable structural faults (#73). This map is the single
+ * source of truth: a key added here joins the rejection-code union and the
+ * route's 422 mapping together, so they cannot drift apart.
+ */
+const STRUCTURAL_REJECTIONS = {
+  target_video_mismatch: true,
+  empty_transcript: true,
+  invalid_timeline: true,
+  duplicate_transcript: true,
+} as const;
+
+export type StructuralRejectionCode = keyof typeof STRUCTURAL_REJECTIONS;
+
 export type PublicContributionValidationErrorCode =
   | CaptureValidationError["code"]
-  | "target_video_mismatch"
-  | "empty_transcript"
-  | "invalid_timeline"
-  | "duplicate_transcript";
+  | StructuralRejectionCode;
+
+/**
+ * Structural faults reject with 422; every other validation failure is a
+ * malformed payload (400). Single source of truth for both the code union
+ * and the API status mapping (#73).
+ */
+export function isStructuralRejection(
+  code: string,
+): code is StructuralRejectionCode {
+  return code in STRUCTURAL_REJECTIONS;
+}
 
 export type ValidPublicContribution = {
   ok: true;
@@ -64,11 +86,18 @@ function isWholeTranscriptDuplication(
   );
 }
 
-function reportsEmptySegments(error: z.ZodError): boolean {
-  return error.issues.some(
-    (issue) =>
-      issue.code === "too_small" && issue.path.join(".") === "capture.segments",
-  );
+/**
+ * True when the payload presents a capture whose segments array is empty.
+ * Checked against the payload's own shape rather than zod issue internals,
+ * so the specific `empty_transcript` code cannot silently degrade into the
+ * generic `invalid_capture` when the schema evolves (#73).
+ */
+function presentsEmptySegments(payload: unknown): boolean {
+  if (typeof payload !== "object" || payload === null) return false;
+  const capture = (payload as { capture?: unknown }).capture;
+  if (typeof capture !== "object" || capture === null) return false;
+  const segments = (capture as { segments?: unknown }).segments;
+  return Array.isArray(segments) && segments.length === 0;
 }
 
 export function validatePublicContributionPayload(
@@ -77,7 +106,7 @@ export function validatePublicContributionPayload(
 ): PublicContributionValidationResult {
   const parsed = contributionPayloadSchema.safeParse(payload);
   if (!parsed.success) {
-    if (reportsEmptySegments(parsed.error)) {
+    if (presentsEmptySegments(payload)) {
       return {
         ok: false,
         code: "empty_transcript",
