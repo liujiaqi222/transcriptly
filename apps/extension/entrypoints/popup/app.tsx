@@ -30,7 +30,6 @@ import type {
   CaptureResponseMessage,
   CloudJobRetryStatus,
   CloudSaveEnqueueStatus,
-  CloudSessionStatus,
 } from "@/shared/messages";
 
 export interface PopupTab {
