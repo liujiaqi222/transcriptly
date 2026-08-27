@@ -1,7 +1,9 @@
 import { ArrowRight, Check } from "lucide-react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { LogoMark } from "@/components/logo-mark";
 import { getDatabase } from "@/db/client";
+import { auth } from "@/lib/auth/auth";
 import { listPublicTranscripts } from "@/lib/publications/queries";
 import { searchPublicArchive } from "@/lib/search/search";
 
@@ -307,9 +309,10 @@ export default async function Home({
   const { q } = await searchParams;
   const query = q?.trim().slice(0, 200) ?? "";
   const db = getDatabase();
-  const [publicItems, search] = await Promise.all([
+  const [publicItems, search, session] = await Promise.all([
     listPublicTranscripts(db, 4),
     query ? searchPublicArchive(db, query) : Promise.resolve(null),
+    auth.api.getSession({ headers: await headers() }),
   ]);
 
   return (
@@ -319,9 +322,22 @@ export default async function Home({
           className={`${pageWidth} flex min-h-[72px] items-center gap-8 max-sm:min-h-16 max-sm:gap-3`}
         >
           <Brand />
-          <div className="ml-auto">
+          <nav
+            aria-label="Account"
+            className="ml-auto flex items-center gap-6 max-sm:gap-4"
+          >
+            <a
+              className={`text-sm font-bold text-[#0872b9] underline-offset-4 hover:underline ${focusRing}`}
+              href={
+                session
+                  ? "/contributions"
+                  : "/sign-in?callbackURL=%2Fcontributions"
+              }
+            >
+              {session ? "My contributions" : "Sign in"}
+            </a>
             <CtaPair compact />
-          </div>
+          </nav>
         </div>
       </header>
 

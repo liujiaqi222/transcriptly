@@ -7,7 +7,7 @@ describe("safeCallbackUrl", () => {
     expect(safeCallbackUrl("/?q=agents")).toBe("/?q=agents");
   });
 
-  it("falls back to the saved list for missing or unsafe values", () => {
+  it("falls back to the home page for missing or unsafe values", () => {
     expect(safeCallbackUrl(undefined)).toBe("/");
     expect(safeCallbackUrl(null)).toBe("/");
     expect(safeCallbackUrl("")).toBe("/");
