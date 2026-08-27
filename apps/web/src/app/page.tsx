@@ -45,7 +45,14 @@ export default async function Home({
 
   return (
     <LandingPage
-      signedIn={Boolean(session)}
+      user={
+        session
+          ? {
+              name: session.user.name,
+              image: session.user.image ?? null,
+            }
+          : null
+      }
       query={query}
       publicItems={publicItems}
       search={search}

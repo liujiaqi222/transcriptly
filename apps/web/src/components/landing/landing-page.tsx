@@ -12,19 +12,19 @@ import {
 } from "./sections";
 
 export function LandingPage({
-  signedIn,
+  user,
   query,
   publicItems,
   search,
 }: {
-  signedIn: boolean;
+  user: { name: string; image: string | null } | null;
   query: string;
   publicItems: PublicTranscriptSummary[];
   search: SearchResult | null;
 }) {
   return (
     <main className="min-w-0 overflow-clip bg-[#fffdf8] text-[#202124] selection:bg-[#f5c451] selection:text-[#202124]">
-      <LandingHeader signedIn={signedIn} />
+      <LandingHeader user={user} />
       <HeroSection />
       <BatchSection />
       <LocalFirstSection />

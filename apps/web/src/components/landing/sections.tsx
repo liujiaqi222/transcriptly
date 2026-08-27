@@ -16,7 +16,12 @@ import {
   SectionHeading,
 } from "./shared";
 
-export function LandingHeader({ signedIn }: { signedIn: boolean }) {
+/** Signed-in identity, rendered as the account entry; null when signed out. */
+export function LandingHeader({
+  user,
+}: {
+  user: { name: string; image: string | null } | null;
+}) {
   return (
     <header className="sticky top-0 z-20 border-b border-[#e2e8f0] bg-[#fffdf8]">
       <div
@@ -27,16 +32,42 @@ export function LandingHeader({ signedIn }: { signedIn: boolean }) {
           aria-label="Account"
           className="ml-auto flex items-center gap-6 max-sm:gap-4"
         >
-          <a
-            className={`text-sm font-bold text-[#0872b9] underline-offset-4 hover:underline ${focusRing}`}
-            href={
-              signedIn
-                ? "/contributions"
-                : "/sign-in?callbackURL=%2Fcontributions"
-            }
-          >
-            {signedIn ? "My contributions" : "Sign in"}
-          </a>
+          {user ? (
+            <a
+              aria-label="My contributions"
+              className={`inline-flex min-h-10 items-center gap-2 rounded-full border border-[#e2e8f0] bg-white py-1 pr-3 pl-1 text-sm font-bold text-[#202124] transition-colors hover:border-[#cbd5e1] ${focusRing}`}
+              href="/contributions"
+            >
+              {user.image ? (
+                // biome-ignore lint/performance/noImgElement: remote account avatar, not page imagery.
+                <img
+                  alt=""
+                  className="h-8 w-8 rounded-full object-cover"
+                  height="32"
+                  referrerPolicy="no-referrer"
+                  src={user.image}
+                  width="32"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="grid h-8 w-8 place-items-center rounded-full bg-[#edf7ff] text-[13px] font-extrabold text-[#0872b9]"
+                >
+                  {user.name.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span className="max-w-[20ch] truncate max-sm:hidden">
+                {user.name}
+              </span>
+            </a>
+          ) : (
+            <a
+              className={`text-sm font-bold text-[#0872b9] underline-offset-4 hover:underline ${focusRing}`}
+              href="/sign-in?callbackURL=%2Fcontributions"
+            >
+              Sign in
+            </a>
+          )}
           <CtaPair compact />
         </nav>
       </div>

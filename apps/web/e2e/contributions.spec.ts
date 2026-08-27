@@ -501,9 +501,14 @@ test("serves My contributions at /contributions with a session-gated entry (#74)
     },
   ]);
   await page.goto("/");
-  await expect(
-    page.getByRole("link", { name: "My contributions" }),
-  ).toHaveAttribute("href", "/contributions");
+  const accountEntry = page.getByRole("link", {
+    name: "My contributions",
+  });
+  await expect(accountEntry).toHaveAttribute("href", "/contributions");
+  // The entry shows the signed-in identity - avatar plus display name -
+  // not a generic label.
+  await expect(page.getByText("Public Contributor")).toBeVisible();
+  await expect(accountEntry.locator("img")).toHaveCount(1);
 
   await page.goto("/contributions");
   await expect(
@@ -564,19 +569,24 @@ test("requires confirmation before removing a contribution in the UI (#74)", asy
     },
   ]);
   await page.goto("/contributions");
-  const remove = page.getByRole("button", { name: "Remove contribution" });
+  const remove = page.getByRole("button", { name: "Remove" });
   await remove.click();
 
-  // The first click only arms the confirmation and explains the stakes.
-  await expect(page.getByText(/If you are the only contributor/)).toBeVisible();
-  await page.getByRole("button", { name: "Keep it" }).click();
+  // The first click only opens the confirmation dialog and explains the
+  // stakes; Cancel closes it without changing anything.
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
   await expect(
-    page.getByText(/If you are the only contributor/),
-  ).not.toBeVisible();
+    dialog.getByText(/If you are the only contributor/),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).not.toBeVisible();
 
-  // The second click commits the withdrawal for the signed-in user only.
+  // The second explicit confirmation commits the withdrawal.
   await remove.click();
-  await page.getByRole("button", { name: "Yes, remove" }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Remove contribution" }).click();
+  await expect(dialog).not.toBeVisible();
   await expect(
     page.getByRole("link", { name: "Public archive E2E transcript" }),
   ).toHaveCount(0);
