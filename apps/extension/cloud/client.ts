@@ -21,13 +21,27 @@ export interface CloudClient {
    * Upload a normalized Capture to the cloud library.
    * Returns the raw Response so callers apply the #28 error contract.
    */
-  uploadCapture(capture: Capture): Promise<Response>;
+  uploadCapture(
+    capture: Capture,
+    options?: { confirmPublicProfile?: boolean },
+  ): Promise<Response>;
 }
 
 interface GetSessionResponse {
   user?: {
     email?: string;
+    name?: string;
+    image?: string | null;
   } | null;
+}
+
+interface ContributionStatusResponse {
+  success?: boolean;
+  data?: {
+    confirmed?: boolean;
+    displayName?: string;
+    avatarUrl?: string | null;
+  };
 }
 
 /**
@@ -48,17 +62,41 @@ export function createCloudClient(
   return {
     async getSession(): Promise<CloudSessionStatus> {
       try {
-        const response = await request("/api/auth/get-session", {
-          method: "GET",
-        });
+        // Both requests run in parallel: the contribution status never gates
+        // the session itself, so a slow or failing status endpoint must not
+        // delay the popup opening (#64).
+        const [response, contributionStatus] = await Promise.all([
+          request("/api/auth/get-session", { method: "GET" }),
+          request("/api/v1/contributions/status", { method: "GET" })
+            .then(async (statusResponse) =>
+              statusResponse.ok
+                ? ((await statusResponse.json()) as ContributionStatusResponse)
+                : undefined,
+            )
+            .catch(() => undefined),
+        ]);
         if (!response.ok) {
           return { status: "unavailable" };
         }
         const body = (await response.json()) as GetSessionResponse | null;
         const email = body?.user?.email;
-        return email
-          ? { status: "signed-in", email }
-          : { status: "signed-out" };
+        if (!email) return { status: "signed-out" };
+        // A failed status request still leaves a signed-in session usable for
+        // local saves. Public contribution stays unproven until the endpoint
+        // answers, so the popup shows the disclosure again (idempotent).
+        if (!contributionStatus?.data) {
+          return { status: "signed-in", email };
+        }
+        return {
+          status: "signed-in",
+          email,
+          displayName:
+            contributionStatus.data.displayName ?? body?.user?.name ?? email,
+          avatarUrl:
+            contributionStatus.data.avatarUrl ?? body?.user?.image ?? null,
+          publicContributionConfirmed:
+            contributionStatus.data.confirmed === true,
+        };
       } catch {
         return { status: "unavailable" };
       }
@@ -77,11 +115,17 @@ export function createCloudClient(
       }
     },
 
-    async uploadCapture(capture: Capture): Promise<Response> {
-      return request("/api/v1/captures", {
+    async uploadCapture(capture, options): Promise<Response> {
+      return request("/api/v1/contributions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(capture),
+        body: JSON.stringify({
+          capture,
+          targetVideoId: capture.source.videoId,
+          ...(options?.confirmPublicProfile
+            ? { confirmPublicProfile: true }
+            : {}),
+        }),
       });
     },
   };

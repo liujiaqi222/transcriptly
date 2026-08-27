@@ -18,6 +18,10 @@ Single-context layout: root `CONTEXT.md` + `docs/adr/`, created lazily by `/doma
 
 When changing batch discovery, selection lifecycle, or tab capture, preserve source and target identity. See `docs/agents/youtube-spa-safety.md`.
 
+### Extension origin boundary
+
+When adding or changing extension-facing web API routes, or debugging extension reads that silently return nothing while writes succeed, apply the Origin rules: background GETs carry no Origin under host permissions, mutations stay strict. See `docs/agents/extension-origin-boundary.md`.
+
 ### Visual design
 
 Use the shared ink, blue-interaction, and yellow-CTA palette plus the 4px spacing rhythm for extension surfaces. See `docs/agents/visual-design.md`.

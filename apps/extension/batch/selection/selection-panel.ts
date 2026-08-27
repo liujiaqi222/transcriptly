@@ -1,7 +1,7 @@
 import {
   ArrowRight,
-  Cloud,
   createElement,
+  Globe2,
   type IconNode,
   RefreshCw,
   X,
@@ -89,7 +89,7 @@ function addStyles() {
     #${ROOT_ID} .dest input { width: 16px; height: 16px; margin: 0; accent-color: #1b90ed; }
     #${ROOT_ID} .dest svg { width: 16px; height: 16px; color: #1b90ed; }
     #${ROOT_ID} .dest.disabled { color: #94a3b8; cursor: default; }
-    #${ROOT_ID} .hint { flex: 0 0 100%; color: #94a3b8; font-size: 9px; }
+    #${ROOT_ID} .hint { flex: 0 0 100%; color: #94a3b8; font-size: 11px; }
     #${ROOT_ID} .start-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 24px); min-height: 36px; margin: 4px 12px 12px; padding: 8px 12px; border: 0; border-radius: 8px; background: #202124; color: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
     #${ROOT_ID} .start-button:hover { background: #111827; }
     #${ROOT_ID} .start-button:disabled { background: #e2e8f0; color: #64748b; cursor: default; }
@@ -132,7 +132,7 @@ export function createSelectionPanel(
       </div>
       <div class="destinations">
         <label class="dest"><input type="checkbox" data-destination="local" checked>Local</label>
-        <label class="dest" data-cloud-label><input type="checkbox" data-destination="cloud">${icon(Cloud)}Cloud</label>
+        <label class="dest" data-cloud-label><input type="checkbox" data-destination="cloud">${icon(Globe2)}Public archive</label>
         <div class="selection-actions">
           <button type="button" class="text-action" data-action="select-all">Select all</button>
           <button type="button" class="text-action clear" data-action="clear">Clear</button>
@@ -256,16 +256,16 @@ export function createSelectionPanel(
       startButton.disabled = starting;
       startLabel.textContent = starting ? "Starting…" : "Start batch";
     },
-    setCloudSession(signedIn, checked) {
+    setCloudSession(publicAvailable, checked) {
       if (cloudInput) {
-        cloudInput.disabled = !signedIn;
-        cloudInput.checked = signedIn && checked;
+        cloudInput.disabled = !publicAvailable;
+        cloudInput.checked = publicAvailable && checked;
       }
-      cloudLabel?.classList.toggle("disabled", !signedIn);
+      cloudLabel?.classList.toggle("disabled", !publicAvailable);
       if (cloudHint) {
-        cloudHint.textContent = signedIn
+        cloudHint.textContent = publicAvailable
           ? ""
-          : "Sign in from the popup to enable";
+          : "Sign in and confirm public contribution from the popup to enable";
       }
     },
     showToast,

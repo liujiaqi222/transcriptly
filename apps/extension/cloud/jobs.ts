@@ -31,11 +31,15 @@ export type CloudFailureKind = "network" | "retryable" | "auth" | "permanent";
 
 export interface CloudReceipt {
   videoId: string;
-  /** Library Item identity from the upload response (#28 contract). */
-  libraryItemId: string;
-  outcome: "created" | "updated" | "unchanged";
+  /** Public Contribution identity from the upload response (#64 contract). */
+  contributionId?: string;
+  /** Legacy private receipt retained so existing IndexedDB records still load. */
+  libraryItemId?: string;
+  outcome: "published" | "contributed" | "unchanged" | "created" | "updated";
   /** ISO timestamp of the successful upload. */
-  savedAt: string;
+  contributedAt?: string;
+  /** Legacy timestamp retained for pre-#64 receipts. */
+  savedAt?: string;
 }
 
 export interface CloudFailure {
@@ -54,6 +58,8 @@ export interface CloudJobRecord {
   state: CloudJobState;
   /** Present while pending/uploading/failed; removed after success. */
   capture?: Capture;
+  /** Persisted with the first public contribution if disclosure was accepted. */
+  confirmPublicProfile?: boolean;
   receipt?: CloudReceipt;
   failure?: CloudFailure;
   /** Epoch milliseconds; FIFO order for pending jobs. */
@@ -87,7 +93,10 @@ export interface CloudJobStore {
    * videoId is superseded (payload replaced); an uploading Job is left alone
    * and the new Capture is queued behind it (#35 AC).
    */
-  enqueue(capture: Capture): Promise<CloudJobRecord>;
+  enqueue(
+    capture: Capture,
+    options?: { confirmPublicProfile?: boolean },
+  ): Promise<CloudJobRecord>;
   /** Read one Job by id, including its Capture payload. */
   get(jobId: string): Promise<CloudJobRecord | undefined>;
   /** Atomically claim the oldest pending Job for upload. */
@@ -202,7 +211,7 @@ export function createCloudJobStore(
   }
 
   return {
-    async enqueue(capture) {
+    async enqueue(capture, enqueueOptions) {
       return withStore("readwrite", async (store) => {
         const videoId = capture.source.videoId;
         const existing = await findSupersedeable(store, videoId);
@@ -212,6 +221,9 @@ export function createCloudJobStore(
               ...existing,
               state: "pending",
               capture,
+              confirmPublicProfile:
+                enqueueOptions?.confirmPublicProfile === true ||
+                existing.confirmPublicProfile === true,
               title: capture.source.title,
               // Clear stale result/failure from the superseded attempt but
               // keep the original createdAt so FIFO position is preserved.
@@ -226,6 +238,8 @@ export function createCloudJobStore(
               title: capture.source.title,
               state: "pending",
               capture,
+              confirmPublicProfile:
+                enqueueOptions?.confirmPublicProfile === true || undefined,
               createdAt: timestamp,
               updatedAt: timestamp,
             };

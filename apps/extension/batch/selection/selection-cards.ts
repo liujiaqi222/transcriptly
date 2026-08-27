@@ -47,9 +47,9 @@ export function createCardLayer(options: {
   function badgeLabel(videoId: string): string {
     const info = model.savedInfo(videoId);
     if (!info) return "";
-    if (info.localSaved && info.cloudSaved) return "Saved";
+    if (info.localSaved && info.cloudSaved) return "Saved · Public";
     if (info.localSaved) return "Saved locally";
-    return "Saved to cloud";
+    return "Contributed publicly";
   }
 
   function updateBadges(card: Element, videoId: string) {

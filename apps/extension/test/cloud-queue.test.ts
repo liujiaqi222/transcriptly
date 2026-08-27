@@ -26,11 +26,11 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function successResponse(outcome: "created" | "updated" | "unchanged") {
+function successResponse(outcome: "published" | "contributed" | "unchanged") {
   return jsonResponse({
     success: true,
     data: {
-      libraryItemId: "item-1",
+      contributionId: "contribution-1",
       videoId: "abc12345678",
       outcome,
       currentCapturedAt: "2026-08-20T10:30:00.000Z",
@@ -75,7 +75,7 @@ describe("cloud upload queue", () => {
       now: () => nowMs,
       newId: () => crypto.randomUUID(),
     });
-    upload = vi.fn(async (_capture: Capture) => successResponse("created"));
+    upload = vi.fn(async (_capture: Capture) => successResponse("published"));
     queue = createCloudUploadQueue({
       store,
       client: { uploadCapture: upload },
@@ -102,7 +102,7 @@ describe("cloud upload queue", () => {
   }
 
   it("uploads an enqueued capture once and stores a lightweight receipt", async () => {
-    upload.mockResolvedValue(successResponse("updated"));
+    upload.mockResolvedValue(successResponse("contributed"));
 
     await queue.enqueue(captureFor("abc12345678"));
     await waitForSaved("abc12345678");
@@ -112,9 +112,9 @@ describe("cloud upload queue", () => {
 
     const queueStatus = await queue.getStatus("abc12345678");
     expect(queueStatus.current?.receipt).toMatchObject({
-      libraryItemId: "item-1",
-      outcome: "updated",
-      savedAt: new Date(nowMs).toISOString(),
+      contributionId: "contribution-1",
+      outcome: "contributed",
+      contributedAt: new Date(nowMs).toISOString(),
     });
   });
 
@@ -189,7 +189,7 @@ describe("cloud upload queue", () => {
 
   it("marks 401 as auth: no replay, retry works after signing in again", async () => {
     upload.mockResolvedValueOnce(errorResponse(401, "unauthenticated"));
-    upload.mockResolvedValueOnce(successResponse("created"));
+    upload.mockResolvedValueOnce(successResponse("published"));
 
     const job = await queue.enqueue(captureFor("abc12345678"));
     await waitForFailed("abc12345678");
@@ -210,7 +210,7 @@ describe("cloud upload queue", () => {
     upload.mockImplementation(async (capture: Capture) => {
       started.push(capture.source.videoId);
       if (capture.source.videoId === "aaaaaaaaaaa") await firstGate.promise;
-      return successResponse("created");
+      return successResponse("published");
     });
 
     await queue.enqueue(captureFor("aaaaaaaaaaa"));
@@ -275,7 +275,7 @@ describe("cloud upload queue", () => {
     const gate = deferred<void>();
     upload.mockImplementation(async () => {
       await gate.promise;
-      return successResponse("created");
+      return successResponse("published");
     });
 
     await queue.enqueue(captureFor("abc12345678"));

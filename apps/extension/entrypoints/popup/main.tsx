@@ -31,7 +31,7 @@ import {
 import { Popup, type PopupDependencies } from "./app";
 import "./style.css";
 
-/** chrome.storage.local key for the remembered Cloud preference (#35). */
+/** Remember whether public contribution is selected for single captures. */
 const CLOUD_PREFERENCE_KEY = "cloud-save-enabled";
 
 const dependencies: PopupDependencies = {
@@ -116,10 +116,14 @@ const dependencies: PopupDependencies = {
     },
   },
   cloud: {
-    async enqueueCloudSave(capture: Capture): Promise<CloudSaveEnqueueStatus> {
+    async enqueueCloudSave(
+      capture: Capture,
+      options?: { confirmPublicProfile?: boolean },
+    ): Promise<CloudSaveEnqueueStatus> {
       const response = await browser.runtime.sendMessage({
         type: CLOUD_SAVE_ENQUEUE,
         capture,
+        confirmPublicProfile: options?.confirmPublicProfile,
       });
       return response as CloudSaveEnqueueStatus;
     },

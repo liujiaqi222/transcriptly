@@ -29,14 +29,16 @@ export default async function SignInPage({
         Transcriptly
       </a>
       <p className="mt-12 text-xs font-semibold tracking-[0.16em] text-zinc-500 uppercase">
-        Saved transcripts
+        Public contributions
       </p>
       <h1 className="mt-3 text-4xl font-bold tracking-[-0.05em] text-zinc-950">
-        Sign in to your transcripts.
+        Sign in to contribute.
       </h1>
       <p className="mt-4 text-base leading-7 text-zinc-600">
-        Your cloud captures are private to your account. Local Markdown saves
-        remain available without signing in.
+        Signing in lets you contribute transcripts to the public archive. Your
+        display name and optional avatar are shown with a public contribution;
+        your email is never published. Local Markdown saves remain available
+        without an account.
       </p>
       <SignInButtons callbackURL={callbackURL} />
       <p className="mt-6 text-xs leading-5 text-zinc-500">

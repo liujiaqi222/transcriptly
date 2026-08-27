@@ -21,7 +21,8 @@ possible.
 
 Transcriptly combines immediate single-video capture with batch collection from
 the YouTube page the user is already browsing. The same capture can remain a
-plain local Markdown file, become a private cloud library item, or both.
+plain local Markdown file, be explicitly contributed to the public archive, or
+both.
 
 ## Operating Context
 
@@ -34,7 +35,8 @@ session.
 
 - Single-video and batch capture must remain equally easy to discover.
 - Local Markdown is available without sign-in and remains enabled by default.
-- Cloud is optional, private, and requires a signed-in session.
+- Public contribution is optional, requires a signed-in session and one-time
+  disclosure, and never changes the outcome of an independent local save.
 - YouTube SPA navigation must never mix source or target video identity.
 - The popup is a compact browser-extension surface, not a destination app.
 
@@ -47,13 +49,15 @@ SaaS dashboard.
 ## Evidence on Hand
 
 The repository contains production popup, content-script batch selection, local
-save, cloud queue, and real Chrome MV3 end-to-end coverage.
+save, a durable public-contribution queue, and real Chrome MV3 end-to-end
+coverage.
 
 ## Product Principles
 
 - Capture first: the primary action is immediately obvious.
 - Stay out of the way: repeated use should feel lightweight.
-- Preserve ownership: local Markdown and cloud remain independent choices.
+- Preserve ownership: local Markdown and public contribution remain independent
+  choices.
 - Reveal complexity only when the current task requires it.
 - Keep every YouTube source and target identity explicit and safe.
 

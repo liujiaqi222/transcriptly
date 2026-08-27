@@ -255,7 +255,9 @@ describe("popup capture flow", () => {
     expect(footer).toBeTruthy();
     expect(content?.contains(footer ?? null)).toBe(false);
     expect(footer?.querySelector('[aria-label="Local"]')).toBeTruthy();
-    expect(footer?.querySelector('[aria-label="Cloud"]')).toBeTruthy();
+    expect(
+      footer?.querySelector('[aria-label="Contribute publicly"]'),
+    ).toBeTruthy();
     expect(
       (screen.getByRole("radio", { name: "Timeline" }) as HTMLInputElement)
         .checked,
@@ -740,6 +742,7 @@ describe("popup cloud saving", () => {
   function cloudHarness(
     options: {
       session?: "signed-in" | "signed-out";
+      publicProfileConfirmed?: boolean;
       storedPreference?: boolean;
       queueStatus?: import("../cloud/jobs").CloudQueueStatus;
       rememberedDirectory?: MemoryDirectory;
@@ -751,7 +754,14 @@ describe("popup cloud saving", () => {
     });
     harness.deps.account.getCloudSession = vi.fn(async () =>
       options.session === "signed-in"
-        ? { status: "signed-in" as const, email: "user@example.test" }
+        ? {
+            status: "signed-in" as const,
+            email: "user@example.test",
+            displayName: "Test User",
+            avatarUrl: null,
+            publicContributionConfirmed:
+              options.publicProfileConfirmed !== false,
+          }
         : { status: "signed-out" as const },
     );
     harness.deps.cloud.getCloudPreference = vi.fn(
@@ -767,10 +777,14 @@ describe("popup cloud saving", () => {
     const harness = cloudHarness({ session: "signed-out" });
     await captureSuccessfulPopup(harness);
 
-    const cloud = screen.getByLabelText("Cloud") as HTMLInputElement;
+    const cloud = screen.getByLabelText(
+      "Contribute publicly",
+    ) as HTMLInputElement;
     expect(cloud.disabled).toBe(true);
     expect(cloud.checked).toBe(false);
-    expect(screen.getByText("Sign in to save to cloud")).toBeTruthy();
+    expect(
+      screen.getByText("Sign in to contribute to the public archive"),
+    ).toBeTruthy();
   });
 
   it("forces the remembered preference back to off when signed out", async () => {
@@ -780,7 +794,9 @@ describe("popup cloud saving", () => {
     });
     await captureSuccessfulPopup(harness);
 
-    const cloud = screen.getByLabelText("Cloud") as HTMLInputElement;
+    const cloud = screen.getByLabelText(
+      "Contribute publicly",
+    ) as HTMLInputElement;
     expect(cloud.checked).toBe(false);
     expect(harness.deps.cloud.setCloudPreference).toHaveBeenCalledWith(false);
   });
@@ -789,13 +805,82 @@ describe("popup cloud saving", () => {
     const harness = cloudHarness({ session: "signed-in" });
     await captureSuccessfulPopup(harness);
 
-    const cloud = screen.getByLabelText("Cloud") as HTMLInputElement;
+    const cloud = screen.getByLabelText(
+      "Contribute publicly",
+    ) as HTMLInputElement;
     expect(cloud.disabled).toBe(false);
     fireEvent.click(cloud);
-    expect((screen.getByLabelText("Cloud") as HTMLInputElement).checked).toBe(
-      true,
-    );
+    expect(
+      (screen.getByLabelText("Contribute publicly") as HTMLInputElement)
+        .checked,
+    ).toBe(true);
     expect(harness.deps.cloud.setCloudPreference).toHaveBeenCalledWith(true);
+  });
+
+  it("requires the public disclosure once before enqueueing a contribution", async () => {
+    const directory = new MemoryDirectory("Notes");
+    const harness = cloudHarness({
+      session: "signed-in",
+      publicProfileConfirmed: false,
+      rememberedDirectory: directory,
+    });
+    await captureSuccessfulPopup(harness);
+
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+    expect(
+      screen.getByText(/this transcript, your display name \(Test User\)/),
+    ).toBeTruthy();
+
+    // The combined save stays disabled until the disclosure is accepted,
+    // so no enqueue can slip through unconfirmed.
+    const saveButton = screen.getByRole("button", {
+      name: "Save",
+    }) as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(true);
+    expect(harness.deps.cloud.enqueueCloudSave).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByLabelText("I understand this contribution will be public"),
+    );
+    expect(saveButton.disabled).toBe(false);
+    fireEvent.click(saveButton);
+    await waitFor(() =>
+      expect(harness.deps.cloud.enqueueCloudSave).toHaveBeenCalledWith(
+        capture,
+        { confirmPublicProfile: true },
+      ),
+    );
+  });
+
+  it("drops the accepted disclosure when Contribute publicly is toggled off", async () => {
+    const harness = cloudHarness({
+      session: "signed-in",
+      publicProfileConfirmed: false,
+    });
+    await captureSuccessfulPopup(harness);
+
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+    fireEvent.click(
+      screen.getByLabelText("I understand this contribution will be public"),
+    );
+    expect(
+      (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+    expect(
+      (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByLabelText(
+          "I understand this contribution will be public",
+        ) as HTMLInputElement
+      ).checked,
+    ).toBe(false);
   });
 
   it("restores the remembered cloud preference for signed-in users", async () => {
@@ -806,9 +891,10 @@ describe("popup cloud saving", () => {
     await captureSuccessfulPopup(harness);
 
     await waitFor(() => {
-      expect((screen.getByLabelText("Cloud") as HTMLInputElement).checked).toBe(
-        true,
-      );
+      expect(
+        (screen.getByLabelText("Contribute publicly") as HTMLInputElement)
+          .checked,
+      ).toBe(true);
     });
     expect(harness.deps.cloud.getCloudPreference).toHaveBeenCalled();
   });
@@ -839,12 +925,15 @@ describe("popup cloud saving", () => {
     };
 
     await captureSuccessfulPopup(harness);
-    fireEvent.click(screen.getByLabelText("Cloud"));
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText(/Saved to Notes\//)).toBeTruthy();
     expect(order).toEqual(["enqueue", "local"]);
-    expect(harness.deps.cloud.enqueueCloudSave).toHaveBeenCalledWith(capture);
+    expect(harness.deps.cloud.enqueueCloudSave).toHaveBeenCalledWith(
+      capture,
+      undefined,
+    );
   });
 
   it("saves locally without enqueueing cloud when Cloud is left off", async () => {
@@ -861,6 +950,44 @@ describe("popup cloud saving", () => {
     expect(harness.deps.cloud.enqueueCloudSave).not.toHaveBeenCalled();
   });
 
+  it("contributes publicly without a local save when Local is off", async () => {
+    const harness = cloudHarness({ session: "signed-in" });
+    await captureSuccessfulPopup(harness);
+
+    fireEvent.click(screen.getByLabelText("Local"));
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(harness.deps.cloud.enqueueCloudSave).toHaveBeenCalledWith(
+        capture,
+        undefined,
+      ),
+    );
+    // No remembered directory exists in this harness, so a local save
+    // attempt would open the folder picker and fail - it must not run.
+    expect(screen.queryByText(/Saved to /)).toBeNull();
+  });
+
+  it("keeps Save enabled without a folder only when a destination is selected", async () => {
+    const harness = cloudHarness({ session: "signed-in" });
+    await captureSuccessfulPopup(harness);
+
+    // Local off and public off: nothing to save to.
+    fireEvent.click(screen.getByLabelText("Local"));
+    expect(
+      (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    // Public alone is a complete destination even without a local saver.
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+    expect(
+      (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
   it("still saves locally when the cloud enqueue fails", async () => {
     const directory = new MemoryDirectory("Notes");
     const harness = cloudHarness({
@@ -869,15 +996,17 @@ describe("popup cloud saving", () => {
     });
     harness.deps.cloud.enqueueCloudSave = vi.fn(async () => ({
       ok: false as const,
-      message: "Could not queue the cloud save",
+      message: "Could not queue the public contribution",
     }));
 
     await captureSuccessfulPopup(harness);
-    fireEvent.click(screen.getByLabelText("Cloud"));
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText(/Saved to Notes\//)).toBeTruthy();
-    expect(screen.getByText(/Could not queue the cloud save/)).toBeTruthy();
+    expect(
+      screen.getByText(/Could not queue the public contribution/),
+    ).toBeTruthy();
   });
 
   it("shows the current video's saved receipt from the queueStatus", async () => {
@@ -891,9 +1020,9 @@ describe("popup cloud saving", () => {
           state: "saved",
           receipt: {
             videoId: "abc123",
-            libraryItemId: "item-1",
-            outcome: "created",
-            savedAt: "2026-08-21T10:00:00.000Z",
+            contributionId: "contribution-1",
+            outcome: "published",
+            contributedAt: "2026-08-21T10:00:00.000Z",
           },
         },
         failed: [],
@@ -902,7 +1031,7 @@ describe("popup cloud saving", () => {
     await captureSuccessfulPopup(harness);
 
     await waitFor(() =>
-      expect(screen.getByText("Saved to cloud (created)")).toBeTruthy(),
+      expect(screen.getByText("Contributed (published)")).toBeTruthy(),
     );
   });
 
@@ -928,7 +1057,9 @@ describe("popup cloud saving", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Cloud save failed: The upload was interrupted/),
+        screen.getByText(
+          /Public contribution failed: The upload was interrupted/,
+        ),
       ).toBeTruthy(),
     );
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -972,11 +1103,13 @@ describe("popup cloud saving", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "2 cloud saves failed" }),
+        screen.getByRole("button", {
+          name: "2 public contributions failed",
+        }),
       ).toBeTruthy(),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "2 cloud saves failed" }),
+      screen.getByRole("button", { name: "2 public contributions failed" }),
     );
 
     expect(screen.getByText("First failure")).toBeTruthy();

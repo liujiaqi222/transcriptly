@@ -10,7 +10,7 @@ interface CloudStatusPanelProps {
 }
 
 /**
- * Popup-side cloud status (#35, #36): the current video's Saving / Saved /
+ * Popup-side public contribution status (#35, #36, #64): the current video's
  * Failed state plus an expandable badge listing every failed Job with an
  * explicit Retry. Internal queue details stay hidden.
  */
@@ -25,7 +25,7 @@ export function CloudStatusPanel({
   const current = queueStatus?.current;
 
   return (
-    <section className="cloud-status" aria-label="Cloud save status">
+    <section className="cloud-status" aria-label="Public contribution status">
       {cloudError && (
         <p className="error-banner" role="alert">
           {cloudError}
@@ -40,7 +40,8 @@ export function CloudStatusPanel({
             aria-expanded={failedOpen}
             onClick={() => setFailedOpen((open) => !open)}
           >
-            {failed.length} cloud save{failed.length > 1 ? "s" : ""} failed
+            {failed.length} public contribution
+            {failed.length > 1 ? "s" : ""} failed
           </button>
           {failedOpen && (
             <ul className="cloud-failed-list">
@@ -63,22 +64,22 @@ export function CloudStatusPanel({
 
       {current?.state === "pending" && (
         <p className="cloud-saving" role="status">
-          Saving to cloud…
+          Contributing…
         </p>
       )}
       {current?.state === "uploading" && (
         <p className="cloud-saving" role="status">
-          Saving to cloud…
+          Contributing…
         </p>
       )}
       {current?.state === "saved" && current.receipt && (
         <p className="cloud-saved" role="status">
-          Saved to cloud ({current.receipt.outcome})
+          Contributed ({current.receipt.outcome})
         </p>
       )}
       {current?.state === "failed" && current.failure && (
         <div className="cloud-failed-current" role="alert">
-          <p>Cloud save failed: {current.failure.message}</p>
+          <p>Public contribution failed: {current.failure.message}</p>
           <RetryButton job={current} signedIn={signedIn} onRetry={onRetry} />
         </div>
       )}

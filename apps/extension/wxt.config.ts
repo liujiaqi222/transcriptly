@@ -36,7 +36,7 @@ export default defineConfig({
   manifest: {
     name: "Transcriptly",
     description:
-      "Capture YouTube transcripts to local Markdown and your private cloud library.",
+      "Capture YouTube transcripts to local Markdown or contribute them to the public archive.",
     // "tabs" is required for extension pages to read the active tab's
     // URL (watch-page / batch-source detection). WXT only adds it in dev
     // mode, which previously masked a production-only breakage.

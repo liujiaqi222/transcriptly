@@ -87,6 +87,10 @@ function itemState(
   return destination === "local" ? item.local : item.cloud;
 }
 
+function destinationLabel(destination: BatchDestination): string {
+  return destination === "cloud" ? "public" : "local";
+}
+
 function isRetryable(task: BatchTask, item: BatchItem): boolean {
   return task.destinations.some((destination) =>
     RETRYABLE_STATES.includes(itemState(item, destination)),
@@ -229,7 +233,7 @@ function BatchTaskDetail({
       const state = itemState(item, destination);
       return (
         <span key={destination} className={`chip chip-${state}`}>
-          {`${destination}: ${state}`}
+          {`${destinationLabel(destination)}: ${state}`}
         </span>
       );
     });
@@ -237,7 +241,7 @@ function BatchTaskDetail({
       const error = destination === "local" ? item.localError : item.cloudError;
       return error ? (
         <p key={destination} className="item-error">
-          {`${destination}: ${error}`}
+          {`${destinationLabel(destination)}: ${error}`}
         </p>
       ) : null;
     });
@@ -283,7 +287,7 @@ function BatchTaskDetail({
         <span className={`state state-${task.state}`}>{stateLabel(task)}</span>
         <span className="task-date">{formatTimestamp(task.createdAt)}</span>
         <span className="task-destinations">
-          {task.destinations.join(" + ")}
+          {task.destinations.map(destinationLabel).join(" + ")}
         </span>
       </div>
       <div

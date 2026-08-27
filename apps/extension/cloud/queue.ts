@@ -18,8 +18,8 @@ import type {
 
 /** Successful upload parsed from the #28 response contract. */
 interface UploadSuccess {
-  libraryItemId: string;
-  outcome: "created" | "updated" | "unchanged";
+  contributionId: string;
+  outcome: "published" | "contributed" | "unchanged";
 }
 
 class UploadResponseError extends Error {
@@ -35,7 +35,7 @@ class UploadResponseError extends Error {
 interface SuccessBody {
   success: true;
   data: {
-    libraryItemId?: unknown;
+    contributionId?: unknown;
     videoId?: unknown;
     outcome?: unknown;
   };
@@ -66,15 +66,15 @@ async function parseUploadResponse(response: Response): Promise<UploadSuccess> {
   if (response.ok) {
     const parsed = body as SuccessBody;
     const outcome = parsed?.data?.outcome;
-    const libraryItemId = parsed?.data?.libraryItemId;
+    const contributionId = parsed?.data?.contributionId;
     if (
       parsed?.success === true &&
-      (outcome === "created" ||
-        outcome === "updated" ||
+      (outcome === "published" ||
+        outcome === "contributed" ||
         outcome === "unchanged") &&
-      typeof libraryItemId === "string"
+      typeof contributionId === "string"
     ) {
-      return { libraryItemId, outcome };
+      return { contributionId, outcome };
     }
     throw new UploadResponseError(
       response.status,
@@ -106,7 +106,8 @@ export function classifyUploadFailure(error: unknown): CloudFailure {
       return {
         kind: "auth",
         code: error.code,
-        message: "Sign in to Transcriptly again, then retry the cloud save.",
+        message:
+          "Sign in to Transcriptly again, then retry the public contribution.",
         httpStatus: error.status,
       };
     }
@@ -141,7 +142,10 @@ export function classifyUploadFailure(error: unknown): CloudFailure {
 
 export interface CloudUploadQueue {
   /** Persist a Capture and start draining the queue. */
-  enqueue(capture: Capture): Promise<CloudJobRecord>;
+  enqueue(
+    capture: Capture,
+    options?: { confirmPublicProfile?: boolean },
+  ): Promise<CloudJobRecord>;
   /** Re-queue a failed Job and start draining the queue. */
   retry(jobId: string): Promise<CloudJobRecord | undefined>;
   getStatus(videoId?: string): Promise<CloudQueueStatus>;
@@ -174,13 +178,17 @@ export function createCloudUploadQueue(
     if (!job.capture) return;
     activeJobId = job.id;
     try {
-      const response = await client.uploadCapture(job.capture);
+      const response = job.confirmPublicProfile
+        ? await client.uploadCapture(job.capture, {
+            confirmPublicProfile: true,
+          })
+        : await client.uploadCapture(job.capture);
       const success = await parseUploadResponse(response);
       await store.completeSaved(job.id, {
         videoId: job.videoId,
-        libraryItemId: success.libraryItemId,
+        contributionId: success.contributionId,
         outcome: success.outcome,
-        savedAt: new Date(now()).toISOString(),
+        contributedAt: new Date(now()).toISOString(),
       });
     } catch (error) {
       await store.completeFailed(job.id, classifyUploadFailure(error));
@@ -204,8 +212,8 @@ export function createCloudUploadQueue(
   }
 
   return {
-    async enqueue(capture) {
-      const record = await store.enqueue(capture);
+    async enqueue(capture, enqueueOptions) {
+      const record = await store.enqueue(capture, enqueueOptions);
       void drain();
       return record;
     },

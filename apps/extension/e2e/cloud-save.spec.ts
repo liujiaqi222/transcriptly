@@ -34,7 +34,7 @@ interface ChromeRuntime {
 }
 
 /**
- * Minimal stand-in for the web app's auth + capture APIs. The dedicated e2e
+ * Minimal stand-in for the web app's auth + contribution APIs. The dedicated e2e
  * build (see global-setup.ts) talks to http://localhost:3999, which this
  * mock server owns for the duration of each test.
  */
@@ -69,13 +69,35 @@ function startMockWeb(options: { signedIn: boolean }) {
       return;
     }
 
-    if (request.method === "POST" && request.url === "/api/v1/captures") {
+    if (
+      request.method === "GET" &&
+      request.url === "/api/v1/contributions/status"
+    ) {
+      response.writeHead(options.signedIn ? 200 : 401, cors);
+      response.end(
+        JSON.stringify(
+          options.signedIn
+            ? {
+                success: true,
+                data: {
+                  confirmed: true,
+                  displayName: "E2E User",
+                  avatarUrl: null,
+                },
+              }
+            : { success: false },
+        ),
+      );
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/api/v1/contributions") {
       let body = "";
       request.on("data", (chunk: string) => {
         body += chunk;
       });
       request.on("end", () => {
-        const capture = JSON.parse(body);
+        const { capture } = JSON.parse(body);
         uploads.push({
           capture: {
             source: { videoId: capture.source.videoId },
@@ -87,10 +109,10 @@ function startMockWeb(options: { signedIn: boolean }) {
           JSON.stringify({
             success: true,
             data: {
-              libraryItemId: "lib-item-e2e",
+              contributionId: "contribution-e2e",
+              publicationId: "publication-e2e",
               videoId: capture.source.videoId,
-              outcome: "created",
-              currentCapturedAt: capture.capturedAt,
+              outcome: "published",
               processedAt: new Date().toISOString(),
             },
           }),
@@ -147,7 +169,7 @@ const capturePayload = {
   source: {
     videoId: "e2etestvid1",
     url: "https://www.youtube.com/watch?v=e2etestvid1",
-    title: "E2E Cloud Save",
+    title: "E2E Public Contribution",
     channelName: "Ship It Weekly",
     channelUrl: "https://www.youtube.com/@shipitweekly",
     description: "An episode.",
@@ -156,7 +178,7 @@ const capturePayload = {
   segments: [{ start: 0, text: "Hello from the e2e test." }],
 };
 
-test("cloud upload completes after the popup closes and leaves only a receipt", async () => {
+test("public contribution completes after the popup closes and leaves only a receipt", async () => {
   const web = startMockWeb({ signedIn: true });
   await web.start();
   const context = await launchExtension();
@@ -164,9 +186,10 @@ test("cloud upload completes after the popup closes and leaves only a receipt", 
     // The popup resolves the session through the background worker and
     // the real fetch + CORS path against the mock web app.
     const popup = await openPopup(context);
-    await expect(popup.getByText("user@example.test")).toBeVisible();
+    // The header shows the contributor display name; the email stays hidden.
+    await expect(popup.getByText("E2E User")).toBeVisible();
 
-    // Queue the cloud save through the same runtime message the popup uses,
+    // Queue the public contribution through the same runtime message the popup uses,
     // then close the popup immediately (#35 AC: the upload must survive it).
     await popup.evaluate(
       async ({ capture, messageType }) => {
@@ -196,7 +219,7 @@ test("cloud upload completes after the popup closes and leaves only a receipt", 
     interface CloudJobRecordShape {
       state: string;
       capture?: unknown;
-      receipt?: { libraryItemId: string; outcome: string };
+      receipt?: { contributionId: string; outcome: string };
     }
     const records = (await reopened.evaluate(async () => {
       const database = await new Promise((resolve, reject) => {
@@ -220,8 +243,8 @@ test("cloud upload completes after the popup closes and leaves only a receipt", 
     expect(record?.state).toBe("saved");
     expect(record?.capture).toBeUndefined();
     expect(record?.receipt).toMatchObject({
-      libraryItemId: "lib-item-e2e",
-      outcome: "created",
+      contributionId: "contribution-e2e",
+      outcome: "published",
     });
   } finally {
     await context.close();
@@ -239,7 +262,7 @@ test("signed-out popup never uploads a capture", async () => {
     // (the toggle lives in the capture view and stays unreachable).
     const popup = await openPopup(context);
     await expect(
-      popup.getByRole("button", { name: "Sign in to Transcriptly" }),
+      popup.getByRole("button", { name: "Sign in to contribute publicly" }),
     ).toBeVisible();
 
     // No capture upload request may happen from a signed-out popup session

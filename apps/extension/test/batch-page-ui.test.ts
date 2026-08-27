@@ -212,7 +212,11 @@ describe("batch page panel", () => {
 
   it("checks Cloud by default for signed-in users with the preference on", async () => {
     const runtime = createRuntime({
-      session: { status: "signed-in", email: "user@example.com" },
+      session: {
+        status: "signed-in",
+        email: "user@example.com",
+        publicContributionConfirmed: true,
+      },
       cloudPreference: true,
     });
     await mount(runtime);
@@ -232,7 +236,7 @@ describe("batch page panel", () => {
 
     const card = document.querySelector("yt-lockup-view-model") as HTMLElement;
     const badge = card.querySelector(".transcriptly-batch-badge");
-    expect(badge?.textContent).toBe("Saved");
+    expect(badge?.textContent).toBe("Saved · Public");
 
     firstCheck().click();
 
@@ -265,7 +269,11 @@ describe("batch page panel", () => {
 
   it("starts a batch, opens the manager page and resets the toolbar (#58)", async () => {
     const runtime = createRuntime({
-      session: { status: "signed-in", email: "user@example.com" },
+      session: {
+        status: "signed-in",
+        email: "user@example.com",
+        publicContributionConfirmed: true,
+      },
       cloudPreference: false,
       markdownFormat: "article",
     });

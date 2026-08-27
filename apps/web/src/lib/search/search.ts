@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import type { Database } from "../../db/client";
-import { canonicalVideos, libraryItems, segments } from "../../db/schema";
+import { canonicalVideos, publicPublications, segments } from "../../db/schema";
 
 /** Upper bound on matched segments returned for one query (#39). */
 export const SEARCH_HIT_LIMIT = 50;
@@ -90,24 +90,12 @@ type ContextRow = {
 };
 
 /**
- * Exact word/name search over the current user's private Library Items.
- *
- * Authorization is built in: rows are always scoped to `userId`, so another
- * user's private Segments never enter the result even when their text matches
- * exactly (#39). Query matching is selected by script:
- *
- * - `segments.search_vector @@ websearch_to_tsquery('simple', $q)` covers
- *   Latin word matches. `simple` keeps tokens exact (no stemming), so a word
- *   matches at token boundaries rather than as an arbitrary substring.
- * - A single Latin token also uses FTS prefix matching, so a partial name such
- *   as `Lovela` can match `Lovelace` without making `art` match `partial`.
- * - `segments.text ILIKE '%' || $escaped || '%'` covers CJK and mixed CJK/Latin
- *   substrings via the pg_trgm GIN index; the default FTS parser cannot segment
- *   CJK.
+ * Exact public search over active Publications only. Contributions, private
+ * Library Items, inactive publications, and non-current Transcript versions
+ * never enter this query.
  */
-export async function searchLibrary(
+export async function searchPublicArchive(
   db: Database,
-  userId: string,
   rawQuery: string,
 ): Promise<SearchResult> {
   const query = normalizeQuery(rawQuery);
@@ -137,21 +125,23 @@ export async function searchLibrary(
     })
     .from(segments)
     .innerJoin(
-      libraryItems,
-      eq(libraryItems.transcriptId, segments.transcriptId),
+      publicPublications,
+      eq(publicPublications.currentTranscriptId, segments.transcriptId),
     )
-    .innerJoin(canonicalVideos, eq(canonicalVideos.id, libraryItems.videoId))
-    .where(and(eq(libraryItems.userId, userId), searchPredicate))
+    .innerJoin(
+      canonicalVideos,
+      eq(canonicalVideos.id, publicPublications.videoId),
+    )
+    .where(and(eq(publicPublications.active, true), searchPredicate))
     .orderBy(
       desc(rank),
-      desc(libraryItems.capturedAt),
+      desc(publicPublications.publishedAt),
       asc(canonicalVideos.youtubeVideoId),
       asc(segments.position),
     )
     .limit(SEARCH_HIT_LIMIT);
 
   if (hits.length === 0) return { hits: [] };
-
   const windows = await fetchContextWindows(db, hits);
   return {
     hits: hits.map((hit) => ({

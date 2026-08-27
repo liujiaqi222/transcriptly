@@ -1,0 +1,97 @@
+import type { Capture } from "@transcriptly/schema";
+import { describe, expect, it } from "vitest";
+import { validatePublicContributionPayload } from "./validation";
+
+function capture(overrides: Partial<Capture> = {}): Capture {
+  return {
+    source: {
+      videoId: "abc12345678",
+      url: "https://www.youtube.com/watch?v=abc12345678",
+      title: "A complete transcript",
+      channelName: "Transcriptly Lab",
+      channelUrl: "https://www.youtube.com/@transcriptly",
+      description: "A public contribution fixture.",
+      durationSeconds: 120,
+    },
+    capturedAt: "2026-08-26T08:00:00.000Z",
+    segments: [
+      { start: 0, text: "First segment" },
+      { start: 60, text: "Second segment" },
+    ],
+    chapters: [{ start: 0, title: "Start" }],
+    ...overrides,
+  };
+}
+
+describe("public contribution validation", () => {
+  it("accepts a complete capture with matching target identity", () => {
+    const result = validatePublicContributionPayload(
+      {
+        capture: capture(),
+        targetVideoId: "abc12345678",
+        confirmPublicProfile: true,
+      },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a capture for a different target video", () => {
+    const result = validatePublicContributionPayload(
+      { capture: capture(), targetVideoId: "zzzzzzzzzzz" },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      code: "target_video_mismatch",
+    });
+  });
+
+  it("rejects unordered segment or chapter timelines", () => {
+    const unorderedSegments = validatePublicContributionPayload(
+      {
+        capture: capture({
+          segments: [
+            { start: 60, text: "Later" },
+            { start: 10, text: "Earlier" },
+          ],
+        }),
+        targetVideoId: "abc12345678",
+      },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    const unorderedChapters = validatePublicContributionPayload(
+      {
+        capture: capture({
+          chapters: [
+            { start: 40, title: "Later" },
+            { start: 20, title: "Earlier" },
+          ],
+        }),
+        targetVideoId: "abc12345678",
+      },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    expect(unorderedSegments).toMatchObject({
+      ok: false,
+      code: "invalid_timeline",
+    });
+    expect(unorderedChapters).toMatchObject({
+      ok: false,
+      code: "invalid_timeline",
+    });
+  });
+
+  it("rejects timeline entries beyond a known duration", () => {
+    const result = validatePublicContributionPayload(
+      {
+        capture: capture({
+          segments: [{ start: 121, text: "Outside the video" }],
+        }),
+        targetVideoId: "abc12345678",
+      },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    expect(result).toMatchObject({ ok: false, code: "invalid_timeline" });
+  });
+});

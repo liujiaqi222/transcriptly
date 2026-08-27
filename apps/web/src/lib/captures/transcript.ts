@@ -1,5 +1,3 @@
-import type { SavedItemDetail } from "./queries";
-
 /** Mirrors the extension's Markdown timestamp format: M:SS / H:MM:SS. */
 export function formatTimestamp(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
@@ -19,6 +17,11 @@ export type TranscriptBlock =
   | { kind: "chapter"; title: string }
   | { kind: "segment"; start: number; text: string };
 
+type TranscriptTimeline = {
+  segments: { start: number; text: string }[];
+  chapters: { start: number; title: string }[];
+};
+
 /**
  * Interleaves ordered Chapters before the first Segment at or after their
  * start time; trailing chapters after the last Segment are dropped. Same
@@ -27,7 +30,7 @@ export type TranscriptBlock =
 export function transcriptBlocks({
   segments,
   chapters,
-}: Pick<SavedItemDetail, "segments" | "chapters">): TranscriptBlock[] {
+}: TranscriptTimeline): TranscriptBlock[] {
   const blocks: TranscriptBlock[] = [];
   let chapterIndex = 0;
 
