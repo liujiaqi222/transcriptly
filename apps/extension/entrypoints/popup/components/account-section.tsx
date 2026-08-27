@@ -23,7 +23,7 @@ type AccountState =
   | { status: "checking" }
   | { status: "signed-out" }
   | { status: "signing-in" }
-  | { status: "signed-in"; email: string }
+  | { status: "signed-in"; email: string; displayName?: string }
   | { status: "error"; message: string };
 
 export function AccountSection({
@@ -39,12 +39,16 @@ export function AccountSection({
     onSessionChange?.(session);
     setState(
       session.status === "signed-in"
-        ? { status: "signed-in", email: session.email }
+        ? {
+            status: "signed-in",
+            email: session.email,
+            displayName: session.displayName,
+          }
         : session.status === "signed-out"
           ? { status: "signed-out" }
           : {
               status: "error",
-              message: "Could not reach the Transcriptly cloud.",
+              message: "Could not reach Transcriptly.",
             },
     );
     return session;
@@ -75,7 +79,11 @@ export function AccountSection({
         if (session.status === "signed-in") {
           clearInterval(pollRef.current);
           onSessionChange?.(session);
-          setState({ status: "signed-in", email: session.email });
+          setState({
+            status: "signed-in",
+            email: session.email,
+            displayName: session.displayName,
+          });
         }
       });
     }, pollIntervalMs);
@@ -94,7 +102,7 @@ export function AccountSection({
   }, [deps, onSessionChange]);
 
   return (
-    <section className="account" aria-label="Cloud account">
+    <section className="account" aria-label="Transcriptly account">
       {state.status === "checking" && (
         <p className="account-status" role="status">
           Checking sign-in…
@@ -105,7 +113,7 @@ export function AccountSection({
         <button
           type="button"
           className="account-action"
-          aria-label="Sign in to Transcriptly"
+          aria-label="Sign in to contribute publicly"
           onClick={() => void handleSignIn()}
         >
           <UserRound />
@@ -122,7 +130,7 @@ export function AccountSection({
       {state.status === "signed-in" && (
         <div className="account-signed-in">
           <span className="account-email" title={state.email}>
-            {state.email}
+            {state.displayName ?? state.email}
           </span>
           <button
             type="button"

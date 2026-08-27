@@ -3,18 +3,17 @@ import { safeCallbackUrl } from "./callback-url";
 
 describe("safeCallbackUrl", () => {
   it("keeps same-site relative paths", () => {
-    expect(safeCallbackUrl("/saved")).toBe("/saved");
-    expect(safeCallbackUrl("/saved?page=2")).toBe("/saved?page=2");
-    expect(safeCallbackUrl("/saved/waGRF_ZApfI")).toBe("/saved/waGRF_ZApfI");
+    expect(safeCallbackUrl("/videos/waGRF_ZApfI")).toBe("/videos/waGRF_ZApfI");
+    expect(safeCallbackUrl("/?q=agents")).toBe("/?q=agents");
   });
 
   it("falls back to the saved list for missing or unsafe values", () => {
-    expect(safeCallbackUrl(undefined)).toBe("/saved");
-    expect(safeCallbackUrl(null)).toBe("/saved");
-    expect(safeCallbackUrl("")).toBe("/saved");
-    expect(safeCallbackUrl("https://evil.example/phish")).toBe("/saved");
-    expect(safeCallbackUrl("//evil.example")).toBe("/saved");
-    expect(safeCallbackUrl("/\\evil.example")).toBe("/saved");
-    expect(safeCallbackUrl("javascript:alert(1)")).toBe("/saved");
+    expect(safeCallbackUrl(undefined)).toBe("/");
+    expect(safeCallbackUrl(null)).toBe("/");
+    expect(safeCallbackUrl("")).toBe("/");
+    expect(safeCallbackUrl("https://evil.example/phish")).toBe("/");
+    expect(safeCallbackUrl("//evil.example")).toBe("/");
+    expect(safeCallbackUrl("/\\evil.example")).toBe("/");
+    expect(safeCallbackUrl("javascript:alert(1)")).toBe("/");
   });
 });

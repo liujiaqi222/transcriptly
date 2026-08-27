@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { getAuthEnv } from "@/env/server";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Transcriptly",
-  description: "Your private YouTube transcript library.",
+  metadataBase: new URL(getAuthEnv().BETTER_AUTH_URL),
+  title: "Transcriptly — Turn YouTube into a knowledge base",
+  description:
+    "Capture YouTube transcripts in batch and keep them locally as portable Markdown.",
 };
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">

@@ -92,7 +92,11 @@ function createHarness(
     },
     getCloudSession: async (): Promise<CloudSessionStatus> =>
       options.signedIn
-        ? { status: "signed-in", email: "user@example.com" }
+        ? {
+            status: "signed-in",
+            email: "user@example.com",
+            publicContributionConfirmed: true,
+          }
         : { status: "signed-out" },
     openManager,
   });

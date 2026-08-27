@@ -30,11 +30,22 @@ describe("cloud client", () => {
   });
 
   it("reports a signed-in session with the user email", async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
+    // Fresh Response per call: parallel requests each consume their own body.
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation((input) => {
+      const url = new URL(
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url,
+      ).pathname;
+      if (url.endsWith("/api/v1/contributions/status")) {
+        return Promise.resolve(jsonResponse({ success: true }));
+      }
+      return Promise.resolve(
         jsonResponse({ user: { email: "user@example.test" } }),
       );
+    });
 
     const client = createCloudClient(origin, fetchImpl);
     await expect(client.getSession()).resolves.toEqual({
@@ -48,10 +59,60 @@ describe("cloud client", () => {
     );
   });
 
+  it("loads the one-time public contribution status for a signed-in user", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          user: {
+            email: "user@example.test",
+            name: "Public Name",
+            image: "https://example.test/avatar.png",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: {
+            confirmed: true,
+            displayName: "Public Name",
+            avatarUrl: "https://example.test/avatar.png",
+          },
+        }),
+      );
+
+    await expect(
+      createCloudClient(origin, fetchImpl).getSession(),
+    ).resolves.toEqual({
+      status: "signed-in",
+      email: "user@example.test",
+      displayName: "Public Name",
+      avatarUrl: "https://example.test/avatar.png",
+      publicContributionConfirmed: true,
+    });
+  });
+
+  it("keeps the session signed-in when the contribution status fails", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({ user: { email: "user@example.test" } }),
+      )
+      .mockRejectedValue(new TypeError("status endpoint down"));
+
+    await expect(
+      createCloudClient(origin, fetchImpl).getSession(),
+    ).resolves.toEqual({
+      status: "signed-in",
+      email: "user@example.test",
+    });
+  });
+
   it("reports signed-out when the website has no session", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(jsonResponse(null));
+      .mockImplementation(() => Promise.resolve(jsonResponse(null)));
 
     const client = createCloudClient(origin, fetchImpl);
     await expect(client.getSession()).resolves.toEqual({
@@ -102,12 +163,15 @@ describe("cloud client", () => {
     await client.uploadCapture(capture);
 
     expect(fetchImpl).toHaveBeenCalledWith(
-      "http://localhost:3000/api/v1/captures",
+      "http://localhost:3000/api/v1/contributions",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(capture),
+        body: JSON.stringify({
+          capture,
+          targetVideoId: capture.source.videoId,
+        }),
       }),
     );
   });

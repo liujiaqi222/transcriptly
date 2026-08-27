@@ -4,22 +4,10 @@ import type { Database } from "../../db/client";
 import {
   canonicalVideos,
   chapters,
-  libraryItems,
   segments,
   transcripts,
 } from "../../db/schema";
-import { transcriptBody, transcriptContentHash } from "./hash";
-
-export class CaptureTimestampConflictError extends Error {
-  readonly code = "capture_timestamp_conflict";
-
-  constructor() {
-    super(
-      "A capture with the same timestamp has different transcript content.",
-    );
-    this.name = "CaptureTimestampConflictError";
-  }
-}
+import { transcriptBody } from "./hash";
 
 export class TranscriptHashCollisionError extends Error {
   readonly code = "transcript_hash_collision";
@@ -30,17 +18,9 @@ export class TranscriptHashCollisionError extends Error {
   }
 }
 
-export type CaptureOutcome = {
-  libraryItemId: string;
-  videoId: string;
-  outcome: "created" | "updated" | "unchanged";
-  reason?: "duplicate" | "stale";
-  currentCapturedAt: Date;
-};
-
 type CaptureTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-async function findOrCreateTranscript(
+export async function findOrCreateTranscript(
   tx: CaptureTransaction,
   videoId: string,
   capture: Capture,
@@ -113,7 +93,7 @@ async function findOrCreateTranscript(
   return existingId;
 }
 
-async function updateCanonicalVideo(
+export async function updateCanonicalVideo(
   tx: CaptureTransaction,
   capture: Capture,
   capturedAt: Date,
@@ -158,118 +138,4 @@ async function updateCanonicalVideo(
   const id = existing[0]?.id;
   if (!id) throw new Error("Canonical Video was not available after upsert.");
   return id;
-}
-
-export async function storeCapture(
-  db: Database,
-  userId: string,
-  capture: Capture,
-  capturedAt: Date,
-  processedAt = new Date(),
-): Promise<CaptureOutcome> {
-  return db.transaction(async (tx) => {
-    // PostgreSQL transaction-scoped advisory locking serializes this user's
-    // writes for this video before reading the current Library Item.
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${userId} || ':' || ${capture.source.videoId}))`,
-    );
-
-    const videoId = await updateCanonicalVideo(tx, capture, capturedAt);
-    const existing = await tx
-      .select({
-        id: libraryItems.id,
-        transcriptId: libraryItems.transcriptId,
-        capturedAt: libraryItems.capturedAt,
-      })
-      .from(libraryItems)
-      .where(
-        and(eq(libraryItems.userId, userId), eq(libraryItems.videoId, videoId)),
-      )
-      .for("update");
-    const current = existing[0];
-    const contentHash = transcriptContentHash(capture);
-
-    if (current) {
-      if (!current.transcriptId)
-        throw new Error("Library Item has no Transcript.");
-      const currentTranscript = await tx
-        .select({ contentHash: transcripts.contentHash })
-        .from(transcripts)
-        .where(eq(transcripts.id, current.transcriptId))
-        .limit(1);
-      const currentHash = currentTranscript[0]?.contentHash;
-      if (!currentHash)
-        throw new Error("Library Item Transcript was not found.");
-
-      const verifiedCurrentTranscript =
-        currentHash === contentHash
-          ? await findOrCreateTranscript(tx, videoId, capture, contentHash)
-          : undefined;
-      const time = capturedAt.getTime() - current.capturedAt.getTime();
-      if (time === 0) {
-        if (currentHash !== contentHash)
-          throw new CaptureTimestampConflictError();
-        return {
-          libraryItemId: current.id,
-          videoId: capture.source.videoId,
-          outcome: "unchanged",
-          reason: "duplicate",
-          currentCapturedAt: current.capturedAt,
-        };
-      }
-      if (time < 0) {
-        return {
-          libraryItemId: current.id,
-          videoId: capture.source.videoId,
-          outcome: "unchanged",
-          reason: "stale",
-          currentCapturedAt: current.capturedAt,
-        };
-      }
-
-      const nextTranscriptId =
-        verifiedCurrentTranscript ??
-        (await findOrCreateTranscript(tx, videoId, capture, contentHash));
-      await tx
-        .update(libraryItems)
-        .set({
-          transcriptId: nextTranscriptId,
-          capturedAt,
-          updatedAt: processedAt,
-        })
-        .where(eq(libraryItems.id, current.id));
-      return {
-        libraryItemId: current.id,
-        videoId: capture.source.videoId,
-        outcome: "updated",
-        currentCapturedAt: capturedAt,
-      };
-    }
-
-    const transcriptId = await findOrCreateTranscript(
-      tx,
-      videoId,
-      capture,
-      contentHash,
-    );
-    const [item] = await tx
-      .insert(libraryItems)
-      .values({
-        userId,
-        videoId,
-        transcriptId,
-        visibility: "private",
-        capturedAt,
-        updatedAt: processedAt,
-      })
-      .returning({ id: libraryItems.id });
-    if (!item) throw new Error("Library Item was not created.");
-
-    return {
-      libraryItemId: item.id,
-      videoId: capture.source.videoId,
-      outcome: "created",
-      currentCapturedAt: capturedAt,
-    };
-  });
 }

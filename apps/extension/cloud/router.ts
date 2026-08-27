@@ -77,12 +77,16 @@ export function createCloudMessageRouter(deps: CloudRouterDependencies) {
 
         case CLOUD_SAVE_ENQUEUE: {
           try {
-            const job = await deps.queue.enqueue(message.capture);
+            const job = message.confirmPublicProfile
+              ? await deps.queue.enqueue(message.capture, {
+                  confirmPublicProfile: true,
+                })
+              : await deps.queue.enqueue(message.capture);
             return { ok: true, jobId: job.id };
           } catch (error) {
             return {
               ok: false,
-              message: `Could not queue the cloud save: ${errorMessage(error)}`,
+              message: `Could not queue the public contribution: ${errorMessage(error)}`,
             };
           }
         }
@@ -98,12 +102,12 @@ export function createCloudMessageRouter(deps: CloudRouterDependencies) {
               : {
                   ok: false,
                   message:
-                    "This cloud save can no longer be retried. Capture the video again.",
+                    "This public contribution can no longer be retried. Capture the video again.",
                 };
           } catch (error) {
             return {
               ok: false,
-              message: `Could not retry the cloud save: ${errorMessage(error)}`,
+              message: `Could not retry the public contribution: ${errorMessage(error)}`,
             };
           }
         }

@@ -1,14 +1,14 @@
 # Transcriptly
 
-一个开源 YouTube transcript 工具：Chrome 扩展可把逐段字幕保存成本地 Markdown，或上传到私有云端书库；还支持在 playlist / 频道页勾选视频批量捕获。
+一个开源 YouTube transcript 工具：Chrome 扩展可把逐段字幕保存成本地 Markdown，也可明确贡献到 Public Archive；还支持在 playlist / 频道页勾选视频批量捕获。
 
-本地保存无需登录或上传--结果是一份普通 Markdown，可用 `rg`/`grep` 搜索，或交给本地 coding agent 读取。云端保存是可选的：只有登录并显式选择后，Capture 才会写入你的私有 Library。
+本地保存无需登录或上传——结果是一份普通 Markdown，可用 `rg`/`grep` 搜索，或交给本地 coding agent 读取。公开贡献是独立的可选 Destination：只有登录、明确确认公开效果并选择后，Capture 才会进入 Public Archive。
 
 ## 产品环
 
 `Capture → Store → Find → Publish`
 
-P1 完成前两环的本地部分：**捕获 YouTube 已渲染的 transcript → 本地 Markdown 落盘**。P2 在不改变本地隐私边界的前提下加入可选云端 Store → Find：扩展共享网站 Session 登录，捕获结果经持久化上传队列进入云端私有 Library，可浏览、阅读、精确全文检索与硬删除。批量捕获（#26）在此基础上支持 playlist / 频道页一次性勾选多个视频。
+P1 完成本地闭环：**捕获 YouTube 已渲染的 transcript → 本地 Markdown 落盘**。P3 通过可选公开贡献补上 Publish：扩展共享网站 Session，捕获结果经持久化队列进入 Public Archive，可公开搜索、阅读并跳回 YouTube。批量捕获（#26）支持 playlist / 频道页一次性勾选多个视频。
 
 ## 当前状态
 
@@ -33,9 +33,9 @@ P1 完成前两环的本地部分：**捕获 YouTube 已渲染的 transcript →
 | #59 批量改造 D：恢复询问制（重启置 paused + 授权等待改暂停） | ✅ 已合入 |
 | #63 批量捕获后续：恢复、授权与双目的地执行语义修正 | 🔨 开发中 |
 | #41 P2 生产部署链路 / #42 异机加密备份 | 待开发 |
-| #64 P3 公开首页与 Transcript SEO 页面 | 待开发 |
+| #64 P3 Extension-first 首页、Public Archive 与首次公开贡献闭环 | 🔨 当前分支已实现 |
 
-> 单视频「捕获 → 预览 → Save」、云端入库与 Library 检索、playlist/频道页批量勾选 + 批量管理页均已在真实浏览器中可用。
+> 单视频「捕获 → 预览 → 本地 Save / Contribute publicly」、Public Archive 搜索阅读、playlist/频道页批量勾选 + 批量管理页均可用。
 
 ## 目录结构
 
@@ -46,7 +46,7 @@ packages/schema    归一化 Capture 类型契约（单一事实源、纯类型�
 packages/capture   环境中立捕获核心 + serializeToMarkdown()
 apps/extension     WXT 扩展壳（React popup + content script）
   ├─ batch/        批量捕获：发现、选择、执行、ETA 与 SPA 安全路由
-  ├─ cloud/        云上传：持久化队列与失败恢复
+  ├─ cloud/        公开贡献：持久化队列与失败恢复（保留旧内部命名以兼容 IndexedDB）
   └─ entrypoints/  popup、content、background、批量管理页 manager
 apps/web           Next.js App；src/db 分表 schema/migration、src/lib/auth 登录
 docs/adr/          架构决策记录
@@ -85,7 +85,7 @@ pnpm run build        # 全部 workspace 构建；扩展产出 apps/extension/.o
 pnpm run typecheck    # 全部 workspace 类型检查
 pnpm run test         # vitest 单元测试
 pnpm run e2e          # 先 build 扩展，再用 Playwright 加载并断言
-pnpm run e2e:web      # 临时 PostgreSQL + production build，验证网站 Session/私库/退出
+pnpm run e2e:web      # 临时 PostgreSQL + production build，验证公开贡献、读取与 SEO 边界
 pnpm run dev:web      # 本机启动 Next.js
 pnpm run db:migrate   # 对本机配置的 DATABASE_URL 执行版本化 migration
 pnpm run cloud:up     # Compose 构建并启动 migration、App 与 PostgreSQL
@@ -96,7 +96,7 @@ pnpm run cloud:down   # 停止云端容器
 
 在 playlist 或频道页点 popup 的批量入口后进入选择模式：卡片出现复选框，工具栏提供 Load more、Select all 与配额（单批上限 50 个视频），满配额时禁用勾选并以 toast 提示。确认后由 background worker 逐个打开标签页捕获，SPA 导航由 source/target 身份校验保护（详见 `docs/agents/youtube-spa-safety.md`）。
 
-进度统一在批量管理页（`manager` extension page）查看：总进度与滑动 ETA、每个视频的 Local / Cloud 双目的地结果与失败原因、失败项 Retry、Pause / Stop / Resume，以及最近批次历史。源页面关闭后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 可深链到单个批次。管理页同时承载本地保存宿主（目录授权与 Markdown 写入）：浏览器重启或目录授权过期时批次置为 paused，页面显示确切原因与对应操作（继续 / 重新授权），不会静默丢任务。
+进度统一在批量管理页（`manager` extension page）查看：总进度与滑动 ETA、每个视频的 Local / Public Archive 双目的地结果与失败原因、失败项 Retry、Pause / Stop / Resume，以及最近批次历史。源页面关闭后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 可深链到单个批次。管理页同时承载本地保存宿主（目录授权与 Markdown 写入）：浏览器重启或目录授权过期时批次置为 paused，页面显示确切原因与对应操作（继续 / 重新授权），不会静默丢任务。
 
 ## P2 云端骨架
 
@@ -119,7 +119,7 @@ curl -i http://localhost:3000/api/health/ready  # App + 已迁移数据库就绪
 
 `live` 不依赖数据库；`ready` 会实际查询 Drizzle schema。配置缺失返回 `configuration_error`，数据库不可用返回 `database_unavailable`，响应和 migration 错误均不包含连接串或 Secret。要用全新本地数据库验证 migration，可先执行 `docker compose down -v`（会删除本地 Compose 数据）。
 
-访问 `/library` 时，服务端会用数据库完整验证 Cookie Session；未登录用户会跳转到 `/sign-in`。Google 与 GitHub 登录后进入私库空状态。退出只删除当前 Cookie 对应的数据库 Session，不会退出 Provider，也不会影响其他浏览器或设备上的 Session。
+访问 `/` 可直接搜索 active Public Publication；`/videos/[videoId]` 服务端渲染完整公开 Timeline。Google 与 GitHub 登录只用于公开贡献，第一次贡献前会确认 Transcript、display name 与 optional avatar 将公开，email 永不公开。
 
 单个包:
 
@@ -145,7 +145,7 @@ pnpm run e2e:web
 
 `e2e:web` 需要 Docker 和 Playwright Chromium；它会自动创建并清理临时 PostgreSQL，不读取真实 OAuth 账号或本机开发数据库。
 
-全部绿即通过:`build` 产出 `chrome-mv3` 产物;`test` 跑 schema/capture 与扩展本地落盘模块的 vitest 用例;`e2e` 会用 `launchPersistentContext + --load-extension` 把扩展加载进捆绑的 Chromium,并断言 popup 能渲染及 manifest 入口符合 P1 约束；`e2e:web` 会在隔离数据库上验证未登录跳转、数据库 Session 私库访问，以及退出不影响另一客户端 Session。
+全部绿即通过：`build` 产出 `chrome-mv3` 产物；`test` 跑 schema/capture 与扩展本地落盘模块的 vitest 用例；`e2e` 会用 `launchPersistentContext + --load-extension` 验证扩展公开贡献队列；`e2e:web` 会在隔离数据库上验证认证、首次公开确认、幂等、公开读取、搜索与 Sitemap。
 
 ### 方式二:手动加载扩展到 Chrome(完整流程)
 
@@ -167,7 +167,7 @@ pnpm --filter @transcriptly/extension run test
 
 ## 人工验收边界
 
-`#17`(本地落盘)、`#18`(Popup UI)与 P2 云端链路均已合入，单视频「捕获 → 预览 → Save」、云端上传与 Library 检索、批量捕获均可手动验收。单视频应重点验收:
+`#17`（本地落盘）、`#18`（Popup UI）与 Public Contribution 链路均已实现，单视频「捕获 → 预览 → 本地 Save / Contribute publicly」、公开搜索阅读与批量捕获均可手动验收。单视频应重点验收：
 
 1. 打开有 transcript 的 YouTube 视频,popup 展示可编辑文件名、可折叠 Properties、只读 transcript 预览(描述 + 逐段时间戳)。
 2. 首次点击 Save 弹目录选择器,保存出包含 frontmatter、来源、描述和时间戳 transcript 的 Markdown。
@@ -179,7 +179,7 @@ pnpm --filter @transcriptly/extension run test
 批量捕获应重点验收：
 
 1. 在 playlist / 频道页点批量入口进入选择模式，Load more、Select all、配额上限 50 与满额 toast 表现正确。
-2. 确认后批量管理页展示总进度、ETA、每个视频的 Local / Cloud 结果与失败原因，失败项可 Retry，可 Pause / Stop / Resume。
+2. 确认后批量管理页展示总进度、ETA、每个视频的 Local / Public Archive 结果与失败原因，失败项可 Retry，可 Pause / Stop / Resume。
 3. 关闭源页面后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 深链到对应批次。
 4. 浏览器重启或目录授权过期后批次置为 paused，管理页显示确切原因与对应操作，不静默丢任务。
 

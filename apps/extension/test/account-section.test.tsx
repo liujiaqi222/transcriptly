@@ -69,7 +69,7 @@ describe("account section", () => {
     render(<AccountSection deps={deps} pollIntervalMs={10} />);
 
     const signIn = await screen.findByRole("button", {
-      name: "Sign in to Transcriptly",
+      name: "Sign in to contribute publicly",
     });
     fireEvent.click(signIn);
 
@@ -93,7 +93,7 @@ describe("account section", () => {
     render(<AccountSection deps={deps} pollIntervalMs={10} />);
 
     expect(
-      await screen.findByText(/Could not reach the Transcriptly cloud/),
+      await screen.findByText(/Could not reach Transcriptly/),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
@@ -115,7 +115,9 @@ describe("account section", () => {
     signedIn = false;
     fireEvent.click(signOut);
 
-    await screen.findByRole("button", { name: "Sign in to Transcriptly" });
+    await screen.findByRole("button", {
+      name: "Sign in to contribute publicly",
+    });
   });
 
   it("shows a sign-out error when sign-out fails", async () => {

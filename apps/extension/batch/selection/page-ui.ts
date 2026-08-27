@@ -311,9 +311,11 @@ export async function enterBatchSelectionMode(
     } catch {
       // Treat an unreachable worker as signed out.
     }
-    const signedIn = session.status === "signed-in";
+    const publicAvailable =
+      session.status === "signed-in" &&
+      session.publicContributionConfirmed === true;
     let preferred = false;
-    if (signedIn) {
+    if (publicAvailable) {
       try {
         // The preference stays off when it cannot be read.
         preferred = await runtime.getCloudPreference();
@@ -321,7 +323,7 @@ export async function enterBatchSelectionMode(
         // Ignored: checked stays false.
       }
     }
-    panel.setCloudSession(signedIn, preferred);
+    panel.setCloudSession(publicAvailable, preferred);
     model.setDestinations(panel.checkedDestinations());
     updateToolbar();
   }

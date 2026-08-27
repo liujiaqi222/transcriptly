@@ -41,9 +41,9 @@ describe("cloud message router", () => {
           JSON.stringify({
             success: true,
             data: {
-              libraryItemId: "item-1",
+              contributionId: "contribution-1",
               videoId: "abc12345678",
-              outcome: "created",
+              outcome: "published",
             },
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -145,7 +145,7 @@ describe("cloud message router", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Could not queue the cloud save: IndexedDB is broken",
+      message: "Could not queue the public contribution: IndexedDB is broken",
     });
   });
 
@@ -172,7 +172,7 @@ describe("cloud message router", () => {
             JSON.stringify({
               success: true,
               data: {
-                libraryItemId: "item-1",
+                contributionId: "contribution-1",
                 videoId: "abc12345678",
                 outcome: "unchanged",
               },

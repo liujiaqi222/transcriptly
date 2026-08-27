@@ -9,9 +9,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // The private saved area and machine surfaces never belong to a
-        // search index, even if a URL leaks (#37).
-        disallow: ["/saved", "/sign-in", "/api"],
+        // Authentication and machine surfaces never belong to a search index.
+        disallow: ["/sign-in", "/api"],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

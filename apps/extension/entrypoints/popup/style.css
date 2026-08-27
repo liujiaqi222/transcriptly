@@ -510,6 +510,32 @@ h2 {
   display: flex;
   align-items: center;
 }
+
+.public-confirmation {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 12px;
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  background: var(--primary-soft);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.public-confirmation label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 650;
+}
+
+.public-confirmation input {
+  margin-top: 2px;
+  accent-color: var(--primary);
+}
 .footer-topline {
   justify-content: space-between;
   min-height: 24px;
@@ -594,7 +620,13 @@ h2 {
 }
 .destination-toggles {
   flex: 1;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+.sign-in-hint {
+  flex: 0 0 100%;
+  color: var(--subtle);
+  font-size: 11px;
 }
 .toggle {
   display: inline-flex;
@@ -617,6 +649,9 @@ h2 {
   color: var(--primary);
 }
 .toggle:has(input:disabled) {
+  color: var(--subtle);
+}
+.toggle:has(input:disabled) > svg {
   color: var(--subtle);
 }
 .link {

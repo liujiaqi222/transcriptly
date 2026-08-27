@@ -84,7 +84,14 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
           return {
             ok: false,
             message:
-              "Sign in to Transcriptly from the popup before saving to the cloud.",
+              "Sign in to Transcriptly from the popup before contributing publicly.",
+          };
+        }
+        if (!session.publicContributionConfirmed) {
+          return {
+            ok: false,
+            message:
+              "Confirm the public disclosure in the popup before adding it to a batch.",
           };
         }
       }

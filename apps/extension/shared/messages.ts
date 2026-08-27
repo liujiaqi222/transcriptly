@@ -24,7 +24,13 @@ export interface CloudSessionRequestMessage {
 }
 
 export type CloudSessionStatus =
-  | { status: "signed-in"; email: string }
+  | {
+      status: "signed-in";
+      email: string;
+      displayName?: string;
+      avatarUrl?: string | null;
+      publicContributionConfirmed?: boolean;
+    }
   | { status: "signed-out" }
   | { status: "unavailable" };
 
@@ -43,6 +49,8 @@ export const CLOUD_SAVE_ENQUEUE = "transcriptly:cloud-save-enqueue" as const;
 export interface CloudSaveEnqueueMessage {
   type: typeof CLOUD_SAVE_ENQUEUE;
   capture: Capture;
+  /** Present only when the user accepts the one-time public disclosure. */
+  confirmPublicProfile?: boolean;
 }
 
 export type CloudSaveEnqueueStatus =

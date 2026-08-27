@@ -46,7 +46,10 @@ export interface PopupTab {
 
 /** The popup's window into the background cloud queue (#35, #36). */
 export interface CloudDependencies {
-  enqueueCloudSave(capture: Capture): Promise<CloudSaveEnqueueStatus>;
+  enqueueCloudSave(
+    capture: Capture,
+    options?: { confirmPublicProfile?: boolean },
+  ): Promise<CloudSaveEnqueueStatus>;
   getCloudQueueStatus(videoId: string): Promise<CloudQueueStatus>;
   retryCloudJob(jobId: string): Promise<CloudJobRetryStatus>;
   /** Remembered Cloud preference, persisted per installation. */
@@ -96,6 +99,12 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   });
   const [activeVideoId, setActiveVideoId] = useState<string | undefined>();
   const [signedIn, setSignedIn] = useState(false);
+  const [publicProfileConfirmed, setPublicProfileConfirmed] = useState(false);
+  const [publicConfirmationAccepted, setPublicConfirmationAccepted] =
+    useState(false);
+  const [contributorDisplayName, setContributorDisplayName] = useState<
+    string | undefined
+  >();
   // Tracks whether the session status has resolved yet: the remembered
   // Cloud preference must never be applied to a signed-out popup (#35 AC).
   const sessionKnownRef = useRef<"unknown" | "in" | "out">("unknown");
@@ -103,6 +112,9 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     "unknown",
   );
   const [cloudEnabled, setCloudEnabled] = useState(false);
+  // Local Markdown stays on by default but is an independent destination:
+  // turning it off leaves the public contribution as the whole save (#64).
+  const [localEnabled, setLocalEnabled] = useState(true);
   const [markdownFormat, setMarkdownFormat] =
     useState<MarkdownFormat>("timeline");
   const [queueStatus, setQueueStatus] = useState<
@@ -307,8 +319,14 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       sessionKnownRef.current = nextStatus;
       setSessionStatus(nextStatus);
       if (session.status !== "signed-in") {
+        setPublicProfileConfirmed(false);
+        setPublicConfirmationAccepted(false);
+        setContributorDisplayName(undefined);
         setCloudEnabled(false);
         void deps.cloud.setCloudPreference(false).catch(() => {});
+      } else {
+        setPublicProfileConfirmed(session.publicContributionConfirmed === true);
+        setContributorDisplayName(session.displayName);
       }
     },
     [deps],
@@ -337,9 +355,16 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     };
   }, [activeVideoId, queueStatusRefresh, deps]);
 
+  const handleLocalToggle = useCallback((enabled: boolean) => {
+    setLocalEnabled(enabled);
+  }, []);
+
   const handleCloudToggle = useCallback(
     (enabled: boolean) => {
       setCloudEnabled(enabled);
+      // Re-collapse the one-time disclosure with the destination: turning
+      // Contribute publicly back on must show the text again (#64).
+      if (!enabled) setPublicConfirmationAccepted(false);
       void deps.cloud.setCloudPreference(enabled).catch(() => {});
     },
     [deps],
@@ -464,22 +489,42 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     setSaveState({ status: "saving" });
 
     // The Cloud Job is persisted before any local saving so the upload
-    // survives even if the popup closes mid-save (#35 AC).
+    // survives even if the popup closes mid-save (#35 AC). The first
+    // contribution carries the one-time disclosure acceptance (#64); the
+    // Save button is disabled until it is accepted, so this guard only
+    // covers programmatic paths.
     if (cloudEnabled && signedIn) {
-      try {
-        const result = await deps.cloud.enqueueCloudSave(captureState.capture);
-        if (result.ok) {
-          setCloudError(undefined);
-          refreshQueueStatus();
-        } else {
-          setCloudError(result.message);
+      if (!publicProfileConfirmed && !publicConfirmationAccepted) {
+        setCloudError(
+          "Confirm the public disclosure before contributing this transcript.",
+        );
+      } else {
+        try {
+          const result = await deps.cloud.enqueueCloudSave(
+            captureState.capture,
+            publicProfileConfirmed ? undefined : { confirmPublicProfile: true },
+          );
+          if (result.ok) {
+            setCloudError(undefined);
+            setPublicProfileConfirmed(true);
+            setPublicConfirmationAccepted(false);
+            refreshQueueStatus();
+          } else {
+            setCloudError(result.message);
+          }
+        } catch (error) {
+          setCloudError(errorMessage(error));
         }
-      } catch (error) {
-        setCloudError(errorMessage(error));
       }
     }
 
-    if (!saver) return;
+    // Local is an independent destination (#64): when it is switched off,
+    // the contribution above is the whole save and the queue status panel
+    // carries the progress display - no folder picker is forced.
+    if (!localEnabled || !saver) {
+      setSaveState({ status: "idle" });
+      return;
+    }
     try {
       const result = await saver.save(
         captureState.capture,
@@ -630,9 +675,15 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           saveState={saveState}
           cloudEnabled={cloudEnabled}
           cloudAvailable={signedIn}
+          publicProfileConfirmed={publicProfileConfirmed}
+          publicConfirmationAccepted={publicConfirmationAccepted}
+          contributorDisplayName={contributorDisplayName}
           markdownFormat={markdownFormat}
           onMarkdownFormatChange={handleMarkdownFormatChange}
+          localEnabled={localEnabled}
+          onLocalToggle={handleLocalToggle}
           onCloudToggle={handleCloudToggle}
+          onPublicConfirmationChange={setPublicConfirmationAccepted}
           onSave={() => void handleSave()}
           onChangeFolder={() => void handleChangeFolder()}
         />
