@@ -26,7 +26,9 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function successResponse(outcome: "published" | "contributed" | "unchanged") {
+function successResponse(
+  outcome: "published" | "contributed" | "replaced" | "unchanged",
+) {
   return jsonResponse({
     success: true,
     data: {
@@ -301,6 +303,53 @@ describe("cloud upload queue", () => {
     const queueStatus = await queue.getStatus("abc12345678");
     expect(queueStatus.current).toBeUndefined();
     expect(queueStatus.failed).toEqual([]);
+  });
+
+  it("stores a replaced receipt when the cloud swaps the current transcript (#73)", async () => {
+    upload.mockResolvedValue(successResponse("replaced"));
+
+    await queue.enqueue(captureFor("abc12345678"));
+    await waitForSaved("abc12345678");
+
+    const queueStatus = await queue.getStatus("abc12345678");
+    expect(queueStatus.current?.receipt).toMatchObject({
+      contributionId: "contribution-1",
+      outcome: "replaced",
+    });
+  });
+
+  it("treats a 422 duplicate_transcript rejection as a permanent failure and logs the capture bug (#73)", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    upload.mockResolvedValue(
+      errorResponse(
+        422,
+        "duplicate_transcript",
+        "The transcript is a whole-transcript duplication; capture the video again.",
+      ),
+    );
+
+    const job = await queue.enqueue(captureFor("abc12345678"));
+    await waitForFailed("abc12345678");
+
+    const queueStatus = await queue.getStatus("abc12345678");
+    expect(queueStatus.current?.failure?.kind).toBe("permanent");
+    expect(queueStatus.current?.failure?.code).toBe("duplicate_transcript");
+    expect(queueStatus.current?.failure?.message).toContain(
+      "whole-transcript duplication",
+    );
+
+    // A provable duplication is an extension capture bug: it must be logged
+    // loudly, not silently folded into the generic failure badge.
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("capture bug"),
+      expect.objectContaining({ videoId: "abc12345678" }),
+    );
+    errorSpy.mockRestore();
+
+    // Permanent: retrying a capture-side defect cannot succeed.
+    const retried = await queue.retry(job.id);
+    expect(retried).toBeUndefined();
+    expect(upload).toHaveBeenCalledTimes(1);
   });
 });
 

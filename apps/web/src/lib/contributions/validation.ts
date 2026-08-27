@@ -18,7 +18,9 @@ const contributionPayloadSchema = z.strictObject({
 export type PublicContributionValidationErrorCode =
   | CaptureValidationError["code"]
   | "target_video_mismatch"
-  | "invalid_timeline";
+  | "empty_transcript"
+  | "invalid_timeline"
+  | "duplicate_transcript";
 
 export type ValidPublicContribution = {
   ok: true;
@@ -43,12 +45,45 @@ function isMonotonic(values: readonly { start: number }[]): boolean {
   );
 }
 
+/**
+ * A provable whole-transcript duplication (#73): the segment sequence is
+ * itself repeated exactly end to end (the first half equals the second
+ * half). This is a capture-side artifact, not a semantic quality judgment.
+ */
+function isWholeTranscriptDuplication(
+  segments: readonly { start: number; text: string }[],
+): boolean {
+  const length = segments.length;
+  if (length < 2 || length % 2 !== 0) return false;
+  const half = length / 2;
+  return segments.every(
+    (segment, index) =>
+      index >= half ||
+      (segment.start === segments[index + half]?.start &&
+        segment.text === segments[index + half]?.text),
+  );
+}
+
+function reportsEmptySegments(error: z.ZodError): boolean {
+  return error.issues.some(
+    (issue) =>
+      issue.code === "too_small" && issue.path.join(".") === "capture.segments",
+  );
+}
+
 export function validatePublicContributionPayload(
   payload: unknown,
   now = new Date(),
 ): PublicContributionValidationResult {
   const parsed = contributionPayloadSchema.safeParse(payload);
   if (!parsed.success) {
+    if (reportsEmptySegments(parsed.error)) {
+      return {
+        ok: false,
+        code: "empty_transcript",
+        message: "The transcript has no segments.",
+      };
+    }
     return {
       ok: false,
       code: "invalid_capture",
@@ -71,6 +106,18 @@ export function validatePublicContributionPayload(
       ok: false,
       code: "captured_at_in_future",
       message: "capturedAt is more than 10 minutes in the future.",
+    };
+  }
+
+  // Duplication is checked before the timeline: a duplicated sequence with
+  // restarted start times also fails monotonicity, and the duplication code
+  // is the more specific, actionable diagnosis of a capture-side bug.
+  if (isWholeTranscriptDuplication(capture.segments)) {
+    return {
+      ok: false,
+      code: "duplicate_transcript",
+      message:
+        "The transcript is a whole-transcript duplication; capture the video again.",
     };
   }
 

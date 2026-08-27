@@ -94,4 +94,68 @@ describe("public contribution validation", () => {
     );
     expect(result).toMatchObject({ ok: false, code: "invalid_timeline" });
   });
+
+  it("rejects an empty transcript with a specific code", () => {
+    const result = validatePublicContributionPayload(
+      {
+        capture: capture({ segments: [] }),
+        targetVideoId: "abc12345678",
+      },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    expect(result).toMatchObject({ ok: false, code: "empty_transcript" });
+  });
+
+  it("rejects a whole-transcript duplication with a specific code", () => {
+    const doubled = [
+      { start: 0, text: "First segment" },
+      { start: 60, text: "Second segment" },
+      { start: 0, text: "First segment" },
+      { start: 60, text: "Second segment" },
+    ];
+    const result = validatePublicContributionPayload(
+      {
+        capture: capture({ segments: doubled }),
+        targetVideoId: "abc12345678",
+      },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    expect(result).toMatchObject({ ok: false, code: "duplicate_transcript" });
+  });
+
+  it("accepts an even segment count that is not a duplication", () => {
+    const result = validatePublicContributionPayload(
+      {
+        capture: capture({
+          segments: [
+            { start: 0, text: "One" },
+            { start: 10, text: "Two" },
+            { start: 20, text: "Three" },
+            { start: 30, text: "Four" },
+          ],
+        }),
+        targetVideoId: "abc12345678",
+      },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("does not flag near-duplicate halves that differ in text", () => {
+    const result = validatePublicContributionPayload(
+      {
+        capture: capture({
+          segments: [
+            { start: 0, text: "One" },
+            { start: 10, text: "Two" },
+            { start: 20, text: "Uno" },
+            { start: 30, text: "Due" },
+          ],
+        }),
+        targetVideoId: "abc12345678",
+      },
+      new Date("2026-08-26T08:01:00.000Z"),
+    );
+    expect(result.ok).toBe(true);
+  });
 });
