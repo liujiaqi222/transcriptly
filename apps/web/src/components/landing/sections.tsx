@@ -1,4 +1,3 @@
-import { FileText } from "lucide-react";
 import { LogoMark } from "@/components/logo-mark";
 import { LocalKnowledgeDemo } from "./local-knowledge-demo";
 import {
@@ -9,11 +8,11 @@ import {
 import {
   Brand,
   CtaPair,
-  eyebrow,
   focusRing,
   GITHUB_URL,
   pageWidth,
   SectionHeading,
+  SectionKicker,
 } from "./shared";
 
 /** Signed-in identity, rendered as the account entry; null when signed out. */
@@ -123,15 +122,6 @@ export function BatchSection() {
   );
 }
 
-const tools = [
-  "Obsidian",
-  "VS Code",
-  "Codex",
-  "Claude Code",
-  "grep",
-  "your scripts",
-];
-
 export function LocalFirstSection() {
   return (
     <section
@@ -140,7 +130,7 @@ export function LocalFirstSection() {
       aria-labelledby="local-title"
     >
       <div className="max-w-[720px]">
-        <p className={eyebrow}>02 · Local-first</p>
+        <SectionKicker index="02" label="Local-first" />
         <h2
           className="m-0 text-[clamp(38px,5vw,64px)] leading-[1.02] font-bold tracking-[-0.04em] text-balance"
           id="local-title"
@@ -151,37 +141,19 @@ export function LocalFirstSection() {
           Your local knowledge base doesn’t depend on a proprietary database. No
           account required. Just Markdown files you can keep forever.
         </p>
-        <p className="mt-5 mb-0 text-[15px] leading-relaxed font-semibold text-[#202124]">
-          Titles, source links, chapters and timestamps stay attached to the
-          transcript.
-        </p>
-        <div className="mt-6 flex gap-3 border-l-4 border-[#1b90ed] bg-white py-4 pr-4 pl-4">
-          <FileText
-            className="mt-0.5 shrink-0 text-[#202124]"
-            size={20}
+        <div className="mt-8 flex items-center gap-4 border-t border-[#202124] pt-4">
+          <span
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f5c451] font-mono text-[11px] font-bold text-[#202124]"
             aria-hidden="true"
-          />
-          <p className="m-0 grid gap-1 text-sm leading-relaxed">
-            <strong>Plain Markdown, no export step.</strong>
-            <span className="text-[#64748b]">
-              The folder itself is your knowledge base. Open it with the tools
-              you already use.
-            </span>
+          >
+            .md
+          </span>
+          <p className="m-0 text-[13px] leading-relaxed text-[#64748b]">
+            <strong className="text-[#202124]">No export step.</strong> Your
+            folder is the knowledge base. Open it in Obsidian, VS Code, or any
+            text tool.
           </p>
         </div>
-        <ul
-          className="mt-5 flex list-none flex-wrap gap-2 p-0"
-          aria-label="Works with text tools"
-        >
-          {tools.map((tool) => (
-            <li
-              className="rounded-full border border-[#e2e8f0] bg-white px-2.5 py-1.5 text-xs text-[#64748b]"
-              key={tool}
-            >
-              {tool}
-            </li>
-          ))}
-        </ul>
       </div>
       <LocalKnowledgeDemo />
     </section>

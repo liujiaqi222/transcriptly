@@ -1,4 +1,5 @@
 import { FileText, Folder } from "lucide-react";
+import { MotionReveal } from "./motion-reveal";
 
 function MarkdownDemo() {
   return (
@@ -58,7 +59,14 @@ export function LocalKnowledgeDemo() {
       role="img"
       aria-label="A local youtube folder containing channel folders and Markdown transcript files, with Reliable AI Agents Markdown open beside it"
     >
-      <div className="flex min-w-0 flex-col gap-3 border-r border-[#e2e8f0] bg-slate-50 p-5 font-mono text-[11px] leading-relaxed text-[#64748b] max-sm:border-r-0 max-sm:border-b">
+      <MotionReveal
+        className="flex min-w-0 flex-col gap-3 border-r border-[#e2e8f0] bg-slate-50 p-5 font-mono text-[11px] leading-relaxed text-[#64748b] max-sm:border-r-0 max-sm:border-b"
+        delay={180}
+      >
+        <div className="mb-1 flex items-center justify-between border-b border-[#e2e8f0] pb-3 font-sans text-[10px] font-bold tracking-[0.12em] text-[#64748b] uppercase">
+          <span>Local files</span>
+          <span className="text-[#0872b9]">~/youtube</span>
+        </div>
         <FileTreeRow>youtube</FileTreeRow>
         <FileTreeRow depth={1}>AI Notes</FileTreeRow>
         <FileTreeRow depth={2} file>
@@ -68,8 +76,14 @@ export function LocalKnowledgeDemo() {
           Context Engineering.md
         </FileTreeRow>
         <FileTreeRow depth={1}>Research Talks</FileTreeRow>
-      </div>
-      <MarkdownDemo />
+      </MotionReveal>
+      <MotionReveal className="flex min-w-0 flex-col" delay={320}>
+        <MarkdownDemo />
+        <div className="flex items-center justify-between gap-3 border-t border-[#e2e8f0] bg-[#fffdf8] px-5 py-3 text-[10px] font-bold tracking-[0.08em] text-[#64748b] uppercase max-sm:px-4">
+          <span>Plain Markdown</span>
+          <span className="text-[#0872b9]">Yours to keep</span>
+        </div>
+      </MotionReveal>
     </div>
   );
 }

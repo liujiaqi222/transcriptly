@@ -9,7 +9,25 @@ export const pageWidth =
 export const focusRing =
   "focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40";
 export const eyebrow =
-  "mb-4 text-[13px] font-bold tracking-[0.14em] text-[#0872b9] uppercase";
+  "mb-4 inline-flex items-center gap-3 whitespace-nowrap text-[12px] font-bold tracking-[0.14em] text-[#0872b9] uppercase";
+
+export function SectionKicker({
+  index,
+  label,
+}: {
+  index: string;
+  label: string;
+}) {
+  return (
+    <p className={eyebrow}>
+      <span className="grid h-6 min-w-6 place-items-center rounded-md bg-[#edf7ff] px-1.5 text-[11px] tracking-[0.02em] text-[#0872b9] tabular-nums">
+        {index}
+      </span>
+      <span className="h-px w-8 bg-[#1b90ed]" aria-hidden="true" />
+      <span>{label}</span>
+    </p>
+  );
+}
 
 export function Brand() {
   return (
@@ -67,9 +85,7 @@ export function SectionHeading({
 }) {
   return (
     <div className="mb-12 max-w-[760px]">
-      <p className={eyebrow}>
-        {index} · {label}
-      </p>
+      <SectionKicker index={index} label={label} />
       <h2
         className="m-0 text-[clamp(38px,5vw,64px)] leading-[1.02] font-bold tracking-[-0.04em] text-balance"
         id={id}
