@@ -6,7 +6,7 @@ import { getDatabase } from "@/db/client";
 import { auth } from "@/lib/auth/auth";
 import { formatTimestamp } from "@/lib/captures/transcript";
 import { listUserContributions } from "@/lib/contributions/queries";
-import { RemoveContributionButton } from "./remove-contribution-button";
+import { RemoveContributionButton } from "./components/remove-contribution-button";
 
 export const dynamic = "force-dynamic";
 
