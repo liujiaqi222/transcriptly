@@ -313,18 +313,7 @@ export async function withdrawContribution(
   if ("notFound" in result) throw new ContributionNotFoundError();
 
   if (result.outcome === "unpublished") {
-    try {
-      await pruneUnreferencedTranscripts(db, result.canonicalVideoId);
-    } catch (error) {
-      console.error(
-        JSON.stringify({
-          event: "transcript_prune_failed",
-          videoId: youtubeVideoId,
-          canonicalVideoId: result.canonicalVideoId,
-          message: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    }
+    await pruneSafely(db, result.canonicalVideoId, youtubeVideoId);
   }
 
   return {
@@ -363,6 +352,30 @@ export async function pruneUnreferencedTranscripts(
 }
 
 /**
+ * Prune after the durable outcome commits. A pruning failure is logged,
+ * never surfaced to the client - the contribution or withdrawal itself is
+ * already durable.
+ */
+async function pruneSafely(
+  db: Database,
+  canonicalVideoId: string,
+  youtubeVideoId: string,
+): Promise<void> {
+  try {
+    await pruneUnreferencedTranscripts(db, canonicalVideoId);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "transcript_prune_failed",
+        videoId: youtubeVideoId,
+        canonicalVideoId,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+}
+
+/**
  * The route-facing entry point: commit the latest-qualified contribution,
  * then prune. A pruning failure is logged, never surfaced to the client -
  * the contribution itself is already durable.
@@ -381,17 +394,6 @@ export async function contributePublicly(
     capturedAt,
     confirmPublicProfile,
   );
-  try {
-    await pruneUnreferencedTranscripts(db, result.canonicalVideoId);
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        event: "transcript_prune_failed",
-        videoId: result.videoId,
-        canonicalVideoId: result.canonicalVideoId,
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    );
-  }
+  await pruneSafely(db, result.canonicalVideoId, result.videoId);
   return result;
 }

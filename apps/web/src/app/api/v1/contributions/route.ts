@@ -1,8 +1,5 @@
-import { headers } from "next/headers";
 import { getDatabase } from "@/db/client";
-import { getAuthEnv } from "@/env/server";
-import { isAllowedOrigin, parseOrigins } from "@/lib/api/origin-allowlist";
-import { auth } from "@/lib/auth/auth";
+import { requireMutationSession } from "@/lib/api/mutation-guard";
 import { errorResponse } from "@/lib/captures/response";
 import { readJsonBody } from "@/lib/captures/validation";
 import {
@@ -16,31 +13,15 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function allowedOrigins(): string[] {
-  const env = getAuthEnv();
-  return [env.BETTER_AUTH_URL, ...parseOrigins(env.EXTENSION_ORIGINS)];
-}
-
 export async function POST(request: Request): Promise<Response> {
   const requestId = crypto.randomUUID();
-  if (!isAllowedOrigin(request.headers.get("origin"), allowedOrigins())) {
-    return errorResponse(403, {
-      code: "origin_not_allowed",
-      message: "The request origin is not allowed.",
-      retryable: false,
-      requestId,
-    });
-  }
-
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return errorResponse(401, {
-      code: "unauthenticated",
-      message: "Sign in before contributing to the public archive.",
-      retryable: false,
-      requestId,
-    });
-  }
+  const guard = await requireMutationSession(
+    request,
+    requestId,
+    "Sign in before contributing to the public archive.",
+  );
+  if (guard.denial) return guard.denial;
+  const session = guard.session;
 
   const body = await readJsonBody(request);
   if (!body.ok) {

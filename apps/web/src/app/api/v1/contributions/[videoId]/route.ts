@@ -1,17 +1,13 @@
-import { headers } from "next/headers";
 import { getDatabase } from "@/db/client";
-import { getAuthEnv } from "@/env/server";
-import { isAllowedOrigin, parseOrigins } from "@/lib/api/origin-allowlist";
-import { auth } from "@/lib/auth/auth";
+import { requireMutationSession } from "@/lib/api/mutation-guard";
 import { errorResponse } from "@/lib/captures/response";
 import {
   ContributionNotFoundError,
   withdrawContribution,
 } from "@/lib/contributions/store";
+import { YOUTUBE_VIDEO_ID_PATTERN } from "@/lib/contributions/validation";
 
 export const dynamic = "force-dynamic";
-
-const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 /**
  * A mutation: the Origin allowlist is the CSRF boundary and stays strict -
@@ -23,27 +19,16 @@ export async function DELETE(
   { params }: { params: Promise<{ videoId: string }> },
 ): Promise<Response> {
   const requestId = crypto.randomUUID();
-  if (!isAllowedOrigin(request.headers.get("origin"), allowedOrigins())) {
-    return errorResponse(403, {
-      code: "origin_not_allowed",
-      message: "The request origin is not allowed.",
-      retryable: false,
-      requestId,
-    });
-  }
-
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return errorResponse(401, {
-      code: "unauthenticated",
-      message: "Sign in before withdrawing a contribution.",
-      retryable: false,
-      requestId,
-    });
-  }
+  const guard = await requireMutationSession(
+    request,
+    requestId,
+    "Sign in before withdrawing a contribution.",
+  );
+  if (guard.denial) return guard.denial;
+  const session = guard.session;
 
   const { videoId } = await params;
-  if (!VIDEO_ID.test(videoId)) {
+  if (!YOUTUBE_VIDEO_ID_PATTERN.test(videoId)) {
     return errorResponse(400, {
       code: "invalid_video_id",
       message: "The video id is not a valid YouTube video id.",
@@ -94,9 +79,4 @@ export async function DELETE(
       requestId,
     });
   }
-}
-
-function allowedOrigins(): string[] {
-  const env = getAuthEnv();
-  return [env.BETTER_AUTH_URL, ...parseOrigins(env.EXTENSION_ORIGINS)];
 }

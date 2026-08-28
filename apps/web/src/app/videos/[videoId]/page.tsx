@@ -8,10 +8,10 @@ import {
   timestampUrl,
   transcriptBlocks,
 } from "@/lib/captures/transcript";
+import { YOUTUBE_VIDEO_ID_PATTERN } from "@/lib/contributions/validation";
 import { getPublicTranscript } from "@/lib/publications/queries";
 
 export const dynamic = "force-dynamic";
-const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   month: "short",
@@ -48,7 +48,7 @@ export async function generateMetadata({
   params: Promise<{ videoId: string }>;
 }): Promise<Metadata> {
   const { videoId } = await params;
-  if (!VIDEO_ID.test(videoId)) return {};
+  if (!YOUTUBE_VIDEO_ID_PATTERN.test(videoId)) return {};
   const item = await getPublicTranscript(getDatabase(), videoId);
   if (!item) return {};
   const description = publicDescription(
@@ -83,7 +83,7 @@ export default async function PublicVideoPage({
   params: Promise<{ videoId: string }>;
 }) {
   const { videoId } = await params;
-  if (!VIDEO_ID.test(videoId)) notFound();
+  if (!YOUTUBE_VIDEO_ID_PATTERN.test(videoId)) notFound();
   const item = await getPublicTranscript(getDatabase(), videoId);
   if (!item) notFound();
   const blocks = transcriptBlocks(item);
