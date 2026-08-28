@@ -94,28 +94,30 @@ export default async function MyContributionsPage() {
                       : "duration unknown"}
                   </span>
                 </div>
-                <p className="mt-2 mb-4 text-sm leading-6 text-[#64748b]">
-                  {item.channelName ? (
-                    <a
-                      className="font-bold text-[#0872b9] underline-offset-4"
-                      href={item.channelUrl || "#"}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {item.channelName}
-                    </a>
-                  ) : (
-                    "Unknown channel"
-                  )}
-                  <span className="mx-2" aria-hidden="true">
-                    ·
-                  </span>
-                  You contributed {dateFormatter.format(item.contributedAt)}
-                </p>
-                <RemoveContributionButton
-                  title={item.title}
-                  videoId={item.videoId}
-                />
+                <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <p className="m-0 text-sm leading-6 text-[#64748b]">
+                    {item.channelName ? (
+                      <a
+                        className="font-bold text-[#0872b9] underline-offset-4"
+                        href={item.channelUrl || "#"}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {item.channelName}
+                      </a>
+                    ) : (
+                      "Unknown channel"
+                    )}
+                    <span className="mx-2" aria-hidden="true">
+                      ·
+                    </span>
+                    You contributed {dateFormatter.format(item.contributedAt)}
+                  </p>
+                  <RemoveContributionButton
+                    title={item.title}
+                    videoId={item.videoId}
+                  />
+                </div>
               </li>
             ))}
           </ul>
