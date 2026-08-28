@@ -110,9 +110,9 @@ export default async function PublicVideoPage({
   return (
     <main className="min-h-screen bg-[#fffdf8] font-sans text-[#202124]">
       <header className="border-b border-[#e2e8f0] bg-white">
-        <div className="mx-auto flex min-h-[72px] w-[min(920px,calc(100%_-_48px))] items-center justify-between max-sm:w-[calc(100%_-_32px)]">
+        <div className="mx-auto flex min-h-18 w-[min(920px,calc(100%-48px))] items-center justify-between max-sm:w-[calc(100%-32px)]">
           <a
-            className="inline-flex items-center gap-2 text-[17px] font-extrabold tracking-[-0.03em] no-underline"
+            className="inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.03em] no-underline"
             href="/"
           >
             <LogoMark size={28} />
@@ -126,7 +126,7 @@ export default async function PublicVideoPage({
           </a>
         </div>
       </header>
-      <article className="mx-auto w-[min(820px,calc(100%_-_48px))] py-[72px] pb-28 max-sm:w-[calc(100%_-_32px)] max-sm:py-12 max-sm:pb-20">
+      <article className="mx-auto w-[min(820px,calc(100%-48px))] py-18 pb-28 max-sm:w-[calc(100%-32px)] max-sm:py-12 max-sm:pb-20">
         <h1 className="m-0 text-[clamp(40px,6vw,68px)] leading-[1.04] font-extrabold tracking-[-0.04em] text-balance">
           {item.title}
         </h1>
@@ -148,7 +148,7 @@ export default async function PublicVideoPage({
           <span>Added {dateFormatter.format(item.publicPublishedAt)}</span>
         </div>
         {item.description.trim() ? (
-          <p className="mt-8 mb-0 max-w-[68ch] whitespace-pre-line text-[17px] leading-[1.7] text-[#64748b]">
+          <p className="mt-8 mb-0 max-w-[68ch] whitespace-pre-line text-lg leading-[1.7] text-[#64748b]">
             {item.description}
           </p>
         ) : null}
@@ -161,7 +161,7 @@ export default async function PublicVideoPage({
           Watch on YouTube →
         </a>
         {item.contributor ? (
-          <div className="mt-6 flex items-center gap-2.5 text-[13px] text-[#64748b]">
+          <div className="mt-6 flex items-center gap-2.5 text-sm text-[#64748b]">
             {item.contributor.avatarUrl ? (
               // biome-ignore lint/performance/noImgElement: remote contributor avatars are optional attribution, not page imagery.
               <img
@@ -186,17 +186,17 @@ export default async function PublicVideoPage({
           </div>
         ) : null}
         <section
-          className="mt-[72px] border-t border-[#e2e8f0] pt-8"
+          className="mt-18 border-t border-[#e2e8f0] pt-8"
           aria-labelledby="transcript-title"
         >
           <div className="flex items-baseline justify-between gap-6">
             <h2
-              className="m-0 text-[28px] font-bold tracking-[-0.03em]"
+              className="m-0 text-3xl font-bold tracking-[-0.03em]"
               id="transcript-title"
             >
               Transcript
             </h2>
-            <span className="text-[13px] text-[#64748b]">
+            <span className="text-sm text-[#64748b]">
               {item.segmentCount} segments
             </span>
           </div>
@@ -214,7 +214,7 @@ export default async function PublicVideoPage({
                   key={`segment-${block.start}-${block.text}`}
                 >
                   <a
-                    className="font-mono text-[13px] leading-7 text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
+                    className="font-mono text-sm leading-7 text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
                     href={timestampUrl(item.url, block.start)}
                     rel="noreferrer"
                     target="_blank"

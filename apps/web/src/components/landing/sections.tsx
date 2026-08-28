@@ -24,7 +24,7 @@ export function LandingHeader({
   return (
     <header className="sticky top-0 z-20 border-b border-[#e2e8f0] bg-[#fffdf8]">
       <div
-        className={`${pageWidth} flex min-h-[72px] items-center gap-8 max-sm:min-h-16 max-sm:gap-3`}
+        className={`${pageWidth} flex min-h-18 items-center gap-8 max-sm:min-h-16 max-sm:gap-3`}
       >
         <Brand />
         <nav
@@ -50,7 +50,7 @@ export function LandingHeader({
               ) : (
                 <span
                   aria-hidden="true"
-                  className="grid h-8 w-8 place-items-center rounded-full bg-[#edf7ff] text-[13px] font-extrabold text-[#0872b9]"
+                  className="grid h-8 w-8 place-items-center rounded-full bg-[#edf7ff] text-sm font-extrabold text-[#0872b9]"
                 >
                   {user.name.slice(0, 1).toUpperCase()}
                 </span>
@@ -77,23 +77,23 @@ export function LandingHeader({
 export function HeroSection() {
   return (
     <section
-      className={`${pageWidth} grid min-h-[calc(100vh_-_72px)] grid-cols-[minmax(0,0.8fr)_minmax(560px,1.2fr)] items-center gap-16 py-20 max-lg:min-h-0 max-lg:grid-cols-1 max-sm:gap-12 max-sm:py-14`}
+      className={`${pageWidth} grid min-h-[calc(100vh-72px)] grid-cols-[minmax(0,0.8fr)_minmax(560px,1.2fr)] items-center gap-16 py-20 max-lg:min-h-0 max-lg:grid-cols-1 max-sm:gap-12 max-sm:py-14`}
       aria-labelledby="hero-title"
     >
-      <div className="max-w-[600px] max-lg:max-w-[720px]">
+      <div className="max-w-150 max-lg:max-w-180">
         <h1
           className="m-0 text-[clamp(52px,5.6vw,80px)] leading-[0.98] font-extrabold tracking-[-0.04em] text-balance max-sm:text-[clamp(44px,14vw,64px)]"
           id="hero-title"
         >
           Turn YouTube into a knowledge base.
         </h1>
-        <p className="my-7 max-w-[56ch] text-[19px] leading-[1.65] text-[#64748b] max-sm:text-[17px]">
+        <p className="my-7 max-w-[56ch] text-xl leading-[1.65] text-[#64748b] max-sm:text-lg">
           Capture a video, playlist, or entire channel as timestamped
           transcripts. Save everything locally as Markdown — searchable,
           portable, and yours.
         </p>
         <CtaPair />
-        <p className="mt-5 mb-0 text-[13px] leading-relaxed text-[#64748b]">
+        <p className="mt-5 mb-0 text-sm leading-relaxed text-[#64748b]">
           No account required for local saves · Plain Markdown · Open source
         </p>
       </div>
@@ -105,7 +105,7 @@ export function HeroSection() {
 export function BatchSection() {
   return (
     <section
-      className="border-y border-[#e2e8f0] bg-white px-[max(24px,calc((100%_-_1200px)/2))] py-28 max-sm:py-20"
+      className="border-y border-[#e2e8f0] bg-white px-[max(24px,calc((100%-1200px)/2))] py-28 max-sm:py-20"
       id="batch"
       aria-labelledby="batch-title"
     >
@@ -125,11 +125,11 @@ export function BatchSection() {
 export function LocalFirstSection() {
   return (
     <section
-      className={`${pageWidth} grid grid-cols-[minmax(0,0.8fr)_minmax(560px,1.2fr)] items-center gap-[72px] py-32 max-lg:grid-cols-1 max-sm:gap-12 max-sm:py-[88px]`}
+      className={`${pageWidth} grid grid-cols-[minmax(0,0.8fr)_minmax(560px,1.2fr)] items-center gap-18 py-32 max-lg:grid-cols-1 max-sm:gap-12 max-sm:py-22`}
       id="local"
       aria-labelledby="local-title"
     >
-      <div className="max-w-[720px]">
+      <div className="max-w-180">
         <SectionKicker index="02" label="Local-first" />
         <h2
           className="m-0 text-[clamp(38px,5vw,64px)] leading-[1.02] font-bold tracking-[-0.04em] text-balance"
@@ -143,12 +143,12 @@ export function LocalFirstSection() {
         </p>
         <div className="mt-8 flex items-center gap-4 border-t border-[#202124] pt-4">
           <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f5c451] font-mono text-[11px] font-bold text-[#202124]"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f5c451] font-mono text-xs font-bold text-[#202124]"
             aria-hidden="true"
           >
             .md
           </span>
-          <p className="m-0 text-[13px] leading-relaxed text-[#64748b]">
+          <p className="m-0 text-sm leading-relaxed text-[#64748b]">
             <strong className="text-[#202124]">No export step.</strong> Your
             folder is the knowledge base. Open it in Obsidian, VS Code, or any
             text tool.
@@ -209,7 +209,7 @@ export function FinalCtaSection() {
 export function LandingFooter() {
   return (
     <footer
-      className={`${pageWidth} grid min-h-24 grid-cols-[1fr_auto_1fr] items-center gap-6 text-[13px] text-[#64748b] max-sm:grid-cols-1 max-sm:py-8`}
+      className={`${pageWidth} grid min-h-24 grid-cols-[1fr_auto_1fr] items-center gap-6 text-sm text-[#64748b] max-sm:grid-cols-1 max-sm:py-8`}
     >
       <Brand />
       <p className="m-0">

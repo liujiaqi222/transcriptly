@@ -5,11 +5,11 @@ export const GITHUB_URL = "https://github.com/liujiaqi222/transcriptly";
 export const CHROME_INSTALL_URL = `${GITHUB_URL}#%E4%BA%BA%E5%B7%A5%E8%BF%90%E8%A1%8C%E4%B8%8E%E9%AA%8C%E8%AF%81`;
 
 export const pageWidth =
-  "mx-auto w-[min(1200px,calc(100%_-_48px))] max-sm:w-[calc(100%_-_32px)]";
+  "mx-auto w-[min(1200px,calc(100%-48px))] max-sm:w-[calc(100%-32px)]";
 export const focusRing =
   "focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40";
 export const eyebrow =
-  "mb-4 inline-flex items-center gap-3 whitespace-nowrap text-[12px] font-bold tracking-[0.14em] text-[#0872b9] uppercase";
+  "mb-4 inline-flex items-center gap-3 whitespace-nowrap text-xs font-bold tracking-[0.14em] text-[#0872b9] uppercase";
 
 export function SectionKicker({
   index,
@@ -20,7 +20,7 @@ export function SectionKicker({
 }) {
   return (
     <p className={eyebrow}>
-      <span className="grid h-6 min-w-6 place-items-center rounded-md bg-[#edf7ff] px-1.5 text-[11px] tracking-[0.02em] text-[#0872b9] tabular-nums">
+      <span className="grid h-6 min-w-6 place-items-center rounded-md bg-[#edf7ff] px-1.5 text-xs tracking-[0.02em] text-[#0872b9] tabular-nums">
         {index}
       </span>
       <span className="h-px w-8 bg-[#1b90ed]" aria-hidden="true" />
@@ -32,7 +32,7 @@ export function SectionKicker({
 export function Brand() {
   return (
     <a
-      className={`inline-flex items-center gap-2 text-[17px] font-extrabold tracking-[-0.03em] no-underline ${focusRing}`}
+      className={`inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.03em] no-underline ${focusRing}`}
       href="/"
       aria-label="Transcriptly home"
     >
@@ -84,7 +84,7 @@ export function SectionHeading({
   copy: ReactNode;
 }) {
   return (
-    <div className="mb-12 max-w-[760px]">
+    <div className="mb-12 max-w-190">
       <SectionKicker index={index} label={label} />
       <h2
         className="m-0 text-[clamp(38px,5vw,64px)] leading-[1.02] font-bold tracking-[-0.04em] text-balance"

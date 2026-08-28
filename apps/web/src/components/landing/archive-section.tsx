@@ -13,11 +13,11 @@ export function ArchiveSection({
 }) {
   return (
     <section
-      className="border-y border-[#e2e8f0] bg-white px-[max(24px,calc((100%_-_1200px)/2))] py-28 max-sm:py-20"
+      className="border-y border-[#e2e8f0] bg-white px-[max(24px,calc((100%-1200px)/2))] py-28 max-sm:py-20"
       id="archive"
       aria-labelledby="archive-title"
     >
-      <div className="mb-12 max-w-[860px]">
+      <div className="mb-12 max-w-215">
         <p className={eyebrow}>03 · Public archive</p>
         <h2
           className="m-0 text-[clamp(38px,5vw,64px)] leading-[1.02] font-bold tracking-[-0.04em] text-balance"
@@ -29,16 +29,13 @@ export function ArchiveSection({
           Search · Read · Jump back to YouTube
         </p>
       </div>
-      <form className="max-w-[760px]" action="/#archive" method="get">
-        <label
-          className="mb-2 block text-[13px] font-bold"
-          htmlFor="archive-query"
-        >
+      <form className="max-w-190" action="/#archive" method="get">
+        <label className="mb-2 block text-sm font-bold" htmlFor="archive-query">
           Search the public archive
         </label>
         <div className="flex gap-2 max-sm:flex-col">
           <input
-            className={`min-h-[52px] min-w-0 flex-1 rounded-xl border border-slate-400 bg-white px-4 py-3 text-[#202124] placeholder:text-[#64748b] ${focusRing}`}
+            className={`min-h-13 min-w-0 flex-1 rounded-xl border border-slate-400 bg-white px-4 py-3 text-[#202124] placeholder:text-[#64748b] ${focusRing}`}
             id="archive-query"
             name="q"
             type="search"
@@ -46,7 +43,7 @@ export function ArchiveSection({
             placeholder="Search words, names, or topics"
           />
           <button
-            className={`min-h-[52px] rounded-xl border-0 bg-[#202124] px-5 py-3 font-bold text-white ${focusRing}`}
+            className={`min-h-13 rounded-xl border-0 bg-[#202124] px-5 py-3 font-bold text-white ${focusRing}`}
             type="submit"
           >
             Search
@@ -76,8 +73,8 @@ export function ArchiveSection({
                     className={`grid grid-cols-[minmax(0,1fr)_180px] gap-x-6 gap-y-2 py-5 no-underline max-sm:grid-cols-1 ${focusRing}`}
                     href={`/videos/${hit.videoId}`}
                   >
-                    <strong className="text-[17px]">{hit.title}</strong>
-                    <span className="text-right text-[13px] font-bold text-[#0872b9] max-sm:text-left">
+                    <strong className="text-lg">{hit.title}</strong>
+                    <span className="text-right text-sm font-bold text-[#0872b9] max-sm:text-left">
                       {hit.channelName}
                     </span>
                     <p className="col-span-full m-0 leading-relaxed text-[#64748b]">
@@ -101,7 +98,7 @@ export function ArchiveSection({
                   <span className="text-xs font-bold text-[#0872b9]">
                     {item.channelName}
                   </span>
-                  <strong className="text-[17px]">{item.title}</strong>
+                  <strong className="text-lg">{item.title}</strong>
                   <small className="text-[#64748b]">
                     {item.segmentCount} transcript segments
                   </small>
@@ -113,7 +110,7 @@ export function ArchiveSection({
             <span className="text-xs font-bold text-[#0872b9]">
               Public transcript
             </span>
-            <h3 className="my-3 text-[28px] leading-tight font-bold tracking-[-0.03em]">
+            <h3 className="my-3 text-3xl leading-tight font-bold tracking-[-0.03em]">
               {publicItems[0]?.title}
             </h3>
             <p className="leading-[1.65] text-[#64748b]">
@@ -129,7 +126,7 @@ export function ArchiveSection({
           </div>
         </div>
       ) : (
-        <div className="mt-8 max-w-[760px] rounded-2xl border border-[#e2e8f0] bg-[#fffdf8] p-8 text-[#64748b]">
+        <div className="mt-8 max-w-190 rounded-2xl border border-[#e2e8f0] bg-[#fffdf8] p-8 text-[#64748b]">
           <strong className="text-[#202124]">
             The public archive is waiting for its first transcript.
           </strong>

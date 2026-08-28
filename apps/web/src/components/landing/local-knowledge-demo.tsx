@@ -4,10 +4,10 @@ import { MotionReveal } from "./motion-reveal";
 function MarkdownDemo() {
   return (
     <div className="min-w-0 overflow-hidden">
-      <div className="min-h-11 overflow-hidden border-b border-[#e2e8f0] px-4 py-3.5 text-[11px] text-ellipsis whitespace-nowrap text-[#64748b]">
+      <div className="min-h-11 overflow-hidden border-b border-[#e2e8f0] px-4 py-3.5 text-xs text-ellipsis whitespace-nowrap text-[#64748b]">
         Reliable AI Agents.md
       </div>
-      <pre className="m-0 overflow-auto p-5 font-mono text-[11px] leading-[1.7] text-slate-700">{`---
+      <pre className="m-0 overflow-auto p-5 font-mono text-xs leading-[1.7] text-slate-700">{`---
 title: "Reliable AI Agents"
 channelName: "AI Notes"
 url: "https://www.youtube.com/watch?v=..."
@@ -60,10 +60,10 @@ export function LocalKnowledgeDemo() {
       aria-label="A local youtube folder containing channel folders and Markdown transcript files, with Reliable AI Agents Markdown open beside it"
     >
       <MotionReveal
-        className="flex min-w-0 flex-col gap-3 border-r border-[#e2e8f0] bg-slate-50 p-5 font-mono text-[11px] leading-relaxed text-[#64748b] max-sm:border-r-0 max-sm:border-b"
+        className="flex min-w-0 flex-col gap-3 border-r border-[#e2e8f0] bg-slate-50 p-5 font-mono text-xs leading-relaxed text-[#64748b] max-sm:border-r-0 max-sm:border-b"
         delay={180}
       >
-        <div className="mb-1 flex items-center justify-between border-b border-[#e2e8f0] pb-3 font-sans text-[10px] font-bold tracking-[0.12em] text-[#64748b] uppercase">
+        <div className="mb-1 flex items-center justify-between border-b border-[#e2e8f0] pb-3 font-sans text-xs font-bold tracking-[0.12em] text-[#64748b] uppercase">
           <span>Local files</span>
           <span className="text-[#0872b9]">~/youtube</span>
         </div>
@@ -79,7 +79,7 @@ export function LocalKnowledgeDemo() {
       </MotionReveal>
       <MotionReveal className="flex min-w-0 flex-col" delay={320}>
         <MarkdownDemo />
-        <div className="flex items-center justify-between gap-3 border-t border-[#e2e8f0] bg-[#fffdf8] px-5 py-3 text-[10px] font-bold tracking-[0.08em] text-[#64748b] uppercase max-sm:px-4">
+        <div className="flex items-center justify-between gap-3 border-t border-[#e2e8f0] bg-[#fffdf8] px-5 py-3 text-xs font-bold tracking-[0.08em] text-[#64748b] uppercase max-sm:px-4">
           <span>Plain Markdown</span>
           <span className="text-[#0872b9]">Yours to keep</span>
         </div>

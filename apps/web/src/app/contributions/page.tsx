@@ -38,9 +38,9 @@ export default async function MyContributionsPage() {
   return (
     <main className="min-h-screen bg-[#fffdf8] font-sans text-[#202124]">
       <header className="border-b border-[#e2e8f0] bg-white">
-        <div className="mx-auto flex min-h-[72px] w-[min(820px,calc(100%_-_48px))] items-center justify-between max-sm:w-[calc(100%_-_32px)]">
+        <div className="mx-auto flex min-h-18 w-[min(820px,calc(100%-48px))] items-center justify-between max-sm:w-[calc(100%-32px)]">
           <a
-            className="inline-flex items-center gap-2 text-[17px] font-extrabold tracking-[-0.03em] no-underline"
+            className="inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.03em] no-underline"
             href="/"
           >
             <LogoMark size={28} />
@@ -54,14 +54,14 @@ export default async function MyContributionsPage() {
           </a>
         </div>
       </header>
-      <div className="mx-auto w-[min(820px,calc(100%_-_48px))] py-[72px] pb-28 max-sm:w-[calc(100%_-_32px)] max-sm:py-12 max-sm:pb-20">
-        <p className="m-0 text-[13px] font-bold tracking-[0.14em] text-[#0872b9] uppercase">
+      <div className="mx-auto w-[min(820px,calc(100%-48px))] py-18 pb-28 max-sm:w-[calc(100%-32px)] max-sm:py-12 max-sm:pb-20">
+        <p className="m-0 text-sm font-bold tracking-[0.14em] text-[#0872b9] uppercase">
           My contributions
         </p>
         <h1 className="mt-3 mb-0 text-[clamp(38px,6vw,56px)] leading-[1.04] font-extrabold tracking-[-0.04em]">
           Videos you keep in the archive.
         </h1>
-        <p className="mt-5 mb-0 max-w-[60ch] text-[17px] leading-[1.65] text-[#64748b]">
+        <p className="mt-5 mb-0 max-w-[60ch] text-lg leading-[1.65] text-[#64748b]">
           Each entry is a video you currently contribute to the public
           transcript archive. Removing your contribution takes your name off the
           video; if you are the last contributor, the video is unpublished and
@@ -69,7 +69,7 @@ export default async function MyContributionsPage() {
         </p>
 
         {contributions.length === 0 ? (
-          <p className="mt-16 mb-0 text-[17px] leading-[1.65] text-[#64748b]">
+          <p className="mt-16 mb-0 text-lg leading-[1.65] text-[#64748b]">
             You have not contributed to any videos yet. Contribute a transcript
             from the Transcriptly extension to see it here.
           </p>
@@ -87,7 +87,7 @@ export default async function MyContributionsPage() {
                   >
                     {item.title}
                   </a>
-                  <span className="text-[13px] text-[#64748b]">
+                  <span className="text-sm text-[#64748b]">
                     {item.segmentCount} segments ·{" "}
                     {item.durationSeconds !== null
                       ? formatTimestamp(item.durationSeconds)

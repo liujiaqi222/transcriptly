@@ -60,13 +60,13 @@ export function RemoveContributionButton({
       }}
     >
       <DialogTrigger
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg px-1.5 text-[13px] font-semibold text-[#64748b] transition-colors hover:text-red-700 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg px-1.5 text-sm font-semibold text-[#64748b] transition-colors hover:text-red-700 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
         type="button"
       >
         <Trash2 aria-hidden="true" size={14} />
         Remove
       </DialogTrigger>
-      <DialogContent className="rounded-2xl ring-0 border border-[#e2e8f0] sm:max-w-[460px]">
+      <DialogContent className="rounded-2xl ring-0 border border-[#e2e8f0] sm:max-w-115">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold tracking-[-0.02em] text-[#202124]">
             Remove your contribution?

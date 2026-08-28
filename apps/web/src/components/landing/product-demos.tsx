@@ -21,7 +21,7 @@ const demoVideos = [
 function DemoCheck({ index, animated }: { index: number; animated: boolean }) {
   return (
     <span
-      className="relative grid h-[18px] w-[18px] place-items-center rounded-[5px] border-[1.5px] border-slate-300 bg-white"
+      className="relative grid h-4.5 w-4.5 place-items-center rounded-[5px] border-[1.5px] border-slate-300 bg-white"
       aria-hidden="true"
     >
       <span
@@ -58,11 +58,11 @@ function SelectionDemo({
       <ul className="m-0 list-none p-0">
         {demoVideos.map(([title, duration], index) => (
           <li
-            className={`grid items-center gap-2 border-b border-[#e2e8f0] px-3 py-2 ${dense ? "min-h-14 grid-cols-[52px_18px_minmax(0,1fr)] px-2 py-1.5" : "min-h-[68px] grid-cols-[72px_20px_minmax(0,1fr)]"}`}
+            className={`grid items-center gap-2 border-b border-[#e2e8f0] px-3 py-2 ${dense ? "min-h-14 grid-cols-[52px_18px_minmax(0,1fr)] px-2 py-1.5" : "min-h-17 grid-cols-[72px_20px_minmax(0,1fr)]"}`}
             key={title}
           >
             <span
-              className={`grid place-items-center rounded-lg bg-slate-100 text-xs font-extrabold text-slate-400 ${dense ? "h-[34px] w-[52px]" : "h-11 w-[72px]"}`}
+              className={`grid place-items-center rounded-lg bg-slate-100 text-xs font-extrabold text-slate-400 ${dense ? "h-8.5 w-13" : "h-11 w-18"}`}
               aria-hidden="true"
             >
               {index + 1}
@@ -72,7 +72,7 @@ function SelectionDemo({
               <strong className="block overflow-hidden text-xs text-ellipsis whitespace-nowrap">
                 {title}
               </strong>
-              <small className="mt-1 block text-[10px] text-[#64748b]">
+              <small className="mt-1 block text-xs text-[#64748b]">
                 {duration}
               </small>
             </span>
@@ -80,7 +80,7 @@ function SelectionDemo({
         ))}
       </ul>
       <div
-        className={`mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] text-[#64748b] ${dense ? "p-2" : "p-3"}`}
+        className={`mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[#64748b] ${dense ? "p-2" : "p-3"}`}
       >
         <span>
           <strong className="text-[#202124] tabular-nums">37/50</strong>{" "}
@@ -92,7 +92,7 @@ function SelectionDemo({
             <span>Select all</span>
           </>
         )}
-        <span className="ml-auto inline-flex min-h-9 items-center justify-center rounded-lg bg-[#f5c451] px-3 py-2 text-[11px] font-bold leading-none text-[#202124]">
+        <span className="ml-auto inline-flex min-h-9 items-center justify-center rounded-lg bg-[#f5c451] px-3 py-2 text-xs font-bold leading-none text-[#202124]">
           Start batch
         </span>
       </div>
@@ -108,12 +108,12 @@ function SourcePreview() {
           <Play size={10} fill="currentColor" aria-hidden="true" />
         </span>
         <span className="truncate">AI Notes</span>
-        <span className="ml-auto text-[10px] font-bold tracking-[0.08em] text-[#0872b9]">
+        <span className="ml-auto text-xs font-bold tracking-[0.08em] text-[#0872b9]">
           CHANNEL
         </span>
       </div>
       <div className="border-b border-[#e2e8f0] px-4 py-3">
-        <p className="m-0 text-[10px] font-bold tracking-[0.12em] text-[#0872b9] uppercase">
+        <p className="m-0 text-xs font-bold tracking-[0.12em] text-[#0872b9] uppercase">
           New videos
         </p>
         <h3 className="mt-1 mb-0 text-sm font-extrabold tracking-[-0.02em]">
@@ -128,12 +128,12 @@ function SourcePreview() {
           <strong className="block overflow-hidden text-xs text-ellipsis whitespace-nowrap">
             Reliable AI Agents
           </strong>
-          <span className="mt-1 block text-[10px] text-[#64748b]">
+          <span className="mt-1 block text-xs text-[#64748b]">
             18:42 · just published
           </span>
         </div>
       </div>
-      <div className="flex min-h-9 items-center gap-2 px-3 py-2 text-[10px] leading-none font-bold text-[#64748b]">
+      <div className="flex min-h-9 items-center gap-2 px-3 py-2 text-xs leading-none font-bold text-[#64748b]">
         <ListVideo size={13} aria-hidden="true" />
         <span>2 more videos ready to capture</span>
       </div>
@@ -157,7 +157,7 @@ function BatchManagerDemo({
     <div
       className={`flex h-full min-w-0 flex-col rounded-2xl border ${surface} p-5`}
     >
-      <div className="-mx-5 -mt-5 mb-5 flex items-center justify-between gap-3 rounded-t-2xl bg-[#202124] px-5 py-4 text-[13px] text-white">
+      <div className="-mx-5 -mt-5 mb-5 flex items-center justify-between gap-3 rounded-t-2xl bg-[#202124] px-5 py-4 text-sm text-white">
         <span className="flex items-center gap-2 font-bold">
           <span
             className={`${styles.liveDotVisible} h-2 w-2 rounded-full bg-[#f5c451]`}
@@ -180,7 +180,7 @@ function BatchManagerDemo({
       <div className="mb-4 flex flex-wrap gap-2">
         {["Pause", "Resume", "Retry failed"].map((label) => (
           <span
-            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-[11px] leading-none font-semibold"
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-xs leading-none font-semibold"
             key={label}
           >
             {label}
@@ -195,7 +195,7 @@ function BatchManagerDemo({
           >
             <span>{title}</span>
             <span
-              className={`rounded-full px-2 py-1 text-[10px] font-bold capitalize ${colors}`}
+              className={`rounded-full px-2 py-1 text-xs font-bold capitalize ${colors}`}
             >
               {state}
             </span>
@@ -224,20 +224,20 @@ export function HeroWorkflowDemo() {
       role="img"
       aria-label="Workflow demonstration: start from an AI Notes channel, capture videos as transcripts, and save them as Markdown files on your computer"
     >
-      <div className="flex min-h-[276px] min-w-0 flex-col max-sm:min-h-0">
-        <span className="mb-2 block min-h-4 text-[11px] leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
+      <div className="flex min-h-69 min-w-0 flex-col max-sm:min-h-0">
+        <span className="mb-2 block min-h-4 text-xs leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
           YouTube
         </span>
         <SourcePreview />
       </div>
       <DemoArrow />
-      <div className="flex min-h-[276px] min-w-0 flex-col max-sm:min-h-0">
-        <span className="mb-2 block min-h-4 text-[11px] leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
+      <div className="flex min-h-69 min-w-0 flex-col max-sm:min-h-0">
+        <span className="mb-2 block min-h-4 text-xs leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
           Capture
         </span>
         <div className="flex h-full min-w-0 flex-1 flex-col justify-center rounded-2xl border border-[#e2e8f0] bg-white p-4 max-sm:min-h-44">
           <LogoMark size={24} />
-          <strong className="mt-5 text-[12px] tabular-nums">
+          <strong className="mt-5 text-xs tabular-nums">
             <span className="inline-grid">
               <span
                 className={`${styles.demoCountFirstVisible} col-start-1 row-start-1`}
@@ -263,17 +263,17 @@ export function HeroWorkflowDemo() {
               className={`${styles.demoProgressVisible} block h-full w-[78%] origin-left rounded-full bg-[#1b90ed]`}
             />
           </div>
-          <small className="mt-3 text-[10px] leading-snug text-[#64748b]">
+          <small className="mt-3 text-xs leading-snug text-[#64748b]">
             Saving Markdown locally…
           </small>
         </div>
       </div>
       <DemoArrow />
-      <div className="flex min-h-[276px] min-w-0 flex-col max-sm:min-h-0">
-        <span className="mb-2 block min-h-4 text-[11px] leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
+      <div className="flex min-h-69 min-w-0 flex-col max-sm:min-h-0">
+        <span className="mb-2 block min-h-4 text-xs leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
           Markdown
         </span>
-        <div className="flex h-full min-w-0 flex-1 flex-col justify-center gap-2 rounded-2xl border border-[#e2e8f0] bg-white p-4 font-mono text-[10px] leading-snug text-[#64748b] max-sm:min-h-44">
+        <div className="flex h-full min-w-0 flex-1 flex-col justify-center gap-2 rounded-2xl border border-[#e2e8f0] bg-white p-4 font-mono text-xs leading-snug text-[#64748b] max-sm:min-h-44">
           <strong className="text-[#202124]">youtube/AI Notes</strong>
           <span
             className={styles.demoFileLineVisible}
@@ -311,14 +311,14 @@ export function BatchWorkflowDemo() {
         delay={120}
       >
         <div>
-          <p className="m-0 text-[11px] font-bold tracking-[0.14em] text-[#0872b9] uppercase">
+          <p className="m-0 text-xs font-bold tracking-[0.14em] text-[#0872b9] uppercase">
             One queue, every video
           </p>
           <p className="mt-1 mb-0 text-sm text-[#64748b]">
             Select once. Transcriptly handles the rest.
           </p>
         </div>
-        <span className="font-mono text-[11px] font-bold text-[#64748b]">
+        <span className="font-mono text-xs font-bold text-[#64748b]">
           PLAYLIST / 37 VIDEOS
         </span>
       </MotionReveal>
@@ -378,7 +378,7 @@ export function BatchCapabilities() {
             <dd className="mt-3 ml-0 flex flex-wrap gap-2">
               {proof.map((detail) => (
                 <span
-                  className="rounded-full border border-[#e2e8f0] bg-white px-2 py-1 text-[10px] font-bold text-[#64748b]"
+                  className="rounded-full border border-[#e2e8f0] bg-white px-2 py-1 text-xs font-bold text-[#64748b]"
                   key={detail}
                 >
                   {detail}
