@@ -127,7 +127,7 @@ export default async function PublicVideoPage({
         </div>
       </header>
       <article className="mx-auto w-[min(820px,calc(100%-48px))] py-18 pb-28 max-sm:w-[calc(100%-32px)] max-sm:py-12 max-sm:pb-20">
-        <h1 className="m-0 text-[clamp(40px,6vw,68px)] leading-[1.04] font-extrabold tracking-[-0.04em] text-balance">
+        <h1 className="m-0 font-serif text-[clamp(36px,5vw,56px)] leading-[1.05] font-semibold tracking-[-0.03em] text-balance">
           {item.title}
         </h1>
         <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#64748b]">
@@ -191,7 +191,7 @@ export default async function PublicVideoPage({
         >
           <div className="flex items-baseline justify-between gap-6">
             <h2
-              className="m-0 text-3xl font-bold tracking-[-0.03em]"
+              className="m-0 font-serif text-3xl font-semibold tracking-[-0.02em]"
               id="transcript-title"
             >
               Transcript
@@ -214,7 +214,7 @@ export default async function PublicVideoPage({
                   key={`segment-${block.start}-${block.text}`}
                 >
                   <a
-                    className="font-mono text-sm leading-7 text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
+                    className="font-mono text-sm leading-7 text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40 max-sm:text-xs"
                     href={timestampUrl(item.url, block.start)}
                     rel="noreferrer"
                     target="_blank"

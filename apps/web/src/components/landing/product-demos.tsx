@@ -1,163 +1,208 @@
-import {
-  ArrowRight,
-  Check,
-  Layers,
-  List,
-  ListVideo,
-  Play,
-  RefreshCw,
-} from "lucide-react";
+import { Layers, List, Play, RefreshCw } from "lucide-react";
 import { LogoMark } from "@/components/logo-mark";
 import styles from "./landing-motion.module.css";
-import { MotionReveal } from "./motion-reveal";
 
-// Demo titles match across selection, batch manager, file tree, and Markdown.
+// Demo titles match across capture, batch manager, file tree, and Markdown.
 const demoVideos = [
   ["Reliable AI Agents", "18:42"],
   ["Context Engineering", "32:08"],
   ["Workflow Evaluation", "24:16"],
 ] as const;
 
-function DemoCheck({ index, animated }: { index: number; animated: boolean }) {
-  return (
-    <span
-      className="relative grid h-4.5 w-4.5 place-items-center rounded-[5px] border-[1.5px] border-slate-300 bg-white"
-      aria-hidden="true"
-    >
-      <span
-        className={`absolute inset-[-1.5px] grid place-items-center rounded-[5px] bg-[#1b90ed] text-white ${animated ? styles.demoCheckVisible : ""}`}
-        style={
-          animated ? { animationDelay: `${0.3 + index * 0.35}s` } : undefined
-        }
-      >
-        <Check size={12} strokeWidth={3.25} />
-      </span>
-    </span>
-  );
-}
+const thumbnails = [
+  "from-[#3b2d63] to-[#6a4b9a]",
+  "from-[#123a4a] to-[#1f6f8b]",
+  "from-[#5a3a1a] to-[#b8781f]",
+] as const;
 
-function SelectionDemo({
-  dense = false,
-  animated = false,
-  surface = "border-[#e2e8f0] bg-white",
-}: {
-  dense?: boolean;
-  animated?: boolean;
-  surface?: string;
-}) {
+/**
+ * Hero demo: the extension running on a YouTube channel page, capturing
+ * selected videos into local Markdown. The browser chrome and extension
+ * panel read as one "Capture" story without a single YouTube trademark.
+ */
+export function CaptureDemo() {
   return (
     <div
-      className={`flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border ${surface}`}
+      className="overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-[0_32px_64px_-40px_rgba(32,33,36,0.35)]"
+      role="img"
+      aria-label="The Transcriptly extension running on a YouTube channel page: three videos are selected, a batch capture is running, and timestamped Markdown files are saved locally"
     >
-      <div
-        className={`flex items-center gap-2 border-b border-[#e2e8f0] px-3 py-2 text-xs font-bold ${dense ? "min-h-10" : "min-h-12"}`}
-      >
-        <span className="h-3.5 w-5 rounded bg-[#202124]" aria-hidden="true" />
-        <span>AI Notes · Videos</span>
+      {/* Browser bar */}
+      <div className="flex items-center gap-3 border-b border-[#e2e8f0] bg-[#f7f4ec] px-3.5 py-2.5">
+        <span className="flex gap-1.5" aria-hidden="true">
+          <i className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+          <i className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+          <i className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+        </span>
+        <span className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-[11px] text-[#64748b]">
+          <span className="text-[#16a34a]" aria-hidden="true">
+            ▾
+          </span>
+          <span className="truncate">youtube.com/@AInotes/videos</span>
+        </span>
+        <span className="hidden items-center gap-1.5 rounded-full border border-[#e2e8f0] bg-white px-2.5 py-1.5 font-mono text-[10px] tracking-[0.08em] text-[#3c4043] uppercase sm:inline-flex">
+          <span
+            className={`${styles.liveDotVisible} h-1.5 w-1.5 rounded-full bg-[#f5c451]`}
+            aria-hidden="true"
+          />
+          Transcriptly active
+        </span>
       </div>
-      <ul className="m-0 list-none p-0">
-        {demoVideos.map(([title, duration], index) => (
-          <li
-            className={`grid items-center gap-2 border-b border-[#e2e8f0] px-3 py-2 ${dense ? "min-h-14 grid-cols-[52px_18px_minmax(0,1fr)] px-2 py-1.5" : "min-h-17 grid-cols-[72px_20px_minmax(0,1fr)]"}`}
-            key={title}
-          >
+
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.86fr)] max-sm:grid-cols-1">
+        {/* YouTube side */}
+        <div className="min-w-0 border-r border-[#e2e8f0] p-3.5 max-sm:border-r-0 max-sm:border-b">
+          <div className="flex items-center gap-3">
             <span
-              className={`grid place-items-center rounded-lg bg-slate-100 text-xs font-extrabold text-slate-400 ${dense ? "h-8.5 w-13" : "h-11 w-18"}`}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#e05252] to-[#a83232] text-sm font-bold text-white"
               aria-hidden="true"
             >
-              {index + 1}
+              A
             </span>
-            <DemoCheck index={index} animated={animated} />
-            <span className="min-w-0">
-              <strong className="block overflow-hidden text-xs text-ellipsis whitespace-nowrap">
-                {title}
-              </strong>
-              <small className="mt-1 block text-xs text-[#64748b]">
-                {duration}
-              </small>
+            <div className="min-w-0">
+              <p className="m-0 text-sm font-bold">AI Notes</p>
+              <p className="m-0 font-mono text-[11px] text-[#64748b]">
+                128K subscribers · 142 videos
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-4 border-b border-[#e2e8f0] font-mono text-[11px] text-[#64748b]">
+            <span className="pb-2">Home</span>
+            <span className="pb-2 font-bold text-[#202124] shadow-[inset_0_-2px_0_#f5c451]">
+              Videos
             </span>
-          </li>
-        ))}
-      </ul>
-      <div
-        className={`mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[#64748b] ${dense ? "p-2" : "p-3"}`}
-      >
-        <span>
-          <strong className="text-[#202124] tabular-nums">37/50</strong>{" "}
-          selected
-        </span>
-        {!dense && (
-          <>
-            <span>Load more</span>
-            <span>Select all</span>
-          </>
-        )}
-        <span className="ml-auto inline-flex min-h-9 items-center justify-center rounded-lg bg-[#f5c451] px-3 py-2 text-xs font-bold leading-none text-[#202124]">
-          Start batch
-        </span>
+            <span className="pb-2">Playlists</span>
+          </div>
+          <ul className="m-0 mt-1 list-none p-0">
+            {demoVideos.map(([title, duration], index) => {
+              const checked = index < 2;
+              return (
+                <li
+                  className="flex items-center gap-2.5 rounded-lg px-2 py-2"
+                  key={title}
+                >
+                  <span
+                    className={`grid h-4.5 w-4.5 shrink-0 place-items-center rounded-[5px] border-[1.5px] text-[10px] font-bold ${
+                      checked
+                        ? "border-[#f5c451] bg-[#f5c451] text-[#202124]"
+                        : "border-slate-300 bg-white text-transparent"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </span>
+                  <span
+                    className={`relative h-11 w-20 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br ${thumbnails[index]}`}
+                    aria-hidden="true"
+                  >
+                    <span className="absolute inset-0 grid place-items-center text-white/90">
+                      <Play size={12} fill="currentColor" />
+                    </span>
+                    <span className="absolute right-1 bottom-1 rounded bg-black/80 px-1 font-mono text-[9px] text-white">
+                      {duration}
+                    </span>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-medium text-[#3c4043]">
+                      {title}
+                    </span>
+                    <span className="mt-0.5 block font-mono text-[10px] text-[#94a3b8]">
+                      {index === 0
+                        ? "2.1K views · 3 days ago"
+                        : index === 1
+                          ? "1.7K views · 1 week ago"
+                          : "980 views · 2 weeks ago"}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        {/* Extension panel */}
+        <div className="flex min-w-0 flex-col bg-[#f7f4ec]">
+          <div className="flex items-center gap-2 border-b border-[#e2e8f0] px-3.5 py-2.5">
+            <LogoMark size={22} />
+            <div className="leading-tight">
+              <p className="m-0 text-[13px] font-bold">Transcriptly</p>
+              <p className="m-0 font-mono text-[10px] tracking-[0.08em] text-[#64748b] uppercase">
+                Capture
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 p-3.5">
+            <span className="font-mono text-[11px] tracking-[0.1em] text-[#64748b] uppercase">
+              AI Notes · Videos
+            </span>
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-[#64748b]">Selected</span>
+              <span className="font-mono text-[13px] text-[#202124]">
+                <strong className="font-bold text-[#202124]">37</strong> / 50
+                videos
+              </span>
+            </div>
+            <span className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#f5c451] px-4 py-2.5 text-sm font-bold text-[#202124]">
+              Start capture
+            </span>
+            <div className="h-px bg-[#e2e8f0]" aria-hidden="true" />
+            <div className="flex items-center justify-between font-mono text-[11px] text-[#64748b]">
+              <span>Capturing…</span>
+              <strong className="font-medium text-[#202124]">29 / 37</strong>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[#e2e8f0]">
+              <span
+                className={`${styles.demoProgressVisible} block h-full w-[78%] origin-left rounded-full bg-[#1b90ed]`}
+              />
+            </div>
+            <span className="mt-0.5 font-mono text-[11px] tracking-[0.1em] text-[#64748b] uppercase">
+              Saving locally
+            </span>
+            <div className="grid gap-1.5 font-mono text-[11.5px] text-[#3c4043]">
+              <span className="flex items-center gap-2">
+                <span className="text-[#16a34a]" aria-hidden="true">
+                  ✓
+                </span>
+                Reliable AI Agents.md
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="text-[#16a34a]" aria-hidden="true">
+                  ✓
+                </span>
+                Context Engineering.md
+              </span>
+              <span className="flex items-center gap-2 text-[#94a3b8]">
+                <span aria-hidden="true">…</span>
+                Workflow Evaluation.md
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function SourcePreview() {
-  return (
-    <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white">
-      <div className="flex items-center gap-2 border-b border-[#e2e8f0] bg-[#fffdf8] px-3 py-2 text-xs font-bold text-[#202124]">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#edf7ff] text-[#0872b9]">
-          <Play size={10} fill="currentColor" aria-hidden="true" />
-        </span>
-        <span className="truncate">AI Notes</span>
-        <span className="ml-auto text-xs font-bold tracking-[0.08em] text-[#0872b9]">
-          CHANNEL
-        </span>
-      </div>
-      <div className="border-b border-[#e2e8f0] px-4 py-3">
-        <p className="m-0 text-xs font-bold tracking-[0.12em] text-[#0872b9] uppercase">
-          New videos
-        </p>
-        <h3 className="mt-1 mb-0 text-sm font-extrabold tracking-[-0.02em]">
-          AI Notes
-        </h3>
-      </div>
-      <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-3 border-b border-[#e2e8f0] p-3">
-        <div className="grid h-12 place-items-center rounded-lg bg-slate-100 text-slate-400">
-          <Play size={18} fill="currentColor" aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <strong className="block overflow-hidden text-xs text-ellipsis whitespace-nowrap">
-            Reliable AI Agents
-          </strong>
-          <span className="mt-1 block text-xs text-[#64748b]">
-            18:42 · just published
-          </span>
-        </div>
-      </div>
-      <div className="flex min-h-9 items-center gap-2 px-3 py-2 text-xs leading-none font-bold text-[#64748b]">
-        <ListVideo size={13} aria-hidden="true" />
-        <span>2 more videos ready to capture</span>
-      </div>
-    </div>
-  );
-}
-
-function BatchManagerDemo({
-  surface = "border-[#e2e8f0] bg-white",
-}: {
-  surface?: string;
-}) {
+/**
+ * Batch demo: the batch manager queue as one compact card - progress,
+ * controls, and per-video state. The selection step is intentionally left to
+ * the hero capture demo, so this stays a single glanceable panel.
+ */
+export function BatchQueueDemo() {
   const states = [
-    ["Reliable AI Agents", "captured", "bg-green-50 text-green-700"],
-    ["Context Engineering", "running", "bg-[#edf7ff] text-[#0872b9]"],
-    ["Workflow Evaluation", "queued", "bg-slate-100 text-[#64748b]"],
-    ["Memory Systems", "failed", "bg-red-50 text-red-700"],
+    ["Reliable AI Agents", "18:42", "captured", "bg-[#f5c451] text-[#202124]"],
+    ["Context Engineering", "32:08", "running", "bg-[#edf7ff] text-[#0872b9]"],
+    ["Workflow Evaluation", "24:16", "queued", "bg-slate-100 text-[#64748b]"],
+    ["Memory Systems", "29:53", "failed", "bg-red-50 text-red-700"],
   ] as const;
 
   return (
     <div
-      className={`flex h-full min-w-0 flex-col rounded-2xl border ${surface} p-5`}
+      className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-[0_32px_64px_-48px_rgba(32,33,36,0.35)]"
+      role="img"
+      aria-label="The batch manager capturing a 37-video playlist: 29 done, one video running, one queued, one failed, with pause, resume, and retry controls"
     >
-      <div className="-mx-5 -mt-5 mb-5 flex items-center justify-between gap-3 rounded-t-2xl bg-[#202124] px-5 py-4 text-sm text-white">
+      <div className="flex items-center justify-between gap-3 bg-[#202124] px-5 py-3.5 text-sm text-white">
         <span className="flex items-center gap-2 font-bold">
           <span
             className={`${styles.liveDotVisible} h-2 w-2 rounded-full bg-[#f5c451]`}
@@ -165,173 +210,74 @@ function BatchManagerDemo({
           />
           Batch Manager
         </span>
-        <strong className="text-[#f5c451] tabular-nums">29 / 37 done</strong>
-      </div>
-      <div
-        className="my-4 h-2 overflow-hidden rounded-full bg-[#e2e8f0]"
-        role="progressbar"
-        aria-label="29 of 37 videos done"
-        aria-valuemin={0}
-        aria-valuemax={37}
-        aria-valuenow={29}
-      >
-        <span className="block h-full w-[78%] rounded-full bg-[#1b90ed]" />
-      </div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        {["Pause", "Resume", "Retry failed"].map((label) => (
-          <span
-            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-xs leading-none font-semibold"
-            key={label}
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-      <ul className="m-0 list-none p-0">
-        {states.map(([title, state, colors]) => (
-          <li
-            className="flex min-h-11 items-center justify-between gap-3 border-t border-[#e2e8f0] text-xs"
-            key={title}
-          >
-            <span>{title}</span>
-            <span
-              className={`rounded-full px-2 py-1 text-xs font-bold capitalize ${colors}`}
-            >
-              {state}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function DemoArrow() {
-  return (
-    <div
-      className="flex items-center justify-center text-[#1b90ed] max-sm:rotate-90"
-      aria-hidden="true"
-    >
-      <ArrowRight size={22} strokeWidth={2.25} />
-    </div>
-  );
-}
-
-export function HeroWorkflowDemo() {
-  return (
-    <div
-      className="grid select-none grid-cols-[minmax(0,1.2fr)_28px_minmax(0,1fr)_28px_minmax(0,1fr)] items-stretch max-sm:grid-cols-1 max-sm:gap-3"
-      role="img"
-      aria-label="Workflow demonstration: start from an AI Notes channel, capture videos as transcripts, and save them as Markdown files on your computer"
-    >
-      <div className="flex min-h-69 min-w-0 flex-col max-sm:min-h-0">
-        <span className="mb-2 block min-h-4 text-xs leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
-          YouTube
-        </span>
-        <SourcePreview />
-      </div>
-      <DemoArrow />
-      <div className="flex min-h-69 min-w-0 flex-col max-sm:min-h-0">
-        <span className="mb-2 block min-h-4 text-xs leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
-          Capture
-        </span>
-        <div className="flex h-full min-w-0 flex-1 flex-col justify-center rounded-2xl border border-[#e2e8f0] bg-white p-4 max-sm:min-h-44">
-          <LogoMark size={24} />
-          <strong className="mt-5 text-xs tabular-nums">
-            <span className="inline-grid">
-              <span
-                className={`${styles.demoCountFirstVisible} col-start-1 row-start-1`}
-              >
-                Capturing 29 / 37
-              </span>
-              <span
-                className={`${styles.demoCountNextVisible} col-start-1 row-start-1 opacity-0`}
-                style={{ animationDelay: "3s" }}
-              >
-                Capturing 30 / 37
-              </span>
-              <span
-                className={`${styles.demoCountNextVisible} col-start-1 row-start-1 opacity-0`}
-                style={{ animationDelay: "6s" }}
-              >
-                Capturing 31 / 37
-              </span>
-            </span>
-          </strong>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e2e8f0]">
-            <span
-              className={`${styles.demoProgressVisible} block h-full w-[78%] origin-left rounded-full bg-[#1b90ed]`}
-            />
-          </div>
-          <small className="mt-3 text-xs leading-snug text-[#64748b]">
-            Saving Markdown locally…
-          </small>
-        </div>
-      </div>
-      <DemoArrow />
-      <div className="flex min-h-69 min-w-0 flex-col max-sm:min-h-0">
-        <span className="mb-2 block min-h-4 text-xs leading-4 font-bold tracking-[0.06em] text-[#64748b] uppercase">
-          Markdown
-        </span>
-        <div className="flex h-full min-w-0 flex-1 flex-col justify-center gap-2 rounded-2xl border border-[#e2e8f0] bg-white p-4 font-mono text-xs leading-snug text-[#64748b] max-sm:min-h-44">
-          <strong className="text-[#202124]">youtube/AI Notes</strong>
-          <span
-            className={styles.demoFileLineVisible}
-            style={{ animationDelay: "2.6s" }}
-          >
-            ├─ Reliable AI Agents.md
-          </span>
-          <span
-            className={styles.demoFileLineVisible}
-            style={{ animationDelay: "2.9s" }}
-          >
-            ├─ Context Engineering.md
-          </span>
-          <span
-            className={styles.demoFileLineVisible}
-            style={{ animationDelay: "3.2s" }}
-          >
-            └─ Workflow Evaluation.md
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function BatchWorkflowDemo() {
-  return (
-    <MotionReveal
-      className="overflow-hidden border-y border-[#202124] bg-[#fffdf8]"
-      role="img"
-      ariaLabel="Batch demonstration: select 37 of 50 playlist videos, then watch the batch manager capture them with pause, resume, and retry controls"
-    >
-      <MotionReveal
-        className="flex items-center justify-between gap-4 border-b border-[#e2e8f0] px-5 py-4 max-sm:items-start max-sm:flex-col"
-        delay={120}
-      >
-        <div>
-          <p className="m-0 text-xs font-bold tracking-[0.14em] text-[#0872b9] uppercase">
-            One queue, every video
-          </p>
-          <p className="mt-1 mb-0 text-sm text-[#64748b]">
-            Select once. Transcriptly handles the rest.
-          </p>
-        </div>
-        <span className="font-mono text-xs font-bold text-[#64748b]">
+        <span className="font-mono text-xs tracking-[0.06em] text-white/60">
           PLAYLIST / 37 VIDEOS
         </span>
-      </MotionReveal>
-      <div className="grid select-none grid-cols-[minmax(0,1.12fr)_48px_minmax(340px,0.88fr)] items-stretch gap-2 p-5 max-lg:grid-cols-1 max-lg:gap-6 max-sm:p-4">
-        <MotionReveal className="h-full min-w-0" delay={240}>
-          <SelectionDemo surface="border-[#e2e8f0] bg-white" />
-        </MotionReveal>
-        <DemoArrow />
-        <MotionReveal className="h-full min-w-0" delay={380}>
-          <BatchManagerDemo surface="border-[#e2e8f0] bg-white" />
-        </MotionReveal>
       </div>
-    </MotionReveal>
+      <div className="p-5">
+        <div className="mb-3 flex justify-between font-mono text-xs text-[#64748b]">
+          <span>Capturing videos…</span>
+          <span className="font-bold text-[#202124] tabular-nums">
+            29 / 37 done
+          </span>
+        </div>
+        <div
+          className="h-2 overflow-hidden rounded-full bg-[#e2e8f0]"
+          role="progressbar"
+          aria-label="29 of 37 videos done"
+          aria-valuemin={0}
+          aria-valuemax={37}
+          aria-valuenow={29}
+        >
+          <span
+            className={`${styles.demoProgressVisible} block h-full w-[78%] origin-left rounded-full bg-[#1b90ed]`}
+          />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {["Pause", "Resume", "Retry failed"].map((label) => (
+            <span
+              className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-[11px] font-medium"
+              key={label}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <ul className="m-0 list-none p-0">
+        {states.map(([title, duration, state, colors]) => {
+          const captured = state === "captured";
+          return (
+            <li
+              className="flex min-h-11 items-center gap-3 border-t border-[#e2e8f0] px-5 text-xs"
+              key={title}
+            >
+              <span
+                className={`grid h-4.5 w-4.5 shrink-0 place-items-center rounded-[5px] border-[1.5px] font-mono text-[10px] font-bold ${
+                  captured
+                    ? "border-[#f5c451] bg-[#f5c451] text-[#202124]"
+                    : "border-slate-300 bg-white text-transparent"
+                }`}
+                aria-hidden="true"
+              >
+                ✓
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {title}
+              </span>
+              <span
+                className={`rounded-full px-2 py-1 font-mono text-[10px] font-bold tracking-[0.06em] uppercase ${colors}`}
+              >
+                {state}
+              </span>
+              <span className="font-mono text-[#94a3b8] tabular-nums">
+                {duration}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -358,27 +304,24 @@ const batchCapabilities = [
 
 export function BatchCapabilities() {
   return (
-    <dl className="mt-12 grid grid-cols-3 border-y border-[#202124] bg-[#fffdf8] max-sm:grid-cols-1">
+    <dl className="m-0 grid gap-8 max-sm:gap-6">
       {batchCapabilities.map(({ title, description, proof, Icon }) => (
-        <div
-          className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)] gap-4 border-l border-[#e2e8f0] px-6 py-7 first:border-l-0 max-sm:border-t max-sm:border-l-0 max-sm:px-0 max-sm:first:border-t-0"
-          key={title}
-        >
+        <div className="flex min-w-0 gap-4" key={title}>
           <span
-            className="grid h-10 w-10 place-items-center rounded-xl border border-[#e2e8f0] bg-[#fffdf8] text-[#202124]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#e2e8f0] bg-[#f7f4ec] text-[#202124]"
             aria-hidden="true"
           >
             <Icon size={20} strokeWidth={2} />
           </span>
-          <div>
-            <dt className="text-base font-extrabold">{title}</dt>
-            <dd className="mt-2 ml-0 leading-relaxed text-[#64748b]">
+          <div className="min-w-0">
+            <dt className="text-base font-bold">{title}</dt>
+            <dd className="mt-1.5 ml-0 text-sm leading-relaxed text-[#64748b]">
               {description}
             </dd>
             <dd className="mt-3 ml-0 flex flex-wrap gap-2">
               {proof.map((detail) => (
                 <span
-                  className="rounded-full border border-[#e2e8f0] bg-white px-2 py-1 text-xs font-bold text-[#64748b]"
+                  className="rounded-full border border-[#e2e8f0] bg-white px-2.5 py-1 font-mono text-[11px] font-medium text-[#64748b]"
                   key={detail}
                 >
                   {detail}

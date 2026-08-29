@@ -7,7 +7,8 @@ import {
   HeroSection,
   LandingFooter,
   LandingHeader,
-  LocalFirstSection,
+  LocalMarkdownSection,
+  Marquee,
   OpenSourceStrip,
 } from "./sections";
 
@@ -26,8 +27,9 @@ export function LandingPage({
     <main className="min-w-0 overflow-clip bg-[#fffdf8] text-[#202124] selection:bg-[#f5c451] selection:text-[#202124]">
       <LandingHeader user={user} />
       <HeroSection />
+      <Marquee />
       <BatchSection />
-      <LocalFirstSection />
+      <LocalMarkdownSection />
       <ArchiveSection query={query} publicItems={publicItems} search={search} />
       <OpenSourceStrip />
       <FinalCtaSection />

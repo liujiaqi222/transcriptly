@@ -58,7 +58,7 @@ export default async function MyContributionsPage() {
         <p className="m-0 text-sm font-bold tracking-[0.14em] text-[#0872b9] uppercase">
           My contributions
         </p>
-        <h1 className="mt-3 mb-0 text-[clamp(38px,6vw,56px)] leading-[1.04] font-extrabold tracking-[-0.04em]">
+        <h1 className="mt-3 mb-0 font-serif text-[clamp(34px,5vw,52px)] leading-[1.05] font-semibold tracking-[-0.03em] text-balance">
           Videos you keep in the archive.
         </h1>
         <p className="mt-5 mb-0 max-w-[60ch] text-lg leading-[1.65] text-[#64748b]">
@@ -87,7 +87,7 @@ export default async function MyContributionsPage() {
                   >
                     {item.title}
                   </a>
-                  <span className="text-sm text-[#64748b]">
+                  <span className="font-mono text-sm text-[#64748b] tabular-nums">
                     {item.segmentCount} segments ·{" "}
                     {item.durationSeconds !== null
                       ? formatTimestamp(item.durationSeconds)

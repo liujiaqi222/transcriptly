@@ -1,6 +1,5 @@
 .reveal,
 .panel,
-.demoCheck,
 .demoProgress,
 .demoCountFirst,
 .demoCountNext,
@@ -50,30 +49,6 @@
 
 .liveDotVisible {
   animation: livePulse 2.4s ease-in-out infinite;
-}
-
-@keyframes demoCheckIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-
-  4% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-
-  6%,
-  94% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  97%,
-  100% {
-    opacity: 0;
-    transform: scale(0.5);
-  }
 }
 
 @keyframes demoProgressStep {
@@ -148,10 +123,6 @@
   }
 }
 
-.demoCheckVisible {
-  animation: demoCheckIn 9s infinite backwards;
-}
-
 .demoProgressVisible {
   animation: demoProgressStep 9s ease-in-out infinite;
 }
@@ -178,7 +149,6 @@
 
   .reveal,
   .panel,
-  .demoCheck,
   .demoProgress,
   .demoCountFirst,
   .demoCountNext,

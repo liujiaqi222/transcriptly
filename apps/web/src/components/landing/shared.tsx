@@ -6,10 +6,21 @@ export const CHROME_INSTALL_URL = `${GITHUB_URL}#%E4%BA%BA%E5%B7%A5%E8%BF%90%E8%
 
 export const pageWidth =
   "mx-auto w-[min(1200px,calc(100%-48px))] max-sm:w-[calc(100%-32px)]";
+
 export const focusRing =
   "focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40";
-export const eyebrow =
-  "mb-4 inline-flex items-center gap-3 whitespace-nowrap text-xs font-bold tracking-[0.14em] text-[#0872b9] uppercase";
+
+/** Mono uppercase label used for kickers and technical annotations. */
+export const monoLabel =
+  "font-mono text-xs font-medium tracking-[0.16em] uppercase";
+
+/**
+ * Serif display headline shared by the hero and every section. Fraunces at
+ * 600 reads with editorial presence without the slab weight of the old
+ * Inter 800 headlines.
+ */
+export const displayFace =
+  "font-serif font-semibold tracking-[-0.03em] text-balance";
 
 export function SectionKicker({
   index,
@@ -19,8 +30,10 @@ export function SectionKicker({
   label: string;
 }) {
   return (
-    <p className={eyebrow}>
-      <span className="grid h-6 min-w-6 place-items-center rounded-md bg-[#edf7ff] px-1.5 text-xs tracking-[0.02em] text-[#0872b9] tabular-nums">
+    <p
+      className={`mb-5 inline-flex items-center gap-3 ${monoLabel} text-[#0872b9]`}
+    >
+      <span className="grid h-6 min-w-6 place-items-center rounded-md bg-[#edf7ff] px-1.5 tabular-nums text-[#0872b9]">
         {index}
       </span>
       <span className="h-px w-8 bg-[#1b90ed]" aria-hidden="true" />
@@ -32,7 +45,7 @@ export function SectionKicker({
 export function Brand() {
   return (
     <a
-      className={`inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.03em] no-underline ${focusRing}`}
+      className={`inline-flex items-center gap-2 text-lg font-bold tracking-[-0.02em] no-underline ${focusRing}`}
       href="/"
       aria-label="Transcriptly home"
     >
@@ -80,19 +93,21 @@ export function SectionHeading({
   id: string;
   index: string;
   label: string;
-  title: string;
+  title: ReactNode;
   copy: ReactNode;
 }) {
   return (
     <div className="mb-12 max-w-190">
       <SectionKicker index={index} label={label} />
       <h2
-        className="m-0 text-[clamp(38px,5vw,64px)] leading-[1.02] font-bold tracking-[-0.04em] text-balance"
+        className={`${displayFace} m-0 text-[clamp(34px,4.6vw,56px)] leading-[1.02]`}
         id={id}
       >
         {title}
       </h2>
-      <p className="mt-5 mb-0 text-lg leading-[1.65] text-[#64748b]">{copy}</p>
+      <p className="mt-5 mb-0 max-w-[56ch] text-lg leading-[1.65] text-[#64748b]">
+        {copy}
+      </p>
     </div>
   );
 }
