@@ -1,7 +1,8 @@
 import type { Capture } from "@transcriptly/schema";
-import { and, eq, ne, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, ne, notInArray, sql } from "drizzle-orm";
 import type { Database } from "../../db/client";
 import {
+  canonicalVideos,
   contributions,
   publicProfileConsents,
   publicPublications,
@@ -194,6 +195,135 @@ async function storePublicContribution(
   });
 }
 
+export type PublicWithdrawalOutcome = {
+  videoId: string;
+  /** Canonical Video row id; the pruning seam, not part of the API contract. */
+  canonicalVideoId: string;
+  outcome: "withdrawn" | "unpublished";
+  remainingContributors: number;
+};
+
+/** The user has no Contribution for that video (or the video is unknown). */
+export class ContributionNotFoundError extends Error {
+  readonly code = "contribution_not_found";
+
+  constructor() {
+    super("No contribution was found for this video.");
+    this.name = "ContributionNotFoundError";
+  }
+}
+
+/**
+ * Withdraw the current user's video-level Contribution (#74). The
+ * Contribution belongs to the video, not to a Transcript version: removing
+ * one contributor removes only their attribution. When other contributors
+ * remain, the Publication and current Transcript stay untouched and the
+ * attribution falls back to the earliest remaining contributor. When the
+ * final contributor leaves, the Publication row is deleted - the video is
+ * unpublished - and every Transcript for the video is pruned afterwards.
+ *
+ * Shares the per-video advisory lock with contributePublicly so a
+ * withdrawal racing a new contribution still converges deterministically.
+ */
+export async function withdrawContribution(
+  db: Database,
+  userId: string,
+  youtubeVideoId: string,
+): Promise<PublicWithdrawalOutcome> {
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('public:' || ${youtubeVideoId}))`,
+    );
+
+    const [video] = await tx
+      .select({ id: canonicalVideos.id })
+      .from(canonicalVideos)
+      .where(eq(canonicalVideos.youtubeVideoId, youtubeVideoId))
+      .limit(1);
+    if (!video) return { notFound: true as const };
+
+    const [own] = await tx
+      .select({ id: contributions.id })
+      .from(contributions)
+      .where(
+        and(
+          eq(contributions.userId, userId),
+          eq(contributions.videoId, video.id),
+        ),
+      )
+      .limit(1);
+    if (!own) return { notFound: true as const };
+
+    const remaining = await tx
+      .select({ id: contributions.id })
+      .from(contributions)
+      .where(
+        and(
+          eq(contributions.videoId, video.id),
+          ne(contributions.userId, userId),
+        ),
+      )
+      .orderBy(asc(contributions.createdAt), asc(contributions.id));
+
+    const [publication] = await tx
+      .select({
+        id: publicPublications.id,
+        contributionId: publicPublications.contributionId,
+      })
+      .from(publicPublications)
+      .where(eq(publicPublications.videoId, video.id))
+      .limit(1);
+
+    if (remaining.length === 0) {
+      // Final contributor: unpublish by deleting the Publication (the FK on
+      // current_transcript_id is restrict, so the row must go before the
+      // Transcript can be pruned). A later contribution re-inserts it.
+      if (publication) {
+        await tx
+          .delete(publicPublications)
+          .where(eq(publicPublications.id, publication.id));
+      }
+      await tx.delete(contributions).where(eq(contributions.id, own.id));
+      return {
+        outcome: "unpublished" as const,
+        remainingContributors: 0,
+        canonicalVideoId: video.id,
+      };
+    }
+
+    // Attribution follows the withdrawn Contribution only when it currently
+    // carries it; otherwise the Publication is left exactly as it is.
+    if (publication?.contributionId === own.id) {
+      await tx
+        .update(publicPublications)
+        .set({
+          contributionId: remaining[0].id,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(publicPublications.id, publication.id));
+    }
+    await tx.delete(contributions).where(eq(contributions.id, own.id));
+    return {
+      outcome: "withdrawn" as const,
+      remainingContributors: remaining.length,
+      canonicalVideoId: video.id,
+    };
+  });
+
+  if ("notFound" in result) throw new ContributionNotFoundError();
+
+  if (result.outcome === "unpublished") {
+    await pruneSafely(db, result.canonicalVideoId, youtubeVideoId);
+  }
+
+  return {
+    videoId: youtubeVideoId,
+    canonicalVideoId: result.canonicalVideoId,
+    outcome: result.outcome,
+    remainingContributors: result.remainingContributors,
+  };
+}
+
 /**
  * Remove older Transcript content for a video once the new current
  * Publication is durable (#73). Only unreferenced rows are deleted - the
@@ -222,6 +352,30 @@ export async function pruneUnreferencedTranscripts(
 }
 
 /**
+ * Prune after the durable outcome commits. A pruning failure is logged,
+ * never surfaced to the client - the contribution or withdrawal itself is
+ * already durable.
+ */
+async function pruneSafely(
+  db: Database,
+  canonicalVideoId: string,
+  youtubeVideoId: string,
+): Promise<void> {
+  try {
+    await pruneUnreferencedTranscripts(db, canonicalVideoId);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "transcript_prune_failed",
+        videoId: youtubeVideoId,
+        canonicalVideoId,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+}
+
+/**
  * The route-facing entry point: commit the latest-qualified contribution,
  * then prune. A pruning failure is logged, never surfaced to the client -
  * the contribution itself is already durable.
@@ -240,17 +394,6 @@ export async function contributePublicly(
     capturedAt,
     confirmPublicProfile,
   );
-  try {
-    await pruneUnreferencedTranscripts(db, result.canonicalVideoId);
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        event: "transcript_prune_failed",
-        videoId: result.videoId,
-        canonicalVideoId: result.canonicalVideoId,
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    );
-  }
+  await pruneSafely(db, result.canonicalVideoId, result.videoId);
   return result;
 }

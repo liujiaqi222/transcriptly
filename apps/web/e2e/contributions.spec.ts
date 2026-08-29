@@ -14,8 +14,10 @@ const authSecret = requiredEnvironment("BETTER_AUTH_SECRET");
 const baseURL = requiredEnvironment("WEB_E2E_BASE_URL");
 const userId = randomUUID();
 const secondUserId = randomUUID();
+const thirdUserId = randomUUID();
 const sessionToken = `contribution-${randomUUID()}`;
 const secondSessionToken = `contribution-${randomUUID()}`;
+const thirdSessionToken = `contribution-${randomUUID()}`;
 const videoId = "M7lc1UVf-VE";
 
 const capture = {
@@ -73,6 +75,12 @@ async function sessionCookie(token = sessionToken): Promise<string> {
   return `better-auth.session_token=${token}.${signature}`;
 }
 
+/** The cookie value only - the signature may itself contain "=" padding. */
+async function sessionCookieValue(token = sessionToken): Promise<string> {
+  const cookie = await sessionCookie(token);
+  return cookie.slice(cookie.indexOf("=") + 1);
+}
+
 test.beforeAll(async () => {
   sql = postgres(databaseUrl, { max: 1 });
   const now = new Date();
@@ -92,6 +100,14 @@ test.beforeAll(async () => {
     insert into "session" (id, token, user_id, expires_at, created_at, updated_at)
     values (${randomUUID()}, ${secondSessionToken}, ${secondUserId}, ${new Date(now.getTime() + 3600000)}, ${now}, ${now})
   `;
+  await sql`
+    insert into "user" (id, name, email, email_verified, created_at, updated_at)
+    values (${thirdUserId}, 'Third Contributor', ${`third-public-${randomUUID()}@example.test`}, true, ${now}, ${now})
+  `;
+  await sql`
+    insert into "session" (id, token, user_id, expires_at, created_at, updated_at)
+    values (${randomUUID()}, ${thirdSessionToken}, ${thirdUserId}, ${new Date(now.getTime() + 3600000)}, ${now}, ${now})
+  `;
 });
 
 test.afterAll(async () => {
@@ -99,7 +115,7 @@ test.afterAll(async () => {
     delete from public_publications
     where video_id = (select id from canonical_videos where youtube_video_id = ${videoId})
   `;
-  await sql`delete from "user" where id in (${userId}, ${secondUserId})`;
+  await sql`delete from "user" where id in (${userId}, ${secondUserId}, ${thirdUserId})`;
   await sql.end();
 });
 
@@ -460,4 +476,214 @@ test("converges deterministically under concurrent contributions (#73)", async (
     where cv.youtube_video_id = ${videoId}
   `;
   expect(afterRetry[0].transcripts).toBe(1);
+});
+
+test("serves My contributions at /contributions with a session-gated entry (#74)", async ({
+  page,
+}) => {
+  // Signed out: the page redirects to sign-in and the home header offers
+  // the account entry as "Sign in".
+  await page.goto("/contributions");
+  await expect(page).toHaveURL(/\/sign-in\?callbackURL=%2Fcontributions$/);
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+    "href",
+    "/sign-in?callbackURL=%2Fcontributions",
+  );
+
+  // Signed in: the home header opens My contributions, and the page lists
+  // each currently active user-by-video Contribution exactly once.
+  await page.context().addCookies([
+    {
+      name: "better-auth.session_token",
+      value: await sessionCookieValue(),
+      url: baseURL,
+    },
+  ]);
+  await page.goto("/");
+  const accountEntry = page.getByRole("link", {
+    name: "My contributions",
+  });
+  await expect(accountEntry).toHaveAttribute("href", "/contributions");
+  // The entry shows the signed-in identity - avatar plus display name -
+  // not a generic label.
+  await expect(page.getByText("Public Contributor")).toBeVisible();
+  await expect(accountEntry.locator("img")).toHaveCount(1);
+
+  await page.goto("/contributions");
+  await expect(
+    page.getByRole("heading", { name: "Videos you keep in the archive." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Public archive E2E transcript" }),
+  ).toHaveCount(1);
+  await expect(page.getByText("Transcriptly Test Channel")).toBeVisible();
+});
+
+test("rejects withdrawal without a session, origin, or own contribution (#74)", async ({
+  request: api,
+}) => {
+  // Mutations stay strict: a missing Origin is rejected outright.
+  const noOrigin = await api.delete(`/api/v1/contributions/${videoId}`, {
+    headers: { Cookie: await sessionCookie() },
+  });
+  expect(noOrigin.status()).toBe(403);
+
+  const noSession = await api.delete(`/api/v1/contributions/${videoId}`, {
+    headers: { Origin: baseURL },
+  });
+  expect(noSession.status()).toBe(401);
+
+  const invalidVideo = await api.delete("/api/v1/contributions/short", {
+    headers: { Origin: baseURL, Cookie: await sessionCookie() },
+  });
+  expect(invalidVideo.status()).toBe(400);
+
+  // A signed-in user cannot withdraw someone else's contribution.
+  const stranger = await api.delete(`/api/v1/contributions/${videoId}`, {
+    headers: {
+      Origin: baseURL,
+      Cookie: await sessionCookie(thirdSessionToken),
+    },
+  });
+  expect(stranger.status()).toBe(404);
+  expect((await stranger.json()).error.code).toBe("contribution_not_found");
+
+  // None of the rejections touched the contribution.
+  const rows = await sql`
+    select count(*)::int as contributions
+    from contributions c join canonical_videos cv on cv.id = c.video_id
+    where cv.youtube_video_id = ${videoId}
+  `;
+  expect(rows[0].contributions).toBe(2);
+});
+
+test("requires confirmation before removing a contribution in the UI (#74)", async ({
+  page,
+}) => {
+  await page.context().addCookies([
+    {
+      name: "better-auth.session_token",
+      value: await sessionCookieValue(),
+      url: baseURL,
+    },
+  ]);
+  await page.goto("/contributions");
+  const remove = page.getByRole("button", { name: "Remove" });
+  await remove.click();
+
+  // The first click only opens the confirmation dialog and explains the
+  // stakes; Cancel closes it without changing anything.
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByText(/If you are the only contributor/),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  // The second explicit confirmation commits the withdrawal.
+  await remove.click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Remove contribution" }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Public archive E2E transcript" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("You have not contributed to any videos yet."),
+  ).toBeVisible();
+});
+
+test("keeps the publication and transcript when another contributor remains (#74)", async ({
+  page,
+}) => {
+  // The second contributor still holds the video: publication active,
+  // transcript intact, attribution moved off the withdrawn user.
+  const rows = await sql`
+    select
+      (select count(*)::int from contributions c join canonical_videos cv on cv.id = c.video_id where cv.youtube_video_id = ${videoId}) as contributions,
+      (select count(*)::int from public_publications pp join canonical_videos cv on cv.id = pp.video_id where cv.youtube_video_id = ${videoId}) as publications,
+      (select count(*)::int from transcripts t join canonical_videos cv on cv.id = t.video_id where cv.youtube_video_id = ${videoId}) as transcripts,
+      (select u.name from public_publications pp join contributions c on c.id = pp.contribution_id join "user" u on u.id = c.user_id join canonical_videos cv on cv.id = pp.video_id where cv.youtube_video_id = ${videoId}) as attributed_to,
+      (select pp.active from public_publications pp join canonical_videos cv on cv.id = pp.video_id where cv.youtube_video_id = ${videoId}) as active
+  `;
+  expect(rows[0]).toEqual({
+    contributions: 1,
+    publications: 1,
+    transcripts: 1,
+    attributed_to: "Second Contributor",
+    active: true,
+  });
+
+  await page.goto(`/videos/${videoId}`);
+  await expect(
+    page.getByText("Contributed by Second Contributor"),
+  ).toBeVisible();
+});
+
+test("unpublishes the video and deletes the transcript when the final contributor leaves (#74)", async ({
+  page,
+  request: api,
+}) => {
+  const final = await api.delete(`/api/v1/contributions/${videoId}`, {
+    headers: {
+      Origin: baseURL,
+      Cookie: await sessionCookie(secondSessionToken),
+    },
+  });
+  expect(final.status()).toBe(200);
+  await expect(final.json()).resolves.toMatchObject({
+    success: true,
+    data: { videoId, outcome: "unpublished", remainingContributors: 0 },
+  });
+
+  // Contribution, publication, and transcript content are all gone; the
+  // public surfaces (detail, search, sitemap) no longer expose the video.
+  const rows = await sql`
+    select
+      (select count(*)::int from contributions c join canonical_videos cv on cv.id = c.video_id where cv.youtube_video_id = ${videoId}) as contributions,
+      (select count(*)::int from public_publications pp join canonical_videos cv on cv.id = pp.video_id where cv.youtube_video_id = ${videoId}) as publications,
+      (select count(*)::int from transcripts t join canonical_videos cv on cv.id = t.video_id where cv.youtube_video_id = ${videoId}) as transcripts,
+      (select count(*)::int from segments s join transcripts t on t.id = s.transcript_id join canonical_videos cv on cv.id = t.video_id where cv.youtube_video_id = ${videoId}) as segments
+  `;
+  expect(rows[0]).toEqual({
+    contributions: 0,
+    publications: 0,
+    transcripts: 0,
+    segments: 0,
+  });
+
+  expect((await api.get(`/videos/${videoId}`)).status()).toBe(404);
+  expect(await (await api.get("/?q=observable")).text()).not.toContain(
+    "Observable behavior makes agent systems reliable.",
+  );
+  expect(await (await api.get("/sitemap.xml")).text()).not.toContain(
+    `/videos/${videoId}`,
+  );
+
+  // Withdrawing again is a 404, not a second unpublish.
+  const again = await api.delete(`/api/v1/contributions/${videoId}`, {
+    headers: {
+      Origin: baseURL,
+      Cookie: await sessionCookie(secondSessionToken),
+    },
+  });
+  expect(again.status()).toBe(404);
+
+  // A later qualified contribution republishes from scratch.
+  const republished = await api.post("/api/v1/contributions", {
+    headers: {
+      Origin: baseURL,
+      Cookie: await sessionCookie(),
+      "Content-Type": "application/json",
+    },
+    data: { capture: replacementCapture, targetVideoId: videoId },
+  });
+  expect(republished.status()).toBe(200);
+  expect((await republished.json()).data.outcome).toBe("published");
+  await page.goto(`/videos/${videoId}`);
+  await expect(
+    page.getByText("The latest qualified capture wins the publication."),
+  ).toBeVisible();
 });

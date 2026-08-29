@@ -1,6 +1,6 @@
 # Transcriptly
 
-一个开源 YouTube transcript 工具：Chrome 扩展可把逐段字幕保存成本地 Markdown，也可明确贡献到 Public Archive；还支持在 playlist / 频道页勾选视频批量捕获。
+一个开源 YouTube transcript 工具：Chrome 扩展可把逐段字幕保存成本地 Markdown（Timeline 或 Article 两种格式），也可明确贡献到 Public Archive；还支持在 playlist / 频道页勾选视频批量捕获，并内置实验性 AI Playground（Chrome 内置 Prompt API）。
 
 本地保存无需登录或上传——结果是一份普通 Markdown，可用 `rg`/`grep` 搜索，或交给本地 coding agent 读取。公开贡献是独立的可选 Destination：只有登录、明确确认公开效果并选择后，Capture 才会进入 Public Archive。
 
@@ -31,11 +31,18 @@ P1 完成本地闭环：**捕获 YouTube 已渲染的 transcript → 本地 Mark
 | #26 批量捕获：playlist/频道页一次性勾选 | ✅ 已合入 |
 | #56–#58 批量改造 A/B/C：入口生命周期、选择模式交互、批量管理页 | ✅ 已合入 |
 | #59 批量改造 D：恢复询问制（重启置 paused + 授权等待改暂停） | ✅ 已合入 |
-| #63 批量捕获后续：恢复、授权与双目的地执行语义修正 | 🔨 开发中 |
+| #67–#68 生产构建 tabs 权限修复 + 按需批量选择、Save 流程重排与统一扩展设计 | ✅ 已合入 |
+| #69 playlist watch 页引导条：识别 `watch?v=…&list=…` 并跳转纯 playlist 页 | ✅ 已合入 |
+| #71 品牌标识：play-to-text logo 覆盖全部表面 | ✅ 已合入 |
+| #75 本地 Markdown 双格式：Timeline / Article | ✅ 已合入 |
+| #78 Built-in AI Playground（Chrome 内置 Prompt API） | ✅ 已合入 |
+| #73 重复公开贡献：Latest Qualified 替换 + 旧 Transcript 清理 | ✅ 已合入 |
+| #63 批量稳定性：原子状态、Cloud/Local 身份与 Manager 协调 | 🔨 开发中 |
+| #74 My Contributions 撤回生命周期 / #76 公开阅读 Timeline/Article 切换 / #77 Views-Likes Snapshot | 待开发 |
 | #41 P2 生产部署链路 / #42 异机加密备份 | 待开发 |
-| #64 P3 Extension-first 首页、Public Archive 与首次公开贡献闭环 | 🔨 当前分支已实现 |
+| #64 P3 Extension-first 首页、Public Archive 与首次公开贡献闭环 | ✅ 已合入 |
 
-> 单视频「捕获 → 预览 → 本地 Save / Contribute publicly」、Public Archive 搜索阅读、playlist/频道页批量勾选 + 批量管理页均可用。
+> 单视频「捕获 → 预览 → 本地 Save / Contribute publicly」、Public Archive 搜索阅读、playlist/频道页批量勾选 + 批量管理页、Timeline/Article 双格式输出与 AI Playground 均可用。
 
 ## 目录结构
 
@@ -47,8 +54,9 @@ packages/capture   环境中立捕获核心 + serializeToMarkdown()
 apps/extension     WXT 扩展壳（React popup + content script）
   ├─ batch/        批量捕获：发现、选择、执行、ETA 与 SPA 安全路由
   ├─ cloud/        公开贡献：持久化队列与失败恢复（保留旧内部命名以兼容 IndexedDB）
-  └─ entrypoints/  popup、content、background、批量管理页 manager
-apps/web           Next.js App；src/db 分表 schema/migration、src/lib/auth 登录
+  └─ entrypoints/  popup、content、background、批量管理页 manager、AI playground
+apps/web           Next.js App；src/db 分表 schema/migration、src/lib/auth 登录；
+                   Extension-first 首页 + Public Archive + My Contributions
 docs/adr/          架构决策记录
 CONTEXT.md         领域术语表
 ```
@@ -61,12 +69,13 @@ CONTEXT.md         领域术语表
 - **vitest** —— 单元测试
 - **Playwright** —— 扩展加载的 e2e 测试
 - **Next.js + Tailwind CSS v4** —— 网站、SSR、UI 骨架与薄 Route Handlers
-- **PostgreSQL + Drizzle** —— 云端权威数据源与版本化 SQL migration
+- **PostgreSQL + Drizzle** -- 云端权威数据源与版本化 SQL migration
+- **Biome** -- lint 与 format；**Husky + lint-staged** -- pre-commit 检查
 
 ## 环境要求
 
 - Node.js ≥ 20
-- [pnpm](https://pnpm.io) ≥ 9(本项目用 `packageManager` 锁定,`corepack` 会自动启用)
+- [pnpm](https://pnpm.io) ≥ 9(本项目用 `packageManager` 锁定在 pnpm 11,`corepack` 会自动启用)
 - Playwright 的 Chromium(首次运行 e2e 前安装一次)
 
 ## 安装
@@ -90,13 +99,26 @@ pnpm run dev:web      # 本机启动 Next.js
 pnpm run db:migrate   # 对本机配置的 DATABASE_URL 执行版本化 migration
 pnpm run cloud:up     # Compose 构建并启动 migration、App 与 PostgreSQL
 pnpm run cloud:down   # 停止云端容器
+pnpm run lint         # Biome lint + format 检查
+pnpm run lint:fix     # Biome 自动修复
 ```
 
 ## 批量捕获
 
-在 playlist 或频道页点 popup 的批量入口后进入选择模式：卡片出现复选框，工具栏提供 Load more、Select all 与配额（单批上限 50 个视频），满配额时禁用勾选并以 toast 提示。确认后由 background worker 逐个打开标签页捕获，SPA 导航由 source/target 身份校验保护（详见 `docs/agents/youtube-spa-safety.md`）。
+在 playlist 或频道页点 popup 的批量入口后进入选择模式：卡片出现复选框，工具栏提供 Load more、Select all 与配额（单批上限 50 个视频），满配额时禁用勾选并以 toast 提示。在 `watch?v=…&list=…` 的带播放画面 playlist 页，popup 会在捕获视图上方显示引导条，一键跳转纯 `playlist?list=…` 页再进入批量选择（#69）。确认后由 background worker 逐个打开标签页捕获，SPA 导航由 source/target 身份校验保护（详见 `docs/agents/youtube-spa-safety.md`）。用户 Pause 语义是先完成当前视频再暂停，popup 与管理页都会如实显示。
 
 进度统一在批量管理页（`manager` extension page）查看：总进度与滑动 ETA、每个视频的 Local / Public Archive 双目的地结果与失败原因、失败项 Retry、Pause / Stop / Resume，以及最近批次历史。源页面关闭后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 可深链到单个批次。管理页同时承载本地保存宿主（目录授权与 Markdown 写入）：浏览器重启或目录授权过期时批次置为 paused，页面显示确切原因与对应操作（继续 / 重新授权），不会静默丢任务。
+
+## 本地输出格式：Timeline / Article
+
+每次本地保存可在 popup 中选择一种 Markdown 格式（#75），选择会被记住并同样作用于单视频与批量 Local 保存，每次只写一个文件：
+
+- **Timeline**（默认）：逐段时间戳列表，即下文示例的形状，向后兼容。
+- **Article**：把已有有序 Segments 确定性地重排为紧凑段落：按 Chapter 边界分段、复用现有句末标点、限制单段长度，并在每段开头保留时间戳链接。不恢复缺失标点、不改写原文、不调用 AI。
+
+## AI Playground（实验性）
+
+扩展内置独立的 AI Playground 页面（#78），可直接试用 Chrome 内置 Prompt API（Built-in AI）：由 popup 在独立标签页打开，页面区分不支持 / 不可用 / 可下载 / 可用 / 错误状态，模型下载由用户显式触发并显示进度，支持自由 prompt 的 Run / Stop / Clear，响应流式输出并展示 thought 摘要。会话不持久化，关闭页面即销毁；AI 不可用完全不影响捕获、本地保存、公开贡献与扩展启动。
 
 ## P2 云端骨架
 
@@ -119,7 +141,7 @@ curl -i http://localhost:3000/api/health/ready  # App + 已迁移数据库就绪
 
 `live` 不依赖数据库；`ready` 会实际查询 Drizzle schema。配置缺失返回 `configuration_error`，数据库不可用返回 `database_unavailable`，响应和 migration 错误均不包含连接串或 Secret。要用全新本地数据库验证 migration，可先执行 `docker compose down -v`（会删除本地 Compose 数据）。
 
-访问 `/` 可直接搜索 active Public Publication；`/videos/[videoId]` 服务端渲染完整公开 Timeline。Google 与 GitHub 登录只用于公开贡献，第一次贡献前会确认 Transcript、display name 与 optional avatar 将公开，email 永不公开。
+访问 `/` 是 Extension-first 的产品首页（#64）：hero 演示「Select -> Capture -> Markdown」并提供公开 Archive 搜索，含 OG 分享卡；`/videos/[videoId]` 服务端渲染完整公开 Timeline；登录后 `/contributions` 可查看 My Contributions。同一视频重复公开贡献时，最新收到且通过客观校验（视频身份一致、非空、时间线有序、非整体重复）的 Capture 会原子替换当前公开 Transcript 并清理旧版本（#73，见 `docs/adr/0002-latest-qualified-publication.md`）。Google 与 GitHub 登录只用于公开贡献，第一次贡献前会确认 Transcript、display name 与 optional avatar 将公开，email 永不公开。
 
 单个包:
 
@@ -173,15 +195,17 @@ pnpm --filter @transcriptly/extension run test
 2. 首次点击 Save 弹目录选择器,保存出包含 frontmatter、来源、描述和时间戳 transcript 的 Markdown。
 3. 再次点击 Save 不弹选择器,直接写入上次目录。
 4. 点击 Change 后选择新目录,后续保存写入新目录。
-5. 重复保存同一视频时旧文件保留,新文件使用数字后缀。
+5. 重复保存同一视频时旧文件保留,新文件使用数字后缀；切换 Article 格式后单视频与批量保存都按该格式写出且只写一个文件，选择会被记住。
 6. 取消选择、拒绝权限或写入失败时显示明确错误,不显示成功状态,不留下可冒充成功结果的半成品文件。
 
 批量捕获应重点验收：
 
-1. 在 playlist / 频道页点批量入口进入选择模式，Load more、Select all、配额上限 50 与满额 toast 表现正确。
-2. 确认后批量管理页展示总进度、ETA、每个视频的 Local / Public Archive 结果与失败原因，失败项可 Retry，可 Pause / Stop / Resume。
+1. 在 playlist / 频道页点批量入口进入选择模式，Load more、Select all、配额上限 50 与满额 toast 表现正确；`watch?v=…&list=…` 页显示引导条并可跳转纯 playlist 页。
+2. 确认后批量管理页展示总进度、ETA、每个视频的 Local / Public Archive 结果与失败原因，失败项可 Retry，可 Pause（先完成当前视频再暂停）/ Stop / Resume。
 3. 关闭源页面后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 深链到对应批次。
 4. 浏览器重启或目录授权过期后批次置为 paused，管理页显示确切原因与对应操作，不静默丢任务。
+
+AI Playground 应重点验收：在支持 Built-in AI 的 Chrome 中由 popup 打开独立标签页，显式触发模型下载并观察进度，运行一条 prompt 得到流式响应（含 thought 摘要），Stop 可中止、Clear 可清空；不支持的浏览器显示明确不支持状态，且不影响任何捕获/保存功能。
 
 ### 开发模式(HMR)
 
@@ -237,6 +261,8 @@ capturedAt: "2024-08-15T14:32:00.000Z"
 
 - [00:52](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=52) then open the pull request
 ```
+
+以上是 Timeline 格式（默认）。选择 Article 格式（#75）时，同样的 Segments 会被重排为紧凑段落：每段以时间戳链接开头、按 Chapter 边界分段，不改动原文与顺序。
 
 页面内容一律按不可信输入转义(HTML 与 Markdown 链接/强调语法)。
 

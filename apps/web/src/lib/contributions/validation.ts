@@ -5,9 +5,12 @@ import {
   MAX_CAPTURE_FUTURE_MS,
 } from "../captures/validation";
 
+/** YouTube video ids: exactly 11 characters of `[A-Za-z0-9_-]`. */
+export const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
 const videoIdSchema = z
   .string()
-  .regex(/^[A-Za-z0-9_-]{11}$/, "must be an 11-character YouTube video id");
+  .regex(YOUTUBE_VIDEO_ID_PATTERN, "must be an 11-character YouTube video id");
 
 const contributionPayloadSchema = z.strictObject({
   capture: captureSchema,

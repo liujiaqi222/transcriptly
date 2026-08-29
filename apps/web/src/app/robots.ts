@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         // Authentication and machine surfaces never belong to a search index.
-        disallow: ["/sign-in", "/api"],
+        disallow: ["/sign-in", "/contributions", "/api"],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
