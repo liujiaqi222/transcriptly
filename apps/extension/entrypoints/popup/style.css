@@ -452,6 +452,17 @@ h2 {
   margin: 0;
   word-break: break-all;
 }
+.property-description dd {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.property-description p {
+  margin: 0 0 4px;
+  color: var(--muted);
+}
+.property-description p:last-child {
+  margin-bottom: 0;
+}
 .property a,
 .segment a {
   color: var(--primary);
@@ -463,15 +474,43 @@ h2 {
   border-radius: 12px;
   background: var(--background);
 }
-.description {
-  margin: 0 0 16px;
-  padding: 0;
-  color: var(--muted);
-  white-space: pre-wrap;
-  word-break: break-word;
+.preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
 }
-.description p {
-  margin: 0 0 4px;
+.preview-heading h2 {
+  margin: 0;
+}
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.copy-button svg {
+  width: 12px;
+  height: 12px;
+}
+.copy-button:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.copy-button.copied {
+  color: var(--ok);
+  border-color: var(--ok);
 }
 .chapter {
   margin: 16px 0 8px;

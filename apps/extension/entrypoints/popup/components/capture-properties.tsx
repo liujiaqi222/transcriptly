@@ -24,6 +24,17 @@ export function CaptureProperties({ capture }: { capture: Capture }) {
             </dd>
           </div>
         ))}
+        {capture.source.description.trim().length > 0 && (
+          <div className="property property-description">
+            <dt>Description</dt>
+            <dd>
+              {capture.source.description.split("\n").map((line, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: description lines are positional
+                <p key={index}>{line}</p>
+              ))}
+            </dd>
+          </div>
+        )}
       </dl>
     </details>
   );
