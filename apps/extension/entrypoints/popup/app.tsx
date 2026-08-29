@@ -72,8 +72,7 @@ export interface PopupDependencies {
   };
   account: AccountDependencies;
   cloud: CloudDependencies;
-  /** Open the built-in AI Playground page in a new tab (#78). */
-  openAiPlayground(): void;
+  
 }
 
 /** The popup shell: composes one hook per domain (active capture, batch
@@ -316,12 +315,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           onChangeFolder={() => void handleChangeFolder()}
         />
       )}
-      <footer className="playground-entry">
-        <button type="button" onClick={deps.openAiPlayground}>
-          <Sparkles />
-          AI Playground
-        </button>
-      </footer>
+      
     </div>
   );
 }
