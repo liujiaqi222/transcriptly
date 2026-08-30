@@ -1,5 +1,4 @@
 import type { PublicTranscriptSummary } from "@/lib/publications/queries";
-import type { SearchResult } from "@/lib/search/search";
 import { ArchiveSection } from "./archive-section";
 import {
   BatchSection,
@@ -14,14 +13,10 @@ import {
 
 export function LandingPage({
   user,
-  query,
   publicItems,
-  search,
 }: {
   user: { name: string; image: string | null } | null;
-  query: string;
   publicItems: PublicTranscriptSummary[];
-  search: SearchResult | null;
 }) {
   return (
     <main className="min-w-0 overflow-clip bg-[#fffdf8] text-[#202124] selection:bg-[#f5c451] selection:text-[#202124]">
@@ -30,7 +25,7 @@ export function LandingPage({
       <Marquee />
       <BatchSection />
       <LocalMarkdownSection />
-      <ArchiveSection query={query} publicItems={publicItems} search={search} />
+      <ArchiveSection publicItems={publicItems} />
       <OpenSourceStrip />
       <FinalCtaSection />
       <LandingFooter />

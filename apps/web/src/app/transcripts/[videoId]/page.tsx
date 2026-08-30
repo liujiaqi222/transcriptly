@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { TranscriptSection } from "@/app/videos/[videoId]/components/transcript-section";
+import { TranscriptSection } from "@/app/transcripts/[videoId]/components/transcript-section";
 import { LogoMark } from "@/components/logo-mark";
 import { getDatabase } from "@/db/client";
 import { getAuthEnv } from "@/env/server";
@@ -50,19 +50,19 @@ export async function generateMetadata({
   if (!item) return {};
   const description = publicDescription(
     item.title,
-    item.channelName,
+    item.channelName ?? "an unknown channel",
     item.description,
   );
   const thumbnail = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
   return {
     title: `${item.title} — Transcriptly`,
     description,
-    alternates: { canonical: `/videos/${videoId}` },
+    alternates: { canonical: `/transcripts/${videoId}` },
     openGraph: {
       title: item.title,
       description,
       type: "video.other",
-      url: `/videos/${videoId}`,
+      url: `/transcripts/${videoId}`,
       images: [thumbnail],
     },
     twitter: {
@@ -85,10 +85,10 @@ export default async function PublicVideoPage({
   if (!item) notFound();
   const description = publicDescription(
     item.title,
-    item.channelName,
+    item.channelName ?? "an unknown channel",
     item.description,
   );
-  const canonical = `${getAuthEnv().BETTER_AUTH_URL}/videos/${videoId}`;
+  const canonical = `${getAuthEnv().BETTER_AUTH_URL}/transcripts/${videoId}`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
@@ -116,9 +116,9 @@ export default async function PublicVideoPage({
           </a>
           <a
             className="text-sm font-bold text-[#0872b9] underline-offset-4"
-            href="/#archive"
+            href="/transcripts"
           >
-            Search the archive
+            Browse transcripts
           </a>
         </div>
       </header>
@@ -127,14 +127,16 @@ export default async function PublicVideoPage({
           {item.title}
         </h1>
         <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#64748b]">
-          <a
-            className="font-bold text-[#0872b9] underline-offset-4"
-            href={item.channelUrl || item.url}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {item.channelName}
-          </a>
+          {item.channelSlug ? (
+            <a
+              className="font-bold text-[#0872b9] underline-offset-4"
+              href={`/channels/${item.channelSlug}`}
+            >
+              {item.channelName}
+            </a>
+          ) : item.channelName ? (
+            <span>{item.channelName}</span>
+          ) : null}
           {item.publishedAt ? (
             <span>Published {dateFormatter.format(item.publishedAt)}</span>
           ) : null}
@@ -183,7 +185,6 @@ export default async function PublicVideoPage({
         ) : null}
         <TranscriptSection
           chapters={item.chapters}
-          segmentCount={item.segmentCount}
           segments={item.segments}
           url={item.url}
         />

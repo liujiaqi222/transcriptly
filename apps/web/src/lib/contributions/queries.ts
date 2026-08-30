@@ -2,10 +2,11 @@ import { asc, desc, eq, sql } from "drizzle-orm";
 import type { Database } from "../../db/client";
 import {
   canonicalVideos,
+  channels,
   contributions,
   publicPublications,
-  segments,
 } from "../../db/schema";
+import { channelUrlFromHandle } from "../channels/queries";
 
 export type UserContributionSummary = {
   videoId: string;
@@ -15,14 +16,7 @@ export type UserContributionSummary = {
   durationSeconds: number | null;
   contributedAt: Date;
   publicationUpdatedAt: Date | null;
-  segmentCount: number;
 };
-
-const segmentCount = sql<number>`(
-  select count(*)::int
-  from ${segments}
-  where ${segments.transcriptId} = ${publicPublications.currentTranscriptId}
-)`;
 
 /**
  * One row per video the user currently contributes to (#74). A Contribution
@@ -39,19 +33,26 @@ export async function listUserContributions(
     .select({
       videoId: canonicalVideos.youtubeVideoId,
       title: canonicalVideos.title,
-      channelName: canonicalVideos.channelName,
-      channelUrl: canonicalVideos.channelUrl,
+      channelName: channels.name,
+      channelUrl: sql<string>`coalesce(${channels.handle}, '')`,
       durationSeconds: canonicalVideos.durationSeconds,
       contributedAt: contributions.createdAt,
       publicationUpdatedAt: publicPublications.updatedAt,
-      segmentCount,
     })
     .from(contributions)
     .innerJoin(canonicalVideos, eq(canonicalVideos.id, contributions.videoId))
+    .leftJoin(channels, eq(channels.id, canonicalVideos.channelId))
     .leftJoin(
       publicPublications,
       eq(publicPublications.videoId, contributions.videoId),
     )
     .where(eq(contributions.userId, userId))
-    .orderBy(desc(contributions.createdAt), asc(contributions.id));
+    .orderBy(desc(contributions.createdAt), asc(contributions.id))
+    .then((rows) =>
+      rows.map((row) => ({
+        ...row,
+        channelName: row.channelName ?? "",
+        channelUrl: row.channelUrl ? channelUrlFromHandle(row.channelUrl) : "",
+      })),
+    );
 }

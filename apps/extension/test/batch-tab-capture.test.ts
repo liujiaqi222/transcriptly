@@ -16,7 +16,7 @@ const capture: Capture = {
     url: video.url,
     title: "First video",
     channelName: "Ship It Weekly",
-    channelUrl: "https://www.youtube.com/@shipitweekly",
+    channelHandle: "/@shipitweekly",
     description: "",
   },
   capturedAt: "2026-08-22T00:00:00.000Z",

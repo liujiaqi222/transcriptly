@@ -13,7 +13,7 @@ const capture = {
     url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     title: "Title",
     channelName: "Channel",
-    channelUrl: "https://www.youtube.com/@channel",
+    channelHandle: "/@channel",
     description: "",
   },
   capturedAt: "2026-08-20T10:00:00.000Z",
@@ -45,7 +45,7 @@ describe("capture validation", () => {
         ...capture,
         source: {
           ...capture.source,
-          channelUrl: "",
+          channelHandle: "",
           publishedAt: "2009-10-24T00:00:00.000Z",
         },
       }).ok,
@@ -62,7 +62,7 @@ describe("capture validation", () => {
     expect(
       validateCapturePayload({
         ...capture,
-        source: { ...capture.source, channelUrl: "javascript:alert(1)" },
+        source: { ...capture.source, channelHandle: "javascript:alert(1)" },
       }).ok,
     ).toBe(false);
     expect(

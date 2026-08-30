@@ -43,12 +43,10 @@ export function TranscriptSection({
   url,
   segments,
   chapters,
-  segmentCount,
 }: {
   url: string;
   segments: TranscriptTimeline["segments"];
   chapters: TranscriptTimeline["chapters"];
-  segmentCount: number;
 }) {
   const timeline: TranscriptTimeline = { segments, chapters };
   const [format, setFormat] = useState<TranscriptFormat>("timeline");
@@ -78,9 +76,6 @@ export function TranscriptSection({
           >
             Transcript
           </h2>
-          <span className="text-sm text-[#64748b]">
-            {segmentCount} segments
-          </span>
         </div>
         <div className="flex items-center gap-2">
           <fieldset className="m-0 border-0 p-0">

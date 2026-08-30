@@ -14,8 +14,8 @@ import { z } from "zod";
 /** YouTube video IDs are exactly 11 base64url characters. */
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const MAX_INT4 = 2_147_483_647;
-const YOUTUBE_CHANNEL_PATH =
-  /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/;
+/** Captured channel identity: the YouTube channel URL path, `@handle` first. */
+const CHANNEL_HANDLE = /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/;
 const nonNegativeInt4 = z.number().int().min(0).max(MAX_INT4);
 
 export const captureSourceSchema = z
@@ -26,8 +26,9 @@ export const captureSourceSchema = z
     url: z.url(),
     title: z.string().trim().min(1),
     channelName: z.string().trim().min(1),
-    // The producer uses an empty string when YouTube exposes no channel URL.
-    channelUrl: z.string(),
+    // The producer uses an empty string when YouTube exposes no channel URL;
+    // the stored value is the channel URL path (`@handle`, `channel/UC…`).
+    channelHandle: z.string(),
     description: z.string(),
     // Producers normalize YouTube display dates to UTC midnight before upload.
     publishedAt: z.iso.datetime({ offset: true, precision: 3 }).optional(),
@@ -57,23 +58,25 @@ export const captureSourceSchema = z
       });
     }
 
-    if (source.channelUrl !== "") {
+    if (source.channelHandle !== "") {
       try {
-        const url = new URL(source.channelUrl);
+        const url = new URL(
+          `https://www.youtube.com${source.channelHandle.startsWith("/") ? source.channelHandle : `/${source.channelHandle}`}`,
+        );
         if (
-          url.protocol !== "https:" ||
           url.hostname !== "www.youtube.com" ||
-          !YOUTUBE_CHANNEL_PATH.test(url.pathname) ||
+          !CHANNEL_HANDLE.test(url.pathname) ||
           url.search ||
           url.hash
         ) {
-          throw new Error("invalid channel URL");
+          throw new Error("invalid channel handle");
         }
       } catch {
         context.addIssue({
           code: "custom",
-          path: ["channelUrl"],
-          message: "must be an HTTPS YouTube channel URL or empty",
+          path: ["channelHandle"],
+          message:
+            "must be a YouTube channel path (`@handle` or `channel/UC…`) or empty",
         });
       }
     }

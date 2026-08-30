@@ -1,5 +1,4 @@
 import type { PublicTranscriptSummary } from "@/lib/publications/queries";
-import type { SearchResult } from "@/lib/search/search";
 import {
   CHROME_INSTALL_URL,
   displayFace,
@@ -8,13 +7,9 @@ import {
 } from "./shared";
 
 export function ArchiveSection({
-  query,
   publicItems,
-  search,
 }: {
-  query: string;
   publicItems: PublicTranscriptSummary[];
-  search: SearchResult | null;
 }) {
   return (
     <section
@@ -32,92 +27,65 @@ export function ArchiveSection({
             Share what you <em className="italic">choose to share.</em>
           </h2>
           <p className="mt-4 mb-0 max-w-[56ch] text-base leading-[1.6] text-[#64748b]">
-            Contributing is optional — everything local stays local until you
+            Contributing is optional - everything local stays local until you
             explicitly publish a transcript. When you do, it becomes searchable
-            here.
+            in the public archive.
           </p>
         </div>
 
-        <form className="max-w-190" action="/#archive" method="get">
-          <label
-            className="mb-2 block text-sm font-bold"
-            htmlFor="archive-query"
-          >
-            Search the public archive
-          </label>
-          <div className="flex gap-2 max-sm:flex-col">
-            <input
-              className={`min-h-13 min-w-0 flex-1 rounded-xl border border-slate-400 bg-white px-4 py-3 text-[#202124] placeholder:text-[#64748b] ${focusRing}`}
-              id="archive-query"
-              name="q"
-              type="search"
-              defaultValue={query}
-              placeholder="Search words, names, or topics"
-            />
-            <button
-              className={`min-h-13 rounded-xl border-0 bg-[#202124] px-5 py-3 font-bold text-white ${focusRing}`}
-              type="submit"
+        <search className="max-w-190" aria-label="Search the public archive">
+          <form action="/transcripts" method="get">
+            <label
+              className="mb-2 block text-sm font-bold"
+              htmlFor="archive-query"
             >
-              Search
-            </button>
-          </div>
-        </form>
-
-        {query && search ? (
-          <div className="mt-8" aria-live="polite">
-            <div className="flex items-baseline justify-between gap-6">
-              <h3 className="m-0 text-xl font-bold">Results for “{query}”</h3>
-              <a
-                className={`font-bold text-[#0872b9] underline-offset-4 ${focusRing}`}
-                href="/#archive"
+              Search the public archive
+            </label>
+            <div className="flex gap-2 max-sm:flex-col">
+              <input
+                className={`min-h-13 min-w-0 flex-1 rounded-xl border border-slate-400 bg-white px-4 py-3 text-[#202124] placeholder:text-[#64748b] ${focusRing}`}
+                id="archive-query"
+                name="q"
+                type="search"
+                placeholder="Search words, names, or topics"
+              />
+              <button
+                className={`min-h-13 rounded-xl border-0 bg-[#202124] px-5 py-3 font-bold text-white ${focusRing}`}
+                type="submit"
               >
-                Clear search
-              </a>
+                Search
+              </button>
             </div>
-            {search.hits.length === 0 ? (
-              <p className="mt-6 text-[#64748b]">
-                No public transcript matches this search.
-              </p>
-            ) : (
-              <ul className="m-0 list-none p-0">
-                {search.hits.map((hit) => (
-                  <li className="border-t border-[#e2e8f0]" key={hit.key}>
-                    <a
-                      className={`grid grid-cols-[minmax(0,1fr)_180px] gap-x-6 gap-y-2 py-4 no-underline max-sm:grid-cols-1 ${focusRing}`}
-                      href={`/videos/${hit.videoId}`}
-                    >
-                      <strong className="text-base">{hit.title}</strong>
-                      <span className="text-right font-mono text-sm text-[#0872b9] max-sm:text-left">
-                        {hit.channelName}
-                      </span>
-                      <p className="col-span-full m-0 leading-relaxed text-[#64748b]">
-                        {hit.window.find((segment) => segment.isHit)?.text}
-                      </p>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : publicItems.length > 0 ? (
-          <ul className="mt-8 m-0 list-none p-0">
-            {publicItems.map((item) => (
-              <li className="border-t border-[#e2e8f0]" key={item.videoId}>
-                <a
-                  className={`grid gap-1 py-4 no-underline hover:text-[#0872b9] ${focusRing}`}
-                  href={`/videos/${item.videoId}`}
-                >
-                  <span className="font-mono text-xs font-medium text-[#0872b9]">
-                    {item.channelName}
-                  </span>
-                  <strong className="text-base">{item.title}</strong>
-                  <small className="font-mono text-xs text-[#64748b]">
-                    {item.segmentCount} transcript segments
-                  </small>
-                </a>
-              </li>
-            ))}
-          </ul>
+          </form>
+        </search>
+
+        {publicItems.length > 0 ? (
+          <>
+            <ul className="mt-8 m-0 list-none p-0">
+              {publicItems.map((item) => (
+                <li className="border-t border-[#e2e8f0]" key={item.videoId}>
+                  <a
+                    className={`grid gap-1 py-4 no-underline hover:text-[#0872b9] ${focusRing}`}
+                    href={`/transcripts/${item.videoId}`}
+                  >
+                    <span className="font-mono text-xs font-medium text-[#0872b9]">
+                      {item.channelName}
+                    </span>
+                    <strong className="text-base">{item.title}</strong>
+                    <small className="font-mono text-xs text-[#64748b]">
+                      {item.publicationUpdatedAt.toISOString().slice(0, 10)}
+                    </small>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <a
+              className={`mt-6 inline-block font-bold text-[#0872b9] ${focusRing}`}
+              href="/transcripts"
+            >
+              {"View all transcripts ->"}
+            </a>
+          </>
         ) : (
           <div className="mt-8 max-w-190 rounded-2xl border border-[#e2e8f0] bg-[#f7f4ec] p-8 text-[#64748b]">
             <strong className="text-[#202124]">
@@ -139,7 +107,7 @@ export function ArchiveSection({
             target="_blank"
           >
             {" "}
-            Install the extension →
+            {"Install the extension ->"}
           </a>
         </p>
       </div>

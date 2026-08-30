@@ -26,7 +26,7 @@ const capture = {
     url: `https://www.youtube.com/watch?v=${videoId}`,
     title: "Public archive E2E transcript",
     channelName: "Transcriptly Test Channel",
-    channelUrl: "https://www.youtube.com/@transcriptly-test",
+    channelHandle: "/@transcriptly-test",
     description: "A public transcript used to verify Issue 64.",
     durationSeconds: 180,
   },
@@ -253,7 +253,7 @@ test("serves only active publications through detail, search, and sitemap", asyn
   page,
   request,
 }) => {
-  await page.goto(`/videos/${videoId}`);
+  await page.goto(`/transcripts/${videoId}`);
   await expect(page).toHaveTitle(/Public archive E2E transcript/);
   await expect(
     page.getByRole("heading", { name: "Public archive E2E transcript" }),
@@ -270,25 +270,25 @@ test("serves only active publications through detail, search, and sitemap", asyn
     1,
   );
 
-  await page.goto("/?q=observable");
+  await page.goto("/transcripts?q=observable");
   await expect(
     page.getByText("Observable behavior makes agent systems reliable."),
   ).toBeVisible();
 
   const sitemap = await request.get("/sitemap.xml");
-  expect(await sitemap.text()).toContain(`/videos/${videoId}`);
+  expect(await sitemap.text()).toContain(`/transcripts/${videoId}`);
 
   await sql`
     update public_publications
     set active = false
     where video_id = (select id from canonical_videos where youtube_video_id = ${videoId})
   `;
-  expect((await request.get(`/videos/${videoId}`)).status()).toBe(404);
-  expect(await (await request.get("/?q=observable")).text()).not.toContain(
-    "Observable behavior makes agent systems reliable.",
-  );
+  expect((await request.get(`/transcripts/${videoId}`)).status()).toBe(404);
+  expect(
+    await (await request.get("/transcripts?q=observable")).text(),
+  ).not.toContain("Observable behavior makes agent systems reliable.");
   expect(await (await request.get("/sitemap.xml")).text()).not.toContain(
-    `/videos/${videoId}`,
+    `/transcripts/${videoId}`,
   );
 });
 
@@ -372,7 +372,7 @@ test("replaces the current publication with the latest qualified capture and pru
   });
 
   // The public surface serves the replacement with the new attribution.
-  await page.goto(`/videos/${videoId}`);
+  await page.goto(`/transcripts/${videoId}`);
   await expect(
     page.getByRole("heading", { name: "Public archive E2E transcript" }),
   ).toBeVisible();
@@ -616,7 +616,7 @@ test("keeps the publication and transcript when another contributor remains (#74
     active: true,
   });
 
-  await page.goto(`/videos/${videoId}`);
+  await page.goto(`/transcripts/${videoId}`);
   await expect(
     page.getByText("Contributed by Second Contributor"),
   ).toBeVisible();
@@ -654,12 +654,12 @@ test("unpublishes the video and deletes the transcript when the final contributo
     segments: 0,
   });
 
-  expect((await api.get(`/videos/${videoId}`)).status()).toBe(404);
+  expect((await api.get(`/transcripts/${videoId}`)).status()).toBe(404);
   expect(await (await api.get("/?q=observable")).text()).not.toContain(
     "Observable behavior makes agent systems reliable.",
   );
   expect(await (await api.get("/sitemap.xml")).text()).not.toContain(
-    `/videos/${videoId}`,
+    `/transcripts/${videoId}`,
   );
 
   // Withdrawing again is a 404, not a second unpublish.
@@ -682,7 +682,7 @@ test("unpublishes the video and deletes the transcript when the final contributo
   });
   expect(republished.status()).toBe(200);
   expect((await republished.json()).data.outcome).toBe("published");
-  await page.goto(`/videos/${videoId}`);
+  await page.goto(`/transcripts/${videoId}`);
   await expect(
     page.getByText("The latest qualified capture wins the publication."),
   ).toBeVisible();

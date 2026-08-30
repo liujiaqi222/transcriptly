@@ -3,10 +3,12 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../../db/client";
 import {
   canonicalVideos,
+  channels,
   chapters,
   segments,
   transcripts,
 } from "../../db/schema";
+import { channelSlug } from "../channels/queries";
 import { transcriptBody } from "./hash";
 
 export class TranscriptHashCollisionError extends Error {
@@ -93,20 +95,46 @@ export async function findOrCreateTranscript(
   return existingId;
 }
 
+/**
+ * Upserts the channel a capture references. The name follows the latest
+ * capture; a capture with no channel handle leaves the stored channel alone.
+ */
+export async function upsertChannel(
+  tx: CaptureTransaction,
+  source: Capture["source"],
+): Promise<string | null> {
+  if (source.channelHandle === "") return null;
+  const inserted = await tx
+    .insert(channels)
+    .values({
+      handle: source.channelHandle,
+      slug: channelSlug(source.channelHandle),
+      name: source.channelName,
+    })
+    .onConflictDoUpdate({
+      target: channels.handle,
+      set: { name: sql`excluded.name` },
+    })
+    .returning({ id: channels.id });
+  const id = inserted[0]?.id;
+  if (!id) throw new Error("Channel was not available after upsert.");
+  return id;
+}
+
 export async function updateCanonicalVideo(
   tx: CaptureTransaction,
   capture: Capture,
   capturedAt: Date,
 ): Promise<string> {
   const source = capture.source;
+  const channelId = await upsertChannel(tx, source);
   const inserted = await tx
     .insert(canonicalVideos)
     .values({
       youtubeVideoId: source.videoId,
       sourceUrl: source.url,
       title: source.title,
-      channelName: source.channelName,
-      channelUrl: source.channelUrl,
+      channelId,
       description: source.description,
       publishedAt: source.publishedAt ? new Date(source.publishedAt) : null,
       durationSeconds: source.durationSeconds,
@@ -117,8 +145,7 @@ export async function updateCanonicalVideo(
       set: {
         sourceUrl: sql`excluded.source_url`,
         title: sql`excluded.title`,
-        channelName: sql`excluded.channel_name`,
-        channelUrl: sql`coalesce(nullif(excluded.channel_url, ''), ${canonicalVideos.channelUrl})`,
+        channelId: sql`coalesce(excluded.channel_id, ${canonicalVideos.channelId})`,
         description: sql`excluded.description`,
         publishedAt: sql`coalesce(excluded.published_at, ${canonicalVideos.publishedAt})`,
         durationSeconds: sql`coalesce(excluded.duration_seconds, ${canonicalVideos.durationSeconds})`,

@@ -26,7 +26,7 @@ function makeCapture(overrides: Overrides = {}): Capture {
       url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       title: "A Practical Guide to Agents",
       channelName: "Ship It Weekly",
-      channelUrl: "https://www.youtube.com/@shipitweekly",
+      channelHandle: "/@shipitweekly",
       description: "Engineering lessons behind production agent systems.",
       ...overrides.source,
     },

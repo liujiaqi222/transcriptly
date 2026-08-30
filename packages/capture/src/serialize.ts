@@ -28,6 +28,12 @@ function yamlString(value: string): string {
   return JSON.stringify(value);
 }
 
+/** Rebuilds the public YouTube channel URL from the captured handle. */
+export function channelUrlFromHandle(handle: string): string {
+  if (handle === "") return "";
+  return `https://www.youtube.com${handle.startsWith("/") ? handle : `/${handle}`}`;
+}
+
 export function formatTimestamp(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -46,7 +52,7 @@ function buildFrontmatter(source: CaptureSource, capturedAt: string): string {
     "---",
     `title: ${yamlString(source.title)}`,
     `channelName: ${yamlString(source.channelName)}`,
-    `channelUrl: ${yamlString(source.channelUrl)}`,
+    `channelUrl: ${yamlString(channelUrlFromHandle(source.channelHandle))}`,
     `url: ${yamlString(source.url)}`,
     `videoId: ${yamlString(source.videoId)}`,
   ];

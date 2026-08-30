@@ -12,7 +12,7 @@ function capture(overrides: Partial<Capture> = {}): Capture {
       url: "https://www.youtube.com/watch?v=abc12345678",
       title: "A complete transcript",
       channelName: "Transcriptly Lab",
-      channelUrl: "https://www.youtube.com/@transcriptly",
+      channelHandle: "/@transcriptly",
       description: "A public contribution fixture.",
       durationSeconds: 120,
     },

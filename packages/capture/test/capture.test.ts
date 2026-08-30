@@ -76,9 +76,7 @@ describe("capture", () => {
     );
     expect(result.source.title).toBe("Rust for TypeScript Developers");
     expect(result.source.channelName).toBe("Crab People");
-    expect(result.source.channelUrl).toBe(
-      "https://www.youtube.com/@crabpeople",
-    );
+    expect(result.source.channelHandle).toBe("/@crabpeople");
     expect(result.source.description).toBe("Borrow checker without the tears.");
     expect(result.source.durationSeconds).toBe(1391);
     expect(result.source.publishedAt).toBe("2025-01-15T00:00:00.000Z");
@@ -92,9 +90,7 @@ describe("capture", () => {
 
     expect(result.source.title).toBe("Fresh Title from DOM");
     expect(result.source.channelName).toBe("Fresh Channel");
-    expect(result.source.channelUrl).toBe(
-      "https://www.youtube.com/@freshchannel",
-    );
+    expect(result.source.channelHandle).toBe("/@freshchannel");
     expect(result.source.description).toBe("Fresh description from DOM.");
     expect(result.source.publishedAt).toBe("2009-10-24T00:00:00.000Z");
     expect(result.source.durationSeconds).toBe(245);
@@ -172,9 +168,7 @@ describe("capture", () => {
     const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
     expect(result.source.channelName).toBe("Open Residency");
-    expect(result.source.channelUrl).toBe(
-      "https://www.youtube.com/@openresidency",
-    );
+    expect(result.source.channelHandle).toBe("/@openresidency");
     expect(captureSchema.safeParse(result).success).toBe(true);
   });
 

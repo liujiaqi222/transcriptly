@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  index,
   integer,
   pgTable,
   text,
@@ -9,6 +10,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { channels } from "./channels";
 
 /** The cloud's shared identity and current Source for a YouTube video. */
 export const canonicalVideos = pgTable(
@@ -18,8 +20,9 @@ export const canonicalVideos = pgTable(
     youtubeVideoId: varchar("youtube_video_id", { length: 11 }).notNull(),
     sourceUrl: text("source_url").notNull(),
     title: text("title").notNull(),
-    channelName: text("channel_name").notNull(),
-    channelUrl: text("channel_url").notNull(),
+    channelId: uuid("channel_id").references(() => channels.id, {
+      onDelete: "set null",
+    }),
     description: text("description").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     durationSeconds: integer("duration_seconds"),
@@ -41,5 +44,6 @@ export const canonicalVideos = pgTable(
       "canonical_videos_duration_seconds_nonnegative",
       sql`${table.durationSeconds} is null or ${table.durationSeconds} >= 0`,
     ),
+    index("canonical_videos_channel_id_idx").on(table.channelId),
   ],
 );

@@ -3,7 +3,9 @@ import { safeCallbackUrl } from "./callback-url";
 
 describe("safeCallbackUrl", () => {
   it("keeps same-site relative paths", () => {
-    expect(safeCallbackUrl("/videos/waGRF_ZApfI")).toBe("/videos/waGRF_ZApfI");
+    expect(safeCallbackUrl("/transcripts/waGRF_ZApfI")).toBe(
+      "/transcripts/waGRF_ZApfI",
+    );
     expect(safeCallbackUrl("/?q=agents")).toBe("/?q=agents");
   });
 

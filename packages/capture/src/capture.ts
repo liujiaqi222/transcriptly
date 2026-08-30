@@ -13,6 +13,9 @@ import {
 import { parseDuration, parseTimestamp } from "./timestamp";
 import { canonicalWatchUrl, parseVideoId } from "./video";
 
+/** YouTube channel URL path shapes accepted for a captured handle. */
+const CHANNEL_HANDLE = /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/;
+
 export interface CaptureOptions {
   selectors?: SiteSelectors;
   timeoutMs?: number;
@@ -63,15 +66,13 @@ function readMeta(doc: Document, rules: SelectorRule[]): string {
   return sanitizeText(readFirstAttribute(doc, rules) ?? "");
 }
 
-function normalizeChannelUrl(raw: string, base: string): string {
+/** The channel URL path (`@handle` or `channel/UC…`), or "" if unusable. */
+function normalizeChannelHandle(raw: string, base: string): string {
   if (raw.trim() === "") return "";
 
   try {
     const url = new URL(raw.trim(), base);
-    const isYouTubeChannelPath =
-      /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/.test(
-        url.pathname,
-      );
+    const isYouTubeChannelPath = CHANNEL_HANDLE.test(url.pathname);
     if (
       url.protocol !== "https:" ||
       url.hostname !== "www.youtube.com" ||
@@ -81,7 +82,7 @@ function normalizeChannelUrl(raw: string, base: string): string {
     ) {
       return "";
     }
-    return url.href;
+    return url.pathname.replace(/\/$/, "");
   } catch {
     return "";
   }
@@ -110,7 +111,7 @@ function findVideoOwnerRenderer(
 
 interface InitialChannel {
   name: string;
-  url: string;
+  handle: string;
 }
 
 function readInitialChannel(
@@ -152,9 +153,9 @@ function readInitialChannel(
         const canonicalBaseUrl = endpoint?.canonicalBaseUrl;
         const name = title?.content;
         if (typeof canonicalBaseUrl === "string" && typeof name === "string") {
-          const url = normalizeChannelUrl(canonicalBaseUrl, base);
-          if (url && name.trim() !== "") {
-            return { name: sanitizeText(name), url };
+          const handle = normalizeChannelHandle(canonicalBaseUrl, base);
+          if (handle && name.trim() !== "") {
+            return { name: sanitizeText(name), handle };
           }
         }
       }
@@ -223,8 +224,8 @@ function readSource(
     initialChannel?.name ?? readMeta(doc, selectors.meta.channelName);
   const rawChannelUrl =
     readFirstAttribute(doc, selectors.meta.channelUrl) ?? "";
-  const channelUrl =
-    initialChannel?.url || normalizeChannelUrl(rawChannelUrl, url);
+  const channelHandle =
+    initialChannel?.handle || normalizeChannelHandle(rawChannelUrl, url);
 
   const publishedAt = selectors.meta.publishedAt
     ? normalizePublishedAt(readMeta(doc, selectors.meta.publishedAt))
@@ -244,7 +245,7 @@ function readSource(
     url,
     title,
     channelName,
-    channelUrl,
+    channelHandle,
     description,
     ...(publishedAt !== undefined ? { publishedAt } : {}),
     ...(durationSeconds !== undefined ? { durationSeconds } : {}),

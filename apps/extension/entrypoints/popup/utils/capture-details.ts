@@ -1,4 +1,8 @@
-import { canonicalWatchUrl, formatTimestamp } from "@transcriptly/capture";
+import {
+  canonicalWatchUrl,
+  channelUrlFromHandle,
+  formatTimestamp,
+} from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
 
 export interface PropertyRow {
@@ -24,7 +28,7 @@ export function propertyRows(capture: Capture): PropertyRow[] {
     {
       label: "Channel",
       value: source.channelName,
-      href: source.channelUrl,
+      href: channelUrlFromHandle(source.channelHandle),
     },
     {
       label: "Video ID",

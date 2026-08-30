@@ -29,7 +29,7 @@ const capture: Capture = {
     url: "https://www.youtube.com/watch?v=abc123",
     title: hostileTitle,
     channelName: "Ship It Weekly",
-    channelUrl: "https://www.youtube.com/@shipitweekly",
+    channelHandle: "/@shipitweekly",
     description: `Description with <b>markup</b> & <script>alert(3)</script>`,
   },
   capturedAt: "2026-08-15T10:30:00.000Z",
@@ -1169,7 +1169,7 @@ describe("popup cloud saving", () => {
       name: "View transcript",
     });
     expect(viewTranscript.getAttribute("href")).toBe(
-      "http://localhost:3000/videos/abc123",
+      "http://localhost:3000/transcripts/abc123",
     );
     expect(viewTranscript.getAttribute("target")).toBe("_blank");
   });

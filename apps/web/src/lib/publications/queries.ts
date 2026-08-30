@@ -1,23 +1,28 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import type { Database } from "../../db/client";
 import {
   canonicalVideos,
+  channels,
   chapters,
   contributions,
   publicPublications,
   segments,
   user,
 } from "../../db/schema";
+import { channelUrlFromHandle } from "../channels/queries";
+
+export const TRANSCRIPT_PAGE_SIZE = 24;
 
 export type PublicTranscriptSummary = {
   videoId: string;
   title: string;
-  channelName: string;
+  channelName: string | null;
+  channelHandle: string | null;
+  channelSlug: string | null;
   description: string;
   publishedAt: Date | null;
   durationSeconds: number | null;
   publicationUpdatedAt: Date;
-  segmentCount: number;
 };
 
 export type PublicTranscriptDetail = PublicTranscriptSummary & {
@@ -29,35 +34,75 @@ export type PublicTranscriptDetail = PublicTranscriptSummary & {
   chapters: { start: number; title: string }[];
 };
 
-const segmentCount = sql<number>`(
-  select count(*)::int
-  from ${segments}
-  where ${segments.transcriptId} = ${publicPublications.currentTranscriptId}
-)`;
+const baseSummary = {
+  videoId: canonicalVideos.youtubeVideoId,
+  title: canonicalVideos.title,
+  channelName: channels.name,
+  channelHandle: channels.handle,
+  channelSlug: channels.slug,
+  description: canonicalVideos.description,
+  publishedAt: canonicalVideos.publishedAt,
+  durationSeconds: canonicalVideos.durationSeconds,
+  publicationUpdatedAt: publicPublications.updatedAt,
+};
 
-export async function listPublicTranscripts(
+/** Counts published transcripts for pagination (#96). */
+export async function countPublicTranscripts(
   db: Database,
-  limit = 6,
-): Promise<PublicTranscriptSummary[]> {
-  return db
-    .select({
-      videoId: canonicalVideos.youtubeVideoId,
-      title: canonicalVideos.title,
-      channelName: canonicalVideos.channelName,
-      description: canonicalVideos.description,
-      publishedAt: canonicalVideos.publishedAt,
-      durationSeconds: canonicalVideos.durationSeconds,
-      publicationUpdatedAt: publicPublications.updatedAt,
-      segmentCount,
-    })
+  query?: string,
+): Promise<number> {
+  const conditions = [eq(publicPublications.active, true)];
+  if (query) {
+    const pattern = `%${query}%`;
+    const match = or(
+      ilike(canonicalVideos.title, pattern),
+      ilike(channels.name, pattern),
+    );
+    if (match) conditions.push(match);
+  }
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
     .from(publicPublications)
     .innerJoin(
       canonicalVideos,
       eq(canonicalVideos.id, publicPublications.videoId),
     )
-    .where(eq(publicPublications.active, true))
+    .leftJoin(channels, eq(channels.id, canonicalVideos.channelId))
+    .where(and(...conditions));
+  return row?.count ?? 0;
+}
+
+/**
+ * One page of published transcripts, ordered by publication recency (#96).
+ * With `query`, filters by title or channel name substring (scope: videos).
+ */
+export async function listPublicTranscripts(
+  db: Database,
+  page = 1,
+  query?: string,
+  pageSize = TRANSCRIPT_PAGE_SIZE,
+): Promise<PublicTranscriptSummary[]> {
+  const conditions = [eq(publicPublications.active, true)];
+  if (query) {
+    const pattern = `%${query}%`;
+    const match = or(
+      ilike(canonicalVideos.title, pattern),
+      ilike(channels.name, pattern),
+    );
+    if (match) conditions.push(match);
+  }
+  return db
+    .select(baseSummary)
+    .from(publicPublications)
+    .innerJoin(
+      canonicalVideos,
+      eq(canonicalVideos.id, publicPublications.videoId),
+    )
+    .leftJoin(channels, eq(channels.id, canonicalVideos.channelId))
+    .where(and(...conditions))
     .orderBy(desc(publicPublications.publishedAt), desc(publicPublications.id))
-    .limit(Math.max(1, Math.min(limit, 24)));
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
 }
 
 export async function listPublicTranscriptUrls(
@@ -87,14 +132,14 @@ export async function getPublicTranscript(
       videoId: canonicalVideos.youtubeVideoId,
       url: canonicalVideos.sourceUrl,
       title: canonicalVideos.title,
-      channelName: canonicalVideos.channelName,
-      channelUrl: canonicalVideos.channelUrl,
+      channelName: channels.name,
+      channelHandle: channels.handle,
+      channelSlug: channels.slug,
       description: canonicalVideos.description,
       publishedAt: canonicalVideos.publishedAt,
       durationSeconds: canonicalVideos.durationSeconds,
       publicationUpdatedAt: publicPublications.updatedAt,
       publicPublishedAt: publicPublications.publishedAt,
-      segmentCount,
       contributorName: user.name,
       contributorAvatar: user.image,
     })
@@ -103,6 +148,7 @@ export async function getPublicTranscript(
       canonicalVideos,
       eq(canonicalVideos.id, publicPublications.videoId),
     )
+    .leftJoin(channels, eq(channels.id, canonicalVideos.channelId))
     .leftJoin(
       contributions,
       eq(contributions.id, publicPublications.contributionId),
@@ -136,13 +182,16 @@ export async function getPublicTranscript(
     url: item.url,
     title: item.title,
     channelName: item.channelName,
-    channelUrl: item.channelUrl,
+    channelHandle: item.channelHandle,
+    channelSlug: item.channelSlug,
+    channelUrl: item.channelHandle
+      ? channelUrlFromHandle(item.channelHandle)
+      : "",
     description: item.description,
     publishedAt: item.publishedAt,
     durationSeconds: item.durationSeconds,
     publicationUpdatedAt: item.publicationUpdatedAt,
     publicPublishedAt: item.publicPublishedAt,
-    segmentCount: item.segmentCount,
     contributor: item.contributorName
       ? {
           displayName: item.contributorName,

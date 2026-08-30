@@ -48,9 +48,9 @@ export default async function MyContributionsPage() {
           </a>
           <a
             className="text-sm font-bold text-[#0872b9] underline-offset-4"
-            href="/#archive"
+            href="/transcripts"
           >
-            Search the archive
+            Browse transcripts
           </a>
         </div>
       </header>
@@ -83,12 +83,11 @@ export default async function MyContributionsPage() {
                 <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
                   <a
                     className="text-xl font-bold tracking-[-0.02em] text-[#202124] underline-offset-4 hover:text-[#0872b9]"
-                    href={`/videos/${item.videoId}`}
+                    href={`/transcripts/${item.videoId}`}
                   >
                     {item.title}
                   </a>
                   <span className="font-mono text-sm text-[#64748b] tabular-nums">
-                    {item.segmentCount} segments ·{" "}
                     {item.durationSeconds !== null
                       ? formatTimestamp(item.durationSeconds)
                       : "duration unknown"}
