@@ -9,8 +9,8 @@ import type { BatchVideo } from "@/batch/jobs";
  * every card uniformly and the worker re-checks receipts when the task starts.
  */
 
-/** Planning estimate for one video's capture + save (the spec's 15-20 s). */
-const SECONDS_PER_VIDEO = 18;
+/** Planning estimate for one video's capture + save. */
+const SECONDS_PER_VIDEO = 15;
 const LARGE_BATCH_THRESHOLD = 100;
 
 function estimatedMinutes(videos: number): number {

@@ -489,7 +489,7 @@ describe("selection toolbar (#57)", () => {
     clickAction("select-all");
 
     await vi.waitFor(() => {
-      expect(counterText()).toBe("55 selected · ~17 min");
+      expect(counterText()).toBe("55 selected · ~14 min");
     });
     const checks = document.querySelectorAll<HTMLElement>(
       ".transcriptly-batch-check",
@@ -507,13 +507,13 @@ describe("selection toolbar (#57)", () => {
     clickAction("select-all");
 
     await vi.waitFor(() => {
-      expect(counterText()).toBe("75 selected · ~23 min");
+      expect(counterText()).toBe("75 selected · ~19 min");
     });
 
     checkAt(74).click();
-    expect(counterText()).toBe("74 selected · ~23 min");
+    expect(counterText()).toBe("74 selected · ~19 min");
     checkAt(74).click();
-    expect(counterText()).toBe("75 selected · ~23 min");
+    expect(counterText()).toBe("75 selected · ~19 min");
   });
 
   it("marks batches over 100 videos as large without blocking them", async () => {
@@ -523,8 +523,15 @@ describe("selection toolbar (#57)", () => {
     clickAction("select-all");
 
     await vi.waitFor(() => {
-      expect(counterText()).toBe("120 selected · Large batch · ~36 min");
+      expect(counterText()).toBe("120 selected · Large batch · ~30 min");
     });
+    expect(document.querySelector(".counter-large")?.textContent).toBe(
+      "Large batch",
+    );
+    const styles = document.getElementById("transcriptly-batch-panel-styles");
+    expect(styles?.textContent).toMatch(
+      /#transcriptly-batch-panel \.counter-large \{[^}]*background: #fff7ed;[^}]*color: #9a3412;/,
+    );
     expect(
       [...document.querySelectorAll(".transcriptly-batch-check")].every(
         (hit) => hit.getAttribute("aria-checked") === "true",
@@ -548,7 +555,7 @@ describe("selection toolbar (#57)", () => {
     clickAction("select-all");
 
     await vi.waitFor(() => {
-      expect(counterText()).toBe("270 selected · Large batch · ~81 min");
+      expect(counterText()).toBe("270 selected · Large batch · ~68 min");
     });
     const styles = document.getElementById("transcriptly-batch-panel-styles");
     expect(styles?.textContent).toMatch(
