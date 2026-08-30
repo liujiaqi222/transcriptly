@@ -66,6 +66,7 @@ function addStyles() {
     #${ROOT_ID} .counter { display: block; min-width: 0; width: 100%; font-variant-numeric: tabular-nums; text-decoration: none; }
     #${ROOT_ID} .counter-value { display: inline; color: #202124; font-size: 12px; font-weight: 750; line-height: 1.4; white-space: nowrap; text-decoration: none; }
     #${ROOT_ID} .counter-meta { display: inline; min-width: 0; overflow: visible; color: #64748b; font-size: 10px; line-height: 1.4; white-space: normal; text-decoration: none; }
+    #${ROOT_ID} .counter-large { display: inline-flex; align-items: center; padding: 0 8px; border: 1px solid #fed7aa; border-radius: 999px; background: #fff7ed; color: #9a3412; font-size: 10px; font-weight: 750; line-height: 1.6; white-space: nowrap; text-decoration: none; }
     #${ROOT_ID} .panel-close { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; margin: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; }
     #${ROOT_ID} .panel-close:hover { background: #f1f5f9; color: #202124; }
     #${ROOT_ID} .panel-close svg { width: 17px; height: 17px; }
@@ -218,11 +219,20 @@ export function createSelectionPanel(
         valueElement.className = "counter-value";
         valueElement.textContent = value ?? text;
         const children: HTMLElement[] = [valueElement];
-        if (details.length > 0) {
-          const metaElement = document.createElement("span");
-          metaElement.className = "counter-meta";
-          metaElement.textContent = ` · ${details.join(" · ")}`;
-          children.push(metaElement);
+        for (const detail of details) {
+          const detailElement = document.createElement("span");
+          if (detail === "Large batch") {
+            const separator = document.createElement("span");
+            separator.className = "counter-meta";
+            separator.textContent = " · ";
+            children.push(separator);
+            detailElement.className = "counter-large";
+            detailElement.textContent = detail;
+          } else {
+            detailElement.className = "counter-meta";
+            detailElement.textContent = ` · ${detail}`;
+          }
+          children.push(detailElement);
         }
         counter.replaceChildren(...children);
         counter.setAttribute("aria-label", text);
