@@ -332,14 +332,19 @@ export function LandingFooter() {
       <p className="m-0">
         Local Markdown first. Public archive when you choose.
       </p>
-      <a
-        className={`justify-self-end font-bold text-[#0872b9] max-sm:justify-self-start ${focusRing}`}
-        href={GITHUB_URL}
-        rel="noreferrer"
-        target="_blank"
-      >
-        Source code
-      </a>
+      <div className="flex items-center justify-end gap-6 justify-self-end max-sm:justify-start">
+        <a className={`font-bold text-[#0872b9] ${focusRing}`} href="/privacy">
+          Privacy Policy
+        </a>
+        <a
+          className={`font-bold text-[#0872b9] ${focusRing}`}
+          href={GITHUB_URL}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Source code
+        </a>
+      </div>
     </footer>
   );
 }
