@@ -1,6 +1,5 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BATCH_MAX_RUNNABLE_ITEMS } from "../batch/jobs";
 import {
   type BatchPageRuntime,
   enterBatchSelectionMode,
@@ -228,28 +227,26 @@ describe("batch page panel", () => {
     expect(cloud?.checked).toBe(true);
   });
 
-  it("marks already-saved videos on their cards and in the counter", async () => {
+  it("does not distinguish previously saved videos in selection mode", async () => {
     const runtime = createRuntime({
       saved: { abc12345678: { local: true, cloud: true } },
     });
     await mount(runtime);
 
-    const card = document.querySelector("yt-lockup-view-model") as HTMLElement;
-    const badge = card.querySelector(".transcriptly-batch-badge");
-    expect(badge?.textContent).toBe("Saved · Public");
-
     firstCheck().click();
 
     await vi.waitFor(() => {
-      expect(counterText()).toContain("saved");
+      expect(counterText()).toBe("1 selected · ~1 min");
     });
-    // The saved video occupies no quota (#57).
-    expect(counterText()).toMatch(/^0\//);
-    expect(document.querySelector(".counter-value")?.textContent).toMatch(
-      /^0\//,
-    );
-    expect(document.querySelector(".counter-meta")?.textContent).toContain(
-      "saved",
+    expect(document.querySelector(".transcriptly-batch-badge")).toBeNull();
+    expect(
+      runtime.sent.some(
+        (message) =>
+          (message as { type?: string }).type === BATCH_LOOKUP_REQUEST,
+      ),
+    ).toBe(false);
+    expect(document.querySelector(".counter-value")?.textContent).toBe(
+      "1 selected",
     );
   });
 
@@ -315,7 +312,7 @@ describe("batch page panel", () => {
         ?.disabled,
     ).toBe(false);
     await vi.waitFor(() => {
-      expect(counterText()).toBe(`0/${BATCH_MAX_RUNNABLE_ITEMS}`);
+      expect(counterText()).toBe("0 selected");
     });
     expect(
       document
@@ -364,6 +361,71 @@ describe("batch page panel", () => {
     });
   });
 
+  it("ignores video cards retained in hidden YouTube SPA pages", async () => {
+    const runtime = createRuntime();
+    await mount(
+      runtime,
+      `
+        <ytd-page-manager>
+          <ytd-watch-flexy hidden>
+            <yt-lockup-view-model>
+              <a href="https://www.youtube.com/watch?v=old12345678" title="Old watch recommendation"><span id="video-title">Old watch recommendation</span></a>
+            </yt-lockup-view-model>
+          </ytd-watch-flexy>
+          <ytd-browse hidden>
+            <yt-lockup-view-model>
+              <a href="https://www.youtube.com/watch?v=home1234567" title="Old home recommendation"><span id="video-title">Old home recommendation</span></a>
+            </yt-lockup-view-model>
+          </ytd-browse>
+          <ytd-browse>
+            <yt-lockup-view-model>
+              <a href="https://www.youtube.com/watch?v=hub12345678" title="Huberman video one"><span id="video-title">Huberman video one</span></a>
+            </yt-lockup-view-model>
+            <yt-lockup-view-model>
+              <a href="https://www.youtube.com/watch?v=hub87654321" title="Huberman video two"><span id="video-title">Huberman video two</span></a>
+            </yt-lockup-view-model>
+          </ytd-browse>
+        </ytd-page-manager>
+      `,
+    );
+
+    expect(document.querySelectorAll(".transcriptly-batch-check")).toHaveLength(
+      2,
+    );
+    expect(
+      document
+        .querySelector("ytd-watch-flexy")
+        ?.querySelector(".transcriptly-batch-check"),
+    ).toBeNull();
+    expect(
+      document
+        .querySelector("ytd-browse[hidden]")
+        ?.querySelector(".transcriptly-batch-check"),
+    ).toBeNull();
+
+    clickAction("select-all");
+    clickAction("start");
+
+    await vi.waitFor(() => {
+      const start = runtime.sent.find(
+        (message) => (message as { type?: string }).type === BATCH_START,
+      ) as { videos: { videoId: string }[] } | undefined;
+      expect(start?.videos.map((video) => video.videoId)).toEqual([
+        "hub12345678",
+        "hub87654321",
+      ]);
+    });
+  });
+
+  it("does not add a badge for cloud receipts", async () => {
+    const runtime = createRuntime({
+      saved: { abc12345678: { local: false, cloud: true } },
+    });
+    await mount(runtime);
+
+    expect(document.querySelector(".transcriptly-batch-badge")).toBeNull();
+  });
+
   it("keeps the selection when the start request fails", async () => {
     const runtime = createRuntime({
       startStatus: { ok: false, message: "Choose a local save folder first." },
@@ -376,7 +438,7 @@ describe("batch page panel", () => {
     await vi.waitFor(() => {
       expect(toastText()).toContain("folder");
     });
-    expect(counterText()).toBe(`1/${BATCH_MAX_RUNNABLE_ITEMS} · ~1 min`);
+    expect(counterText()).toBe("1 selected · ~1 min");
     expect(runtime.managerTabs).toEqual([]);
   });
 
@@ -407,17 +469,16 @@ describe("batch page panel", () => {
 });
 
 describe("selection toolbar (#57)", () => {
-  it("shows a live counter with quota and ETA", async () => {
+  it("shows a live selected count with ETA", async () => {
     const runtime = createRuntime();
     await mount(runtime);
 
-    expect(counterText()).toBe(`0/${BATCH_MAX_RUNNABLE_ITEMS}`);
+    expect(counterText()).toBe("0 selected");
     firstCheck().click();
-    expect(counterText()).toBe(`1/${BATCH_MAX_RUNNABLE_ITEMS} · ~1 min`);
+    expect(counterText()).toBe("1 selected · ~1 min");
   });
 
-  it("Select all prefers unsaved videos, caps at 50 and toasts", async () => {
-    // 3 saved videos (no quota) + 52 unsaved ones: only 50 can be picked.
+  it("Select all checks every loaded video without a quantity limit", async () => {
     const saved: Record<string, { local: boolean; cloud: boolean }> = {};
     for (let index = 0; index < 3; index += 1) {
       saved[videoIdFor(index)] = { local: true, cloud: true };
@@ -428,75 +489,73 @@ describe("selection toolbar (#57)", () => {
     clickAction("select-all");
 
     await vi.waitFor(() => {
-      expect(counterText()).toContain(
-        `${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}`,
-      );
+      expect(counterText()).toBe("55 selected · ~17 min");
     });
-    expect(toastText()).toContain(
-      `Batch full (${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS})`,
-    );
     const checks = document.querySelectorAll<HTMLElement>(
       ".transcriptly-batch-check",
     );
     expect(
       [...checks].filter((hit) => hit.classList.contains("is-checked")),
-    ).toHaveLength(BATCH_MAX_RUNNABLE_ITEMS + 3);
-    // The full counter turns red.
+    ).toHaveLength(55);
+    expect(toastText()).toBeNull();
+  });
+
+  it("allows individual selection beyond the previous 50-video limit", async () => {
+    const runtime = createRuntime();
+    await mount(runtime, manyVideoAnchors(75));
+
+    clickAction("select-all");
+
+    await vi.waitFor(() => {
+      expect(counterText()).toBe("75 selected · ~23 min");
+    });
+
+    checkAt(74).click();
+    expect(counterText()).toBe("74 selected · ~23 min");
+    checkAt(74).click();
+    expect(counterText()).toBe("75 selected · ~23 min");
+  });
+
+  it("marks batches over 100 videos as large without blocking them", async () => {
+    const runtime = createRuntime();
+    await mount(runtime, manyVideoAnchors(120));
+
+    clickAction("select-all");
+
+    await vi.waitFor(() => {
+      expect(counterText()).toBe("120 selected · Large batch · ~36 min");
+    });
     expect(
-      document.querySelector(".counter")?.classList.contains("counter-full"),
+      [...document.querySelectorAll(".transcriptly-batch-check")].every(
+        (hit) => hit.getAttribute("aria-checked") === "true",
+      ),
     ).toBe(true);
-    // The two unsaved videos beyond the quota are greyed out.
-    const disabled = [
-      ...document.querySelectorAll(".transcriptly-batch-check"),
-    ].filter((hit) => hit.classList.contains("is-disabled"));
-    expect(disabled).toHaveLength(2);
+
+    clickAction("start");
+
+    await vi.waitFor(() => {
+      const start = runtime.sent.find(
+        (message) => (message as { type?: string }).type === BATCH_START,
+      ) as { videos: { videoId: string }[] } | undefined;
+      expect(start?.videos).toHaveLength(120);
+    });
   });
 
-  it("greys out unchecked videos when the quota is full and restores them on uncheck", async () => {
+  it("wraps long counter metadata instead of clipping it", async () => {
     const runtime = createRuntime();
-    await mount(runtime, manyVideoAnchors(BATCH_MAX_RUNNABLE_ITEMS + 1));
+    await mount(runtime, manyVideoAnchors(270));
 
     clickAction("select-all");
 
     await vi.waitFor(() => {
-      expect(counterText()).toContain(
-        `${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}`,
-      );
+      expect(counterText()).toBe("270 selected · Large batch · ~81 min");
     });
-    const overflow = checkAt(BATCH_MAX_RUNNABLE_ITEMS);
-    expect(overflow.classList.contains("is-disabled")).toBe(true);
-
-    // Unchecking one immediately frees the quota (#57).
-    checkAt(0).click();
-    expect(counterText()).toContain(
-      `${BATCH_MAX_RUNNABLE_ITEMS - 1}/${BATCH_MAX_RUNNABLE_ITEMS}`,
+    const styles = document.getElementById("transcriptly-batch-panel-styles");
+    expect(styles?.textContent).toMatch(
+      /#transcriptly-batch-panel \.counter-meta \{[^}]*white-space: normal;/,
     );
-    expect(overflow.classList.contains("is-disabled")).toBe(false);
-    expect(
-      document.querySelector(".counter")?.classList.contains("counter-full"),
-    ).toBe(false);
-  });
-
-  it("clicking a greyed-out checkbox toasts instead of selecting", async () => {
-    const runtime = createRuntime();
-    await mount(runtime, manyVideoAnchors(BATCH_MAX_RUNNABLE_ITEMS + 1));
-
-    clickAction("select-all");
-    await vi.waitFor(() => {
-      expect(counterText()).toContain(
-        `${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}`,
-      );
-    });
-    const overflow = checkAt(BATCH_MAX_RUNNABLE_ITEMS);
-
-    overflow.click();
-
-    expect(toastText()).toContain(
-      "Start this batch, then start another - batches run one after another.",
-    );
-    expect(overflow.getAttribute("aria-checked")).toBe("false");
-    expect(counterText()).toContain(
-      `${BATCH_MAX_RUNNABLE_ITEMS}/${BATCH_MAX_RUNNABLE_ITEMS}`,
+    expect(styles?.textContent).not.toMatch(
+      /#transcriptly-batch-panel \.counter-meta \{[^}]*text-overflow: ellipsis;/,
     );
   });
 
@@ -506,11 +565,11 @@ describe("selection toolbar (#57)", () => {
 
     clickAction("select-all");
     await vi.waitFor(() => {
-      expect(counterText()).toContain("3/");
+      expect(counterText()).toContain("3 selected");
     });
     clickAction("clear");
 
-    expect(counterText()).toBe(`0/${BATCH_MAX_RUNNABLE_ITEMS}`);
+    expect(counterText()).toBe("0 selected");
     expect(
       [
         ...document.querySelectorAll<HTMLElement>(".transcriptly-batch-check"),
@@ -593,7 +652,7 @@ describe("Load more (#57)", () => {
     expect(loading.getAttribute("aria-busy")).toBeNull();
   });
 
-  it("stops after 100 discovered cards", async () => {
+  it("continues loading after 100 discovered cards until the time cap", async () => {
     const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     const runtime = createRuntime();
     await mount(runtime, manyVideoAnchors(4));
@@ -619,8 +678,11 @@ describe("Load more (#57)", () => {
       '[data-action="load-more"]',
     );
     if (!loading) throw new Error("missing load-more button");
+    expect(loading.textContent).toBe("Stop");
+    expect(scrollBy).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(10_000);
     expect(loading.textContent).toBe("Load more");
-    expect(scrollBy).toHaveBeenCalledTimes(1);
   });
 
   it("a second click stops the load early", async () => {
@@ -657,16 +719,9 @@ describe("selection mode lifecycle (#56)", () => {
     );
   });
 
-  it("tears down the panel, checkboxes, badges and styles on ✕", async () => {
-    const runtime = createRuntime({
-      saved: { abc12345678: { local: true, cloud: true } },
-    });
+  it("tears down the panel, checkboxes and styles on ✕", async () => {
+    const runtime = createRuntime();
     await mount(runtime);
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector(".transcriptly-batch-badge"),
-      ).not.toBeNull();
-    });
 
     clickAction("close");
 
@@ -683,15 +738,8 @@ describe("selection mode lifecycle (#56)", () => {
   });
 
   it("tears everything down when SPA navigation leaves the batch source", async () => {
-    const runtime = createRuntime({
-      saved: { abc12345678: { local: true, cloud: true } },
-    });
+    const runtime = createRuntime();
     await mount(runtime);
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector(".transcriptly-batch-badge"),
-      ).not.toBeNull();
-    });
 
     navigateTo("/");
 
@@ -744,7 +792,7 @@ describe("selection mode lifecycle (#56)", () => {
       expect(
         document.querySelectorAll(".transcriptly-batch-check"),
       ).toHaveLength(2);
-      expect(counterText()).toContain("0/50");
+      expect(counterText()).toBe("0 selected");
     });
 
     clickAction("select-all");

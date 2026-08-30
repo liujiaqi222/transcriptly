@@ -3,34 +3,25 @@ import {
   discoverLoadedVideos,
   findLoadedVideoAnchor,
   findLoadedVideoCard,
-  isBatchSourceUrl,
 } from "@/batch/selection/discovery";
-import {
-  batchFullToast,
-  type SelectionModel,
-} from "@/batch/selection/selection-model";
+import type { SelectionModel } from "@/batch/selection/selection-model";
 
 /**
  * Projection of the selection model onto the feed's video cards (#57):
- * a ~40 px checkbox hit zone prepended to each card, plus Saved badges.
+ * a ~40 px checkbox hit zone prepended to each card.
  *
  * The hit zone's capture-phase click handler never lets the click reach
- * the card's navigation; when the quota is full, unchecked unsaved
- * checkboxes grey out and any click on them toasts instead of
- * selecting. State is never held here - every render reads the model.
+ * the card's navigation. State is never held here - every render reads the
+ * model.
  */
 
 const CARD_MARKER = "data-transcriptly-batch";
 
 export interface CardLayer {
   /**
-   * Discovers the feed's videos and injects/updates their checkboxes and
-   * badges. Returns the ids of videos never seen before (for the
-   * saved-receipt lookup).
+   * Discovers the feed's videos and injects/updates their checkboxes.
    */
-  refresh(): string[];
-  /** Re-renders Saved badges for every known video. */
-  refreshBadges(): void;
+  refresh(): void;
   /** Syncs every checkbox's visual state from the model. */
   sync(): void;
   /** Removes every injected element and card marker. */
@@ -39,33 +30,9 @@ export interface CardLayer {
 
 export function createCardLayer(options: {
   model: SelectionModel;
-  showToast(message: string): void;
   onSelectionChange(): void;
 }): CardLayer {
-  const { model, showToast, onSelectionChange } = options;
-
-  function badgeLabel(videoId: string): string {
-    const info = model.savedInfo(videoId);
-    if (!info) return "";
-    if (info.localSaved && info.cloudSaved) return "Saved · Public";
-    if (info.localSaved) return "Saved locally";
-    return "Contributed publicly";
-  }
-
-  function updateBadges(card: Element, videoId: string) {
-    const label = badgeLabel(videoId);
-    let badge = card.querySelector<HTMLElement>(".transcriptly-batch-badge");
-    if (!label) {
-      badge?.remove();
-      return;
-    }
-    if (!badge) {
-      badge = document.createElement("span");
-      badge.className = "transcriptly-batch-badge";
-      card.prepend(badge);
-    }
-    if (badge.textContent !== label) badge.textContent = label;
-  }
+  const { model, onSelectionChange } = options;
 
   function createHit(video: BatchVideo): HTMLElement {
     // A native <input type=checkbox> is deliberately NOT used:
@@ -83,10 +50,6 @@ export function createCardLayer(options: {
     hit.setAttribute("aria-checked", "false");
     hit.tabIndex = 0;
     const toggle = () => {
-      if (hit.classList.contains("is-disabled")) {
-        showToast(batchFullToast());
-        return;
-      }
       model.setChecked(video.videoId, !model.isChecked(video.videoId));
       onSelectionChange();
     };
@@ -111,7 +74,7 @@ export function createCardLayer(options: {
   return {
     refresh() {
       const videos = discoverLoadedVideos(document);
-      const newVideoIds = model.ingest(videos);
+      model.ingest(videos);
       for (const video of videos) {
         const anchor = findLoadedVideoAnchor(document, video.videoId);
         if (!anchor) continue;
@@ -120,17 +83,6 @@ export function createCardLayer(options: {
         if (!card.querySelector(".transcriptly-batch-check")) {
           card.prepend(createHit(video));
         }
-        updateBadges(card, video.videoId);
-      }
-      return newVideoIds;
-    },
-    refreshBadges() {
-      // Defense in depth (#56): never touch the page outside a batch
-      // source page, even if called after SPA navigation.
-      if (!isBatchSourceUrl(location.href)) return;
-      for (const videoId of model.videoIds()) {
-        const anchor = findLoadedVideoAnchor(document, videoId);
-        if (anchor) updateBadges(findLoadedVideoCard(anchor), videoId);
       }
     },
     sync() {
@@ -142,9 +94,8 @@ export function createCardLayer(options: {
         const checked = model.isChecked(videoId);
         hit.classList.toggle("is-checked", checked);
         hit.setAttribute("aria-checked", checked ? "true" : "false");
-        const disabled = model.isCheckDisabled(videoId);
-        hit.classList.toggle("is-disabled", disabled);
-        hit.setAttribute("aria-disabled", disabled ? "true" : "false");
+        hit.classList.remove("is-disabled");
+        hit.removeAttribute("aria-disabled");
       }
     },
     strip() {

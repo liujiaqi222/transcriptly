@@ -2,13 +2,6 @@ import type { MarkdownFormat } from "@transcriptly/capture";
 import type { CloudReceipt } from "@/cloud/jobs";
 import type { LocalSaveReceipt, LocalSaveResult } from "@/local-save";
 
-/**
- * A batch processes at most this many videos that still need saving.
- * Already-saved videos ride along as `skipped` and never count against
- * the limit: `create` counts runnable videos, not the selection size -
- * do not "fix" it into a plain `videos.length` check.
- */
-export const BATCH_MAX_RUNNABLE_ITEMS = 50;
 const DATABASE_NAME = "transcriptly-batch";
 const DATABASE_VERSION = 1;
 const TASK_STORE = "tasks";
@@ -179,18 +172,6 @@ export function createBatchJobStore(
           receipt,
         ]),
       );
-      const runnableCount = videos.filter((video) =>
-        destinations.some((destination) =>
-          destination === "local"
-            ? !localByVideo.has(video.videoId)
-            : !cloudByVideo.has(video.videoId),
-        ),
-      ).length;
-      if (runnableCount > BATCH_MAX_RUNNABLE_ITEMS) {
-        throw new Error(
-          `A batch can contain at most ${BATCH_MAX_RUNNABLE_ITEMS} videos that still need saving.`,
-        );
-      }
       const now = createOptions.now ?? Date.now();
       const task: BatchTask = {
         id: (createOptions.newId ?? newId)(),
