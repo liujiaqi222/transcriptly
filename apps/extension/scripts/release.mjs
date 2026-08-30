@@ -3,8 +3,15 @@
  * Release build + store-submission checks for the Chrome Web Store ZIP.
  *
  * `pnpm release` (from the repo root or apps/extension) runs a clean
- * production build, zips it, and refuses to hand over the ZIP unless the
- * build is store-ready:
+ * production build and produces two ZIPs from the same checked bundle:
+ *
+ * - `*-chrome-sideload.zip` keeps the manifest `key` so an unpacked load
+ *   derives the stable extension ID: GitHub Release downloads and local
+ *   production testing get full functionality (reads and writes)
+ * - `*-chrome-store.zip` drops the `key` because Chrome Web Store rejects
+ *   uploaded manifests containing it; this is the Dashboard upload artifact
+ *
+ * Both are refused unless the build is store-ready:
  *
  * - manifest version is the package version (never 0.0.0)
  * - permissions and host_permissions are the reviewed production set
@@ -13,10 +20,10 @@
  * - no test files, no source maps, no dev addresses (localhost, ports)
  * - the configured development `key` still derives to the extension ID
  *   the server allowlists (EXTENSION_ORIGINS in deploy.yml / .env.example)
- * - the final Chrome Web Store ZIP does not contain `manifest.key`
+ * - the store ZIP does not contain `manifest.key`; the sideload ZIP does
  *
  * Exit code 1 with a report of every violation; success prints the ZIP
- * path and size.
+ * paths and sizes.
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -190,29 +197,45 @@ for (const allowlistFile of ORIGIN_ALLOWLIST_FILES) {
   );
 }
 
-// 5. Locate WXT's ZIP, remove the development-only key from the store
-// manifest, then rebuild the ZIP from the exact directory checked below.
-const zipCandidates = readdirSync(outDir)
-  .filter((f) => f.endsWith(".zip"))
-  .map((f) => ({ f, mtime: statSync(join(outDir, f)).mtimeMs }))
-  .sort((a, b) => b.mtime - a.mtime);
-const zipPath = zipCandidates[0] ? join(outDir, zipCandidates[0].f) : undefined;
-check(zipPath !== undefined, "no ZIP produced by wxt zip");
+// 5. Package two ZIP variants from the exact directory checked below:
+// the sideload variant keeps the key (stable ID for unpacked loads),
+// the store variant drops it (Chrome Web Store rejects the field).
+const storeZipPath = join(
+  outDir,
+  `transcriptlyextension-${packageJson.version}-chrome-store.zip`,
+);
+const sideloadZipPath = join(
+  outDir,
+  `transcriptlyextension-${packageJson.version}-chrome-sideload.zip`,
+);
 
+// WXT's own ZIP output is replaced by the two verified variants.
+for (const stale of readdirSync(outDir).filter((f) => f.endsWith(".zip"))) {
+  rmSync(join(outDir, stale), { force: true });
+}
+
+function zipDir(target) {
+  execFileSync("zip", ["-qr", target, "."], {
+    cwd: chromeDir,
+    stdio: "inherit",
+  });
+}
+
+zipDir(sideloadZipPath);
+
+const manifestWithKey = readFileSync(manifestPath, "utf8");
 delete manifest.key;
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 check(
   !Object.hasOwn(JSON.parse(readFileSync(manifestPath)), "key"),
   "Chrome Web Store manifest still contains forbidden key field",
 );
+zipDir(storeZipPath);
 
-if (zipPath) {
-  rmSync(zipPath, { force: true });
-  execFileSync("zip", ["-qr", zipPath, "."], {
-    cwd: chromeDir,
-    stdio: "inherit",
-  });
-}
+// Restore the key in the unpacked output so loading
+// .output/chrome-mv3 directly (local production testing) keeps the
+// stable extension ID.
+writeFileSync(manifestPath, manifestWithKey);
 
 // 6. No dev addresses baked into shipped text assets.
 for (const file of files) {
@@ -225,19 +248,26 @@ for (const file of files) {
   }
 }
 
-// 7. Verify the rebuilt ZIP has the same files and its manifest also has
-// no key. This is the artifact uploaded to Chrome Web Store.
-let zipEntries = [];
-if (zipPath) {
-  zipEntries = execFileSync("unzip", ["-Z1", zipPath], { encoding: "utf8" })
+// 7. Verify both rebuilt ZIPs carry the same files as the checked bundle
+// directory, and that exactly one of them still has the key. The store
+// variant is the artifact uploaded to Chrome Web Store; the sideload
+// variant is what GitHub Releases distribute.
+function zipEntryList(zipPath) {
+  return execFileSync("unzip", ["-Z1", zipPath], { encoding: "utf8" })
     .split("\n")
     .map((s) => s.trim())
     .filter((s) => s !== "" && !s.endsWith("/"));
-  const dirEntries = files.map((f) => f.split("\\").join("/")).sort();
-  const zipSorted = [...zipEntries].sort();
+}
+
+const dirEntries = files.map((f) => f.split("\\").join("/")).sort();
+for (const [label, zipPath] of [
+  ["store", storeZipPath],
+  ["sideload", sideloadZipPath],
+]) {
+  const entries = zipEntryList(zipPath);
   check(
-    JSON.stringify(zipSorted) === JSON.stringify(dirEntries),
-    `ZIP contents differ from checked bundle directory`,
+    JSON.stringify([...entries].sort()) === JSON.stringify(dirEntries),
+    `${label} ZIP contents differ from checked bundle directory`,
   );
   const zippedManifest = JSON.parse(
     execFileSync("unzip", ["-p", zipPath, "manifest.json"], {
@@ -245,9 +275,27 @@ if (zipPath) {
     }),
   );
   check(
-    !Object.hasOwn(zippedManifest, "key"),
-    "Chrome Web Store ZIP manifest still contains forbidden key field",
+    label === "store"
+      ? !Object.hasOwn(zippedManifest, "key")
+      : typeof zippedManifest.key === "string" && zippedManifest.key.length > 0,
+    label === "store"
+      ? "Chrome Web Store ZIP manifest still contains forbidden key field"
+      : "sideload ZIP manifest lost the key (extension ID would not be stable)",
   );
+  if (label === "sideload" && typeof zippedManifest.key === "string") {
+    const sideloadId = createHash("sha256")
+      .update(Buffer.from(zippedManifest.key, "base64"))
+      .digest()
+      .subarray(0, 16)
+      .toString("hex")
+      .split("")
+      .map((c) => String.fromCharCode(97 + Number.parseInt(c, 16)))
+      .join("");
+    check(
+      sideloadId === EXPECTED_EXTENSION_ID,
+      `sideload ZIP key derives to extension ID ${sideloadId}, but the server allowlists ${EXPECTED_EXTENSION_ID}`,
+    );
+  }
 }
 
 if (violations.length > 0) {
@@ -258,12 +306,15 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-const zipKb = zipPath ? Math.round(statSync(zipPath).size / 1024) : 0;
+const storeKb = Math.round(statSync(storeZipPath).size / 1024);
+const sideloadKb = Math.round(statSync(sideloadZipPath).size / 1024);
 console.log("\nRelease checks passed.");
 console.log(`  version:   ${manifest.version}`);
 console.log(`  pages:     ${htmlPages.join(", ")}`);
 console.log(`  dev id:    ${derivedId}`);
-console.log("  store key: omitted (required by Chrome Web Store)");
 console.log(
-  `  zip:       ${zipPath} (${zipKb} KB, ${zipEntries.length} files)`,
+  `  store zip: ${storeZipPath} (${storeKb} KB, no key - Dashboard upload)`,
+);
+console.log(
+  `  sideload:  ${sideloadZipPath} (${sideloadKb} KB, with key - GitHub Release / local test)`,
 );
