@@ -64,7 +64,7 @@ jobs:
           fi
           gh release create "${TAG}" \
             --title "Extension ${VERSION}" \
-            --notes "Chrome Web Store package for extension v${VERSION}, built from ${GITHUB_SHA}." \
+            --notes "Chrome Web Store package for extension v${VERSION}, built from ${GITHUB_SHA}. Install from the Chrome Web Store for full functionality: this ZIP is the store-upload artifact, and a sideloaded (unpacked) copy gets a different extension ID, so server sync will silently fail on writes." \
             --target "${GITHUB_SHA}" \
             "${ZIP}"
 
