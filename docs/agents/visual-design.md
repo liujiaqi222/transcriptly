@@ -35,7 +35,8 @@ surfaces feel like one product.
 - Selection counters must handle their longest state. Give selected count, ETA,
   and large-batch guidance a wrapping full-width summary row; keep Load more on
   its own row. Selection cards stay uniform: show the checkbox only, without
-  saved/public receipt badges.
+  saved/public receipt badges. Render Large batch as a distinct soft-orange
+  warning chip so it stands out without competing with the primary CTA.
 - During bounded auto-loading, keep the discovered count in a separate status
   label. Change the action to Stop while the 10-second loader is active and
   restore Load more when it finishes; repeated runs may continue discovering
