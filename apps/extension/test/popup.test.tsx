@@ -242,6 +242,39 @@ describe("popup capture flow", () => {
     );
   });
 
+  it("re-renders the preview body when the format switches", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.requestCapture = vi.fn(async () => ({
+      ok: true as const,
+      capture: {
+        ...capture,
+        chapters: undefined,
+        segments: [
+          { start: 0, text: "First sentence." },
+          { start: 2, text: "Second sentence." },
+        ],
+      },
+    }));
+
+    await captureSuccessfulPopup(harness);
+    // Timeline: one caption segment per row.
+    const timelineSecond = screen.getByText("Second sentence.", {
+      exact: false,
+    });
+    expect(timelineSecond.textContent).not.toContain("First sentence.");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Article" }));
+    // Article: adjacent sentences reflow into a single paragraph.
+    const articleFirst = screen.getByText("First sentence.", { exact: false });
+    expect(articleFirst.textContent).toContain("Second sentence.");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Timeline" }));
+    const timelineSecondAgain = screen.getByText("Second sentence.", {
+      exact: false,
+    });
+    expect(timelineSecondAgain.textContent).not.toContain("First sentence.");
+  });
+
   it("shows a loading state, then renders the captured preview as plain text", async () => {
     const pending = deferred<{ ok: true; capture: Capture }>();
     const harness = createHarness({ tab: youtubeTab });
