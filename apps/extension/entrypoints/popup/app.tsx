@@ -1,12 +1,13 @@
 import type { MarkdownFormat } from "@transcriptly/capture";
 import type { Capture } from "@transcriptly/schema";
-import { CircleAlert, RefreshCw, Sparkles } from "lucide-react";
+import { CircleAlert, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
 import { LogoMark } from "@/brand/logo-mark";
 import type { CloudQueueStatus } from "@/cloud/jobs";
 import {
   type AccountDependencies,
   AccountSection,
+  type AccountState,
   BatchActivity,
   BatchSourceView,
   CaptureView,
@@ -72,7 +73,6 @@ export interface PopupDependencies {
   };
   account: AccountDependencies;
   cloud: CloudDependencies;
-  
 }
 
 /** The popup shell: composes one hook per domain (active capture, batch
@@ -93,6 +93,10 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   // Local Markdown stays on by default but is an independent destination:
   // turning it off leaves the public contribution as the whole save (#64).
   const [localEnabled, setLocalEnabled] = useState(true);
+  const [accountState, setAccountState] = useState<AccountState>({
+    status: "checking",
+  });
+  const [signInRequest, setSignInRequest] = useState(0);
 
   const { runCapture: runActiveCapture } = capture;
   const { resetErrors } = batchNav;
@@ -197,6 +201,9 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
         <AccountSection
           deps={deps.account}
           onSessionChange={session.handleSessionChange}
+          onStateChange={setAccountState}
+          showSignedOutAction={false}
+          signInRequest={signInRequest}
         />
       </header>
       <main
@@ -289,7 +296,10 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
             capture={captureState.capture}
             filename={capture.filename}
             saveState={saveState}
+            markdownFormat={localSave.markdownFormat}
+            localEnabled={localEnabled}
             onFilenameChange={capture.setFilename}
+            onMarkdownFormatChange={localSave.handleMarkdownFormatChange}
           />
         )}
       </main>
@@ -305,17 +315,17 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           publicProfileConfirmed={session.publicProfileConfirmed}
           publicConfirmationAccepted={session.publicConfirmationAccepted}
           contributorDisplayName={session.contributorDisplayName}
-          markdownFormat={localSave.markdownFormat}
-          onMarkdownFormatChange={localSave.handleMarkdownFormatChange}
+          publicCopyPublished={queue.queueStatus?.current?.state === "saved"}
+          accountState={accountState}
           localEnabled={localEnabled}
           onLocalToggle={handleLocalToggle}
           onCloudToggle={session.handleCloudToggle}
           onPublicConfirmationChange={session.setPublicConfirmationAccepted}
+          onSignIn={() => setSignInRequest((request) => request + 1)}
           onSave={() => void handleSave()}
           onChangeFolder={() => void handleChangeFolder()}
         />
       )}
-      
     </div>
   );
 }

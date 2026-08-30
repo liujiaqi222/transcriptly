@@ -174,6 +174,7 @@ function createHarness(
 async function captureSuccessfulPopup(harness: Harness) {
   render(<Popup deps={harness.deps} />);
   await screen.findByLabelText("File name");
+  fireEvent.click(screen.getByRole("button", { name: "Save options" }));
   return screen.getByRole("button", { name: "Save" });
 }
 
@@ -203,6 +204,42 @@ describe("popup capture flow", () => {
     expect(await screen.findByText(/Saved to Notes\//)).toBeTruthy();
     expect(directory.files.size).toBe(1);
     expect([...directory.files.values()][0]).not.toContain("- [00:00](");
+  });
+
+  it("copies the selected transcript format from the icon-only action", async () => {
+    const harness = createHarness({ tab: youtubeTab });
+    harness.deps.requestCapture = vi.fn(async () => ({
+      ok: true as const,
+      capture: {
+        ...capture,
+        chapters: undefined,
+        segments: [
+          { start: 0, text: "First sentence." },
+          { start: 2, text: "Second sentence." },
+        ],
+      },
+    }));
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    await captureSuccessfulPopup(harness);
+    expect(screen.queryByText("Copy", { exact: true })).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: "Article" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy Article transcript" }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith(
+      "[00:00] First sentence. Second sentence.",
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Transcript copied" }),
+      ).toBeTruthy(),
+    );
   });
 
   it("shows a loading state, then renders the captured preview as plain text", async () => {
@@ -253,9 +290,19 @@ describe("popup capture flow", () => {
     expect(content).toBeTruthy();
     expect(footer).toBeTruthy();
     expect(content?.contains(footer ?? null)).toBe(false);
-    expect(footer?.querySelector('[aria-label="Local"]')).toBeTruthy();
+    const options = screen.getByRole("button", { name: "Save options" });
+    expect(options.getAttribute("aria-expanded")).toBe("false");
+    expect(footer?.querySelector('[aria-label="Local"]')).toBeNull();
     expect(
       footer?.querySelector('[aria-label="Contribute publicly"]'),
+    ).toBeNull();
+
+    fireEvent.click(options);
+    expect(screen.queryByRole("button", { name: "Save options" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Save options" })).toBeTruthy();
+    expect(footer?.querySelector('[aria-label="Local"]')).toBeTruthy();
+    expect(
+      footer?.querySelector('[aria-label="Sign in to contribute publicly"]'),
     ).toBeTruthy();
     expect(
       (screen.getByRole("radio", { name: "Timeline" }) as HTMLInputElement)
@@ -278,10 +325,10 @@ describe("popup capture flow", () => {
     await screen.findByLabelText("File name");
 
     const details = screen
-      .getByText("Properties")
+      .getByText("Details")
       .closest("details") as HTMLDetailsElement;
     expect(details.open).toBe(false);
-    fireEvent.click(screen.getByText("Properties"));
+    fireEvent.click(screen.getByText("Details"));
     expect(details.open).toBe(true);
     for (const [name, href] of [
       ["Ship It Weekly", "https://www.youtube.com/@shipitweekly"],
@@ -723,7 +770,6 @@ describe("popup batch manager entry (#58)", () => {
       screen.queryByRole("button", { name: "Open batch manager" }),
     ).toBeNull();
   });
-
 });
 
 describe("popup cloud saving", () => {
@@ -765,14 +811,22 @@ describe("popup cloud saving", () => {
     const harness = cloudHarness({ session: "signed-out" });
     await captureSuccessfulPopup(harness);
 
-    const cloud = screen.getByLabelText(
-      "Contribute publicly",
-    ) as HTMLInputElement;
-    expect(cloud.disabled).toBe(true);
-    expect(cloud.checked).toBe(false);
+    expect(screen.queryByLabelText("Contribute publicly")).toBeNull();
+    const signIn = await screen.findByRole("button", {
+      name: "Sign in to contribute publicly",
+    });
     expect(
-      screen.getByText("Sign in to contribute to the public archive"),
-    ).toBeTruthy();
+      screen
+        .queryByRole("button", {
+          name: "Sign in to contribute publicly",
+        })
+        ?.closest(".popup-header"),
+    ).toBeNull();
+    fireEvent.click(signIn);
+    await waitFor(() =>
+      expect(harness.deps.account.openCloudSignIn).toHaveBeenCalledTimes(1),
+    );
+    expect(screen.getByText("Waiting…")).toBeTruthy();
   });
 
   it("forces the remembered preference back to off when signed out", async () => {
@@ -782,10 +836,7 @@ describe("popup cloud saving", () => {
     });
     await captureSuccessfulPopup(harness);
 
-    const cloud = screen.getByLabelText(
-      "Contribute publicly",
-    ) as HTMLInputElement;
-    expect(cloud.checked).toBe(false);
+    expect(screen.queryByLabelText("Contribute publicly")).toBeNull();
     expect(harness.deps.cloud.setCloudPreference).toHaveBeenCalledWith(false);
   });
 
@@ -943,6 +994,8 @@ describe("popup cloud saving", () => {
     await captureSuccessfulPopup(harness);
 
     fireEvent.click(screen.getByLabelText("Local"));
+    expect(screen.queryByRole("radio", { name: "Timeline" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Article" })).toBeNull();
     fireEvent.click(screen.getByLabelText("Contribute publicly"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -1021,6 +1074,13 @@ describe("popup cloud saving", () => {
     await waitFor(() =>
       expect(screen.getByText("Contributed (published)")).toBeTruthy(),
     );
+    const viewTranscript = screen.getByRole("link", {
+      name: "View transcript",
+    });
+    expect(viewTranscript.getAttribute("href")).toBe(
+      "http://localhost:3000/videos/abc123",
+    );
+    expect(viewTranscript.getAttribute("target")).toBe("_blank");
   });
 
   it("shows a failed cloud save with a retry that reaches the background", async () => {
@@ -1141,7 +1201,7 @@ describe("popup local saving", () => {
       expect(await harness.store.get()).toBe(directory);
     });
     const save = await captureSuccessfulPopup(harness);
-    expect(screen.getByText("Save to:")).toBeTruthy();
+    expect(screen.getByText("Folder")).toBeTruthy();
     expect(screen.getByText("Notes")).toBeTruthy();
 
     fireEvent.click(save);

@@ -257,13 +257,13 @@ test("signed-out popup never uploads a capture", async () => {
   await web.start();
   const context = await launchExtension();
   try {
-    // The popup renders without a watch tab; the account section reports
-    // the signed-out session, and the cloud destination is never offered
-    // (the toggle lives in the capture view and stays unreachable).
+    // The popup renders without a watch tab. Signed-out identity no longer
+    // occupies the header, and the contribution sign-in action lives inside
+    // the capture-only Save options, so neither cloud action is reachable.
     const popup = await openPopup(context);
     await expect(
       popup.getByRole("button", { name: "Sign in to contribute publicly" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
 
     // No capture upload request may happen from a signed-out popup session
     // (local-only saves never touch the network).

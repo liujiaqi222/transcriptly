@@ -6,9 +6,14 @@ const extensionRoot = fileURLToPath(new URL(".", import.meta.url));
 
 /**
  * The web origin this build talks to. Defaults to the local dev server;
- * production builds pass the exact origin via WEB_ORIGIN.
+ * production builds default to the deployed Transcriptly site. WEB_ORIGIN
+ * remains an explicit override for E2E, previews, or alternate deployments.
  */
-const webOrigin = (process.env.WEB_ORIGIN ?? "http://localhost:3000").replace(
+const defaultWebOrigin =
+  process.env.NODE_ENV === "production"
+    ? "https://transcript.libmap.cn"
+    : "http://localhost:3000";
+const webOrigin = (process.env.WEB_ORIGIN ?? defaultWebOrigin).replace(
   /\/+$/,
   "",
 );

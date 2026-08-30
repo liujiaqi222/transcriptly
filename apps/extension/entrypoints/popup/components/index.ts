@@ -1,4 +1,8 @@
-export { type AccountDependencies, AccountSection } from "./account-section";
+export {
+  type AccountDependencies,
+  AccountSection,
+  type AccountState,
+} from "./account-section";
 export { BatchActivity } from "./batch-activity";
 export {
   BatchSourceView,

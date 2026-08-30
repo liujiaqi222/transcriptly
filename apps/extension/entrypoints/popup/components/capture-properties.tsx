@@ -5,8 +5,8 @@ import { propertyRows } from "@/entrypoints/popup/utils";
 export function CaptureProperties({ capture }: { capture: Capture }) {
   return (
     <details className="properties">
-      <summary>
-        <span>Properties</span>
+      <summary aria-label="Capture details">
+        <span>Details</span>
         <ArrowRight />
       </summary>
       <dl>

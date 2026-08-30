@@ -1,4 +1,6 @@
+import { ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { webOrigin } from "@/cloud/client";
 import type { CloudJobSummary, CloudQueueStatus } from "@/cloud/jobs";
 
 interface CloudStatusPanelProps {
@@ -73,9 +75,17 @@ export function CloudStatusPanel({
         </p>
       )}
       {current?.state === "saved" && current.receipt && (
-        <p className="cloud-saved" role="status">
-          Contributed ({current.receipt.outcome})
-        </p>
+        <div className="cloud-saved" role="status">
+          <span>Contributed ({current.receipt.outcome})</span>
+          <a
+            href={`${webOrigin}/videos/${current.receipt.videoId}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View transcript
+            <ExternalLink />
+          </a>
+        </div>
       )}
       {current?.state === "failed" && current.failure && (
         <div className="cloud-failed-current" role="alert">

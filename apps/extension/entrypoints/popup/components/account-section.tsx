@@ -17,9 +17,14 @@ export interface AccountSectionProps {
   pollIntervalMs?: number;
   /** Notified on every resolved session status (popup drives the cloud toggle). */
   onSessionChange?(session: CloudSessionStatus): void;
+  /** The popup hides signed-out account UI in the header and triggers it below. */
+  showSignedOutAction?: boolean;
+  /** Incremented by an external sign-in button to start the existing flow. */
+  signInRequest?: number;
+  onStateChange?(state: AccountState): void;
 }
 
-type AccountState =
+export type AccountState =
   | { status: "checking" }
   | { status: "signed-out" }
   | { status: "signing-in" }
@@ -30,9 +35,13 @@ export function AccountSection({
   deps,
   pollIntervalMs = 1500,
   onSessionChange,
+  showSignedOutAction = true,
+  signInRequest,
+  onStateChange,
 }: AccountSectionProps) {
   const [state, setState] = useState<AccountState>({ status: "checking" });
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const handledSignInRequest = useRef(signInRequest ?? 0);
 
   const checkSession = useCallback(async (): Promise<CloudSessionStatus> => {
     const session = await deps.getCloudSession();
@@ -100,6 +109,23 @@ export function AccountSection({
         : { status: "error", message: "Sign out failed. Try again." },
     );
   }, [deps, onSessionChange]);
+
+  useEffect(() => {
+    onStateChange?.(state);
+  }, [onStateChange, state]);
+
+  useEffect(() => {
+    if (
+      signInRequest === undefined ||
+      signInRequest === handledSignInRequest.current
+    ) {
+      return;
+    }
+    handledSignInRequest.current = signInRequest;
+    void handleSignIn();
+  }, [handleSignIn, signInRequest]);
+
+  if (!showSignedOutAction && state.status !== "signed-in") return null;
 
   return (
     <section className="account" aria-label="Transcriptly account">
