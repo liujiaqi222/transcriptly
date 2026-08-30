@@ -49,17 +49,6 @@ export function CaptureView({
         localEnabled={localEnabled}
         onMarkdownFormatChange={onMarkdownFormatChange}
       />
-
-      {saveState.status === "saved" && (
-        <p className="success-banner" role="status">
-          Saved to {saveState.directoryName}/{saveState.filename}
-        </p>
-      )}
-      {saveState.status === "error" && (
-        <p className="error-banner" role="alert">
-          {saveState.message}
-        </p>
-      )}
     </>
   );
 }

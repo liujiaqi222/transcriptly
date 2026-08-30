@@ -1043,8 +1043,21 @@ h2 {
   background: var(--ok-background);
   word-break: break-all;
 }
-.footer > .error-banner {
-  margin: 0 0 8px;
+/* Save results sit next to the Save button: the footer is always visible,
+   so local and cloud outcomes never require scrolling (#64). */
+.footer-status {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.footer.options-open .footer-status {
+  display: none;
+}
+.footer-local-success {
+  overflow: hidden;
+  word-break: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .error-banner p {
   margin: 0 0 8px;
@@ -1228,39 +1241,10 @@ h2 {
   color: var(--muted);
   font-size: 10px;
 }
-
-/* AI Playground entry (#78): a quiet always-present link to the
-   standalone built-in AI page. Discovery action, not a CTA. */
-
-.playground-entry {
-  display: flex;
-  flex: 0 0 auto;
-  padding: 4px 12px;
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.playground-entry button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 7px;
-  color: var(--muted);
-  background: transparent;
-  font-size: 11px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.playground-entry button:hover {
-  color: var(--primary-text);
-  background: var(--primary-soft);
-}
-
-.playground-entry button svg {
-  width: 14px;
-  height: 14px;
+/* The strip's banners sit in a grid, so they carry no margins of their own. */
+.footer-status .error-banner,
+.footer-status .success-banner,
+.footer-status .cloud-saving,
+.footer-status .cloud-saved {
+  margin: 0;
 }

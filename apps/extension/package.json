@@ -1,6 +1,6 @@
 {
   "name": "@transcriptly/extension",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "zip": "wxt zip",
     "typecheck": "wxt prepare && tsc --noEmit",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "@transcriptly/capture": "workspace:*",

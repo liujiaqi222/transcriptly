@@ -1,6 +1,6 @@
 {
   "name": "transcriptly",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.21.0",
@@ -19,6 +19,7 @@
     "cloud:down": "docker compose down",
     "e2e": "pnpm --filter @transcriptly/extension run build && pnpm --filter @transcriptly/extension run e2e",
     "e2e:web": "pnpm --filter @transcriptly/web run e2e",
+    "release": "pnpm --filter @transcriptly/extension run release",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",

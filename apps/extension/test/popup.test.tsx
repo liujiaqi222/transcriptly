@@ -1083,6 +1083,64 @@ describe("popup cloud saving", () => {
     ).toBeTruthy();
   });
 
+  it("clears a popup-local cloud error when Public is turned off", async () => {
+    const directory = new MemoryDirectory("Notes");
+    const harness = cloudHarness({
+      session: "signed-in",
+      rememberedDirectory: directory,
+    });
+    harness.deps.cloud.enqueueCloudSave = vi.fn(async () => ({
+      ok: false as const,
+      message: "Could not queue the public contribution",
+    }));
+
+    await captureSuccessfulPopup(harness);
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText(/Could not queue the public contribution/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save options" }));
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+
+    expect(
+      screen.queryByText(/Could not queue the public contribution/),
+    ).toBeNull();
+  });
+
+  it("clears the previous popup-local cloud error when Save is retried", async () => {
+    const directory = new MemoryDirectory("Notes");
+    const secondEnqueue = deferred<{
+      ok: true;
+      jobId: string;
+    }>();
+    const harness = cloudHarness({
+      session: "signed-in",
+      rememberedDirectory: directory,
+    });
+    harness.deps.cloud.enqueueCloudSave = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false as const,
+        message: "Could not queue the public contribution",
+      })
+      .mockReturnValueOnce(secondEnqueue.promise);
+
+    await captureSuccessfulPopup(harness);
+    fireEvent.click(screen.getByLabelText("Contribute publicly"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText(/Could not queue the public contribution/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Could not queue the public contribution/),
+      ).toBeNull(),
+    );
+
+    secondEnqueue.resolve({ ok: true, jobId: "job-2" });
+    await screen.findByText(/Saved to Notes\//);
+  });
+
   it("shows the current video's saved receipt from the queueStatus", async () => {
     const harness = cloudHarness({
       session: "signed-in",
@@ -1148,6 +1206,56 @@ describe("popup cloud saving", () => {
     await waitFor(() =>
       expect(harness.deps.cloud.retryCloudJob).toHaveBeenCalledWith("job-1"),
     );
+  });
+
+  it("keeps the current video's failure out of the global failure badge", async () => {
+    const currentFailure = {
+      id: "job-current",
+      videoId: "abc123",
+      title: "Current failure",
+      state: "failed" as const,
+      failure: {
+        kind: "retryable" as const,
+        code: "interrupted",
+        message: "The current upload was interrupted.",
+      },
+    };
+    const harness = cloudHarness({
+      session: "signed-in",
+      queueStatus: {
+        current: currentFailure,
+        failed: [
+          currentFailure,
+          {
+            id: "job-other",
+            videoId: "bbbbbbbbbbb",
+            title: "Other failure",
+            state: "failed",
+            failure: {
+              kind: "permanent",
+              code: "capture_invalid",
+              message: "Invalid.",
+            },
+          },
+        ],
+      },
+    });
+    await captureSuccessfulPopup(harness);
+
+    await screen.findByText(
+      /Public contribution failed: The current upload was interrupted/,
+    );
+    expect(
+      screen.queryByRole("button", {
+        name: "2 public contributions failed",
+      }),
+    ).toBeNull();
+    const badge = screen.getByRole("button", {
+      name: "1 public contribution failed",
+    });
+    fireEvent.click(badge);
+    expect(screen.getByText("Other failure")).toBeTruthy();
+    expect(screen.queryByText("Current failure")).toBeNull();
   });
 
   it("lists failed cloud saves behind a badge with retries", async () => {
