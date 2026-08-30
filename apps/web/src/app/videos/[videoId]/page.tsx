@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { TranscriptSection } from "@/app/videos/[videoId]/components/transcript-section";
 import { LogoMark } from "@/components/logo-mark";
 import { getDatabase } from "@/db/client";
 import { getAuthEnv } from "@/env/server";
-import {
-  formatTimestamp,
-  timestampUrl,
-  transcriptBlocks,
-} from "@/lib/captures/transcript";
+import { formatTimestamp } from "@/lib/captures/transcript";
 import { YOUTUBE_VIDEO_ID_PATTERN } from "@/lib/contributions/validation";
 import { getPublicTranscript } from "@/lib/publications/queries";
 
@@ -86,7 +83,6 @@ export default async function PublicVideoPage({
   if (!YOUTUBE_VIDEO_ID_PATTERN.test(videoId)) notFound();
   const item = await getPublicTranscript(getDatabase(), videoId);
   if (!item) notFound();
-  const blocks = transcriptBlocks(item);
   const description = publicDescription(
     item.title,
     item.channelName,
@@ -185,48 +181,12 @@ export default async function PublicVideoPage({
             </span>
           </div>
         ) : null}
-        <section
-          className="mt-18 border-t border-[#e2e8f0] pt-8"
-          aria-labelledby="transcript-title"
-        >
-          <div className="flex items-baseline justify-between gap-6">
-            <h2
-              className="m-0 font-serif text-3xl font-semibold tracking-[-0.02em]"
-              id="transcript-title"
-            >
-              Transcript
-            </h2>
-            <span className="text-sm text-[#64748b]">
-              {item.segmentCount} segments
-            </span>
-          </div>
-          <ol className="mt-7 mb-0 list-none p-0">
-            {blocks.map((block) =>
-              block.kind === "chapter" ? (
-                <li key={`chapter-${block.title}`}>
-                  <h3 className="mt-10 mb-2 text-xl font-bold">
-                    {block.title}
-                  </h3>
-                </li>
-              ) : (
-                <li
-                  className="grid grid-cols-[64px_minmax(0,1fr)] gap-5 border-t border-transparent py-2.5 leading-7 hover:border-[#e2e8f0] hover:bg-white max-sm:grid-cols-[52px_minmax(0,1fr)] max-sm:gap-3"
-                  key={`segment-${block.start}-${block.text}`}
-                >
-                  <a
-                    className="font-mono text-sm leading-7 text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40 max-sm:text-xs"
-                    href={timestampUrl(item.url, block.start)}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {formatTimestamp(block.start)}
-                  </a>
-                  <span>{block.text}</span>
-                </li>
-              ),
-            )}
-          </ol>
-        </section>
+        <TranscriptSection
+          chapters={item.chapters}
+          segmentCount={item.segmentCount}
+          segments={item.segments}
+          url={item.url}
+        />
       </article>
       <script type="application/ld+json">
         {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
