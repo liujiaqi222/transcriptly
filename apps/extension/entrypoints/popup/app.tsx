@@ -109,6 +109,14 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
     setLocalEnabled(enabled);
   }, []);
 
+  const handleCloudToggle = useCallback(
+    (enabled: boolean) => {
+      session.handleCloudToggle(enabled);
+      if (!enabled) queue.setCloudError(undefined);
+    },
+    [queue.setCloudError, session.handleCloudToggle],
+  );
+
   const handleOpenBatchManager = useCallback(
     (taskId: string) => deps.openBatchManager(taskId),
     [deps],
@@ -124,6 +132,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
   const handleSave = async () => {
     if (capture.captureState.status !== "ready") return;
     capture.setSaveState({ status: "saving" });
+    queue.setCloudError(undefined);
 
     // The Cloud Job is persisted before any local saving so the upload
     // survives even if the popup closes mid-save (#35 AC). The first
@@ -213,7 +222,6 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
       >
         <CloudStatusPanel
           queueStatus={queue.queueStatus}
-          cloudError={queue.cloudError}
           signedIn={session.signedIn}
           onRetry={(jobId) => void queue.handleRetry(jobId)}
         />
@@ -315,12 +323,14 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           publicProfileConfirmed={session.publicProfileConfirmed}
           publicConfirmationAccepted={session.publicConfirmationAccepted}
           contributorDisplayName={session.contributorDisplayName}
-          publicCopyPublished={queue.queueStatus?.current?.state === "saved"}
+          queueStatus={queue.queueStatus}
+          cloudError={queue.cloudError}
           accountState={accountState}
           localEnabled={localEnabled}
           onLocalToggle={handleLocalToggle}
-          onCloudToggle={session.handleCloudToggle}
+          onCloudToggle={handleCloudToggle}
           onPublicConfirmationChange={session.setPublicConfirmationAccepted}
+          onRetry={(jobId) => void queue.handleRetry(jobId)}
           onSignIn={() => setSignInRequest((request) => request + 1)}
           onSave={() => void handleSave()}
           onChangeFolder={() => void handleChangeFolder()}

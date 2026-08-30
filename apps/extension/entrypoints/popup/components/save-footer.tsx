@@ -1,7 +1,9 @@
 import { ChevronDown, Folder, Globe2, Save, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { CloudQueueStatus } from "@/cloud/jobs";
 import type { LocalMarkdownSaver } from "@/local-save";
 import type { AccountState } from "./account-section";
+import { CloudSaveStatus } from "./cloud-status";
 
 export type SaveState =
   | { status: "idle" }
@@ -21,13 +23,16 @@ interface SaveFooterProps {
   publicProfileConfirmed: boolean;
   publicConfirmationAccepted: boolean;
   contributorDisplayName?: string;
-  publicCopyPublished: boolean;
+  /** This video's cloud Job, for the footer save-status strip. */
+  queueStatus?: CloudQueueStatus;
+  cloudError?: string;
   accountState: AccountState;
   /** Local Markdown destination: on by default, independently togglable (#64). */
   localEnabled: boolean;
   onLocalToggle(enabled: boolean): void;
   onCloudToggle(enabled: boolean): void;
   onPublicConfirmationChange(accepted: boolean): void;
+  onRetry(jobId: string): void;
   onSignIn(): void;
   onSave(): void;
   onChangeFolder(): void;
@@ -44,17 +49,20 @@ export function SaveFooter({
   publicProfileConfirmed,
   publicConfirmationAccepted,
   contributorDisplayName,
-  publicCopyPublished,
+  queueStatus,
+  cloudError,
   accountState,
   localEnabled,
   onLocalToggle,
   onCloudToggle,
   onPublicConfirmationChange,
+  onRetry,
   onSignIn,
   onSave,
   onChangeFolder,
 }: SaveFooterProps) {
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const publicCopyPublished = queueStatus?.current?.state === "saved";
   const destinationSummary =
     localEnabled && cloudEnabled
       ? "Local + Public"
@@ -77,6 +85,15 @@ export function SaveFooter({
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [optionsOpen]);
+
+  // Save feedback stays next to the Save button: the footer is always
+  // visible, so local and cloud results never require scrolling (#64).
+  const hasSaveStatus =
+    Boolean(saverError) ||
+    saveState.status === "saved" ||
+    saveState.status === "error" ||
+    Boolean(cloudError) ||
+    Boolean(queueStatus?.current);
 
   return (
     <footer className={optionsOpen ? "footer options-open" : "footer"}>
@@ -231,10 +248,34 @@ export function SaveFooter({
         </>
       )}
 
-      {saverError && (
-        <p className="error-banner" role="alert">
-          {saverError}
-        </p>
+      {hasSaveStatus && (
+        <div className="footer-status">
+          {saveState.status === "error" && (
+            <p className="error-banner" role="alert">
+              {saveState.message}
+            </p>
+          )}
+          {saveState.status === "saved" && (
+            <p
+              className="success-banner footer-local-success"
+              role="status"
+              title={`Saved to ${saveState.directoryName}/${saveState.filename}`}
+            >
+              Saved to {saveState.directoryName}/{saveState.filename}
+            </p>
+          )}
+          {saverError && (
+            <p className="error-banner" role="alert">
+              {saverError}
+            </p>
+          )}
+          <CloudSaveStatus
+            queueStatus={queueStatus}
+            cloudError={cloudError}
+            signedIn={cloudAvailable}
+            onRetry={onRetry}
+          />
+        </div>
       )}
 
       <div className="compact-save-bar">

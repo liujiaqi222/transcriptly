@@ -1043,8 +1043,21 @@ h2 {
   background: var(--ok-background);
   word-break: break-all;
 }
-.footer > .error-banner {
-  margin: 0 0 8px;
+/* Save results sit next to the Save button: the footer is always visible,
+   so local and cloud outcomes never require scrolling (#64). */
+.footer-status {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.footer.options-open .footer-status {
+  display: none;
+}
+.footer-local-success {
+  overflow: hidden;
+  word-break: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .error-banner p {
   margin: 0 0 8px;
@@ -1227,6 +1240,13 @@ h2 {
 .cloud-retry-hint {
   color: var(--muted);
   font-size: 10px;
+}
+/* The strip's banners sit in a grid, so they carry no margins of their own. */
+.footer-status .error-banner,
+.footer-status .success-banner,
+.footer-status .cloud-saving,
+.footer-status .cloud-saved {
+  margin: 0;
 }
 
 /* AI Playground entry (#78): a quiet always-present link to the
