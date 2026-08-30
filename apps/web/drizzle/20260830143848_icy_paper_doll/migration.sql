@@ -1,10 +1,28 @@
 ALTER TABLE "channels" ADD COLUMN "slug" text;
 --> statement-breakpoint
--- Backfill: the slug is the sanitized, lowercased handle (#96). Matches the
--- application-side channelSlug(): lowercase, non-[a-z0-9-] runs become "-",
--- leading/trailing "-" trimmed.
+-- Preserve URL-safe handle punctuation instead of collapsing distinct
+-- handles such as `@a.b`, `@a_b`, and `@a-b` onto one slug.
 UPDATE "channels"
-SET "slug" = btrim(regexp_replace(lower("handle"), '[^a-z0-9-]+', '-', 'g'), '-');
+SET "slug" = coalesce(
+	nullif(
+		btrim(
+			regexp_replace(
+				regexp_replace(
+					regexp_replace("handle", '^/?@', ''),
+					'^/+|/+$',
+					'',
+					'g'
+				),
+				'[^A-Za-z0-9._~-]+',
+				'-',
+				'g'
+			),
+			'-'
+		),
+		''
+	),
+	'channel'
+);
 --> statement-breakpoint
 ALTER TABLE "channels" ALTER COLUMN "slug" SET NOT NULL;
 --> statement-breakpoint

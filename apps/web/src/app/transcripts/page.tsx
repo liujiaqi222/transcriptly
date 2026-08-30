@@ -4,6 +4,7 @@ import { LogoMark } from "@/components/logo-mark";
 import { getDatabase } from "@/db/client";
 import { formatTimestamp } from "@/lib/captures/transcript";
 import { listChannels } from "@/lib/channels/queries";
+import { parsePageParam } from "@/lib/pagination";
 import {
   countPublicTranscripts,
   listPublicTranscripts,
@@ -36,12 +37,6 @@ const SEARCH_SCOPES = [
 
 type SearchScope = (typeof SEARCH_SCOPES)[number]["value"];
 
-function parsePage(raw: string | undefined): number {
-  if (!raw) return 1;
-  if (!/^\d+$/.test(raw)) return Number.NaN;
-  return Number.parseInt(raw, 10);
-}
-
 function transcriptHref(params: { q?: string; scope?: string; page: number }) {
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
@@ -59,18 +54,15 @@ export default async function TranscriptsPage({
   const { q, scope, page: rawPage } = await searchParams;
   const query = normalizeQuery(q ?? "") ?? "";
   const searchScope: SearchScope = scope === "videos" ? "videos" : "text";
-  const page = parsePage(rawPage);
-  if (!Number.isInteger(page) || page < 1) notFound();
+  const page = parsePageParam(rawPage);
+  if (page === null) notFound();
 
   const db = getDatabase();
   const querying = query !== "";
   const searchingText = querying && searchScope === "text";
   const searchingVideos = querying && searchScope === "videos";
 
-  const [items, total, search, channels] = await Promise.all([
-    searchingText
-      ? Promise.resolve([])
-      : listPublicTranscripts(db, page, searchingVideos ? query : undefined),
+  const [total, search, channels] = await Promise.all([
     searchingText
       ? Promise.resolve(0)
       : countPublicTranscripts(db, searchingVideos ? query : undefined),
@@ -80,6 +72,13 @@ export default async function TranscriptsPage({
 
   const pageCount = Math.max(1, Math.ceil(total / TRANSCRIPT_PAGE_SIZE));
   if (page > pageCount) notFound();
+  const items = searchingText
+    ? []
+    : await listPublicTranscripts(
+        db,
+        page,
+        searchingVideos ? query : undefined,
+      );
 
   return (
     <main className="min-h-screen bg-[#fffdf8] font-sans text-[#202124]">
@@ -193,11 +192,13 @@ export default async function TranscriptsPage({
                 <ul className="m-0 mt-2 list-none p-0">
                   {search.hits.map((hit) => (
                     <li className="border-t border-[#e2e8f0]" key={hit.key}>
-                      <a
-                        className="grid grid-cols-[minmax(0,1fr)_180px] gap-x-6 gap-y-2 py-4 no-underline hover:bg-[#edf7ff] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40 max-sm:grid-cols-1"
-                        href={`/transcripts/${hit.videoId}`}
-                      >
-                        <strong className="text-base">{hit.title}</strong>
+                      <article className="grid grid-cols-[minmax(0,1fr)_180px] gap-x-6 gap-y-2 py-4 hover:bg-[#edf7ff] max-sm:grid-cols-1">
+                        <a
+                          className="rounded-sm text-base font-bold text-[#202124] no-underline focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
+                          href={`/transcripts/${hit.videoId}`}
+                        >
+                          {hit.title}
+                        </a>
                         <span className="text-right font-mono text-sm text-[#0872b9] max-sm:text-left">
                           {hit.channelName}
                         </span>
@@ -212,7 +213,7 @@ export default async function TranscriptsPage({
                         <p className="col-span-full m-0 leading-relaxed text-[#64748b]">
                           {hit.window.find((segment) => segment.isHit)?.text}
                         </p>
-                      </a>
+                      </article>
                     </li>
                   ))}
                 </ul>

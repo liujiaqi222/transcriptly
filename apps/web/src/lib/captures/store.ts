@@ -8,7 +8,7 @@ import {
   segments,
   transcripts,
 } from "../../db/schema";
-import { channelSlug } from "../channels/queries";
+import { channelSlug } from "../channels/slug";
 import { transcriptBody } from "./hash";
 
 export class TranscriptHashCollisionError extends Error {

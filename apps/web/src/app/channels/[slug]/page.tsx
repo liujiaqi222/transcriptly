@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { ChannelAvatar } from "@/app/channels/components/channel-avatar";
 import { Pagination } from "@/app/transcripts/components/pagination";
 import { TranscriptListItem } from "@/app/transcripts/components/transcript-list-item";
 import { LogoMark } from "@/components/logo-mark";
@@ -11,14 +12,9 @@ import {
   findChannelBySlug,
   listChannelVideos,
 } from "@/lib/channels/queries";
+import { parsePageParam } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
-
-function parsePage(raw: string | undefined): number {
-  if (!raw) return 1;
-  if (!/^\d+$/.test(raw)) return Number.NaN;
-  return Number.parseInt(raw, 10);
-}
 
 export async function generateMetadata({
   params,
@@ -48,20 +44,17 @@ export default async function ChannelPage({
     params,
     searchParams,
   ]);
-  const page = parsePage(rawPage);
-  if (!Number.isInteger(page) || page < 1) notFound();
+  const page = parsePageParam(rawPage);
+  if (page === null) notFound();
 
   const db = getDatabase();
   const channel = await findChannelBySlug(db, slug);
   if (!channel) notFound();
 
-  const [items, total] = await Promise.all([
-    listChannelVideos(db, channel.id, page),
-    countChannelVideos(db, channel.id),
-  ]);
-
+  const total = await countChannelVideos(db, channel.id);
   const pageCount = Math.max(1, Math.ceil(total / CHANNEL_PAGE_SIZE));
   if (page > pageCount) notFound();
+  const items = await listChannelVideos(db, channel.id, page);
 
   return (
     <main className="min-h-screen bg-[#fffdf8] font-sans text-[#202124]">
@@ -88,21 +81,30 @@ export default async function ChannelPage({
             Channels
           </a>
         </p>
-        <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-2">
-          <h1 className="m-0 font-serif text-[clamp(32px,4vw,44px)] leading-[1.05] font-semibold tracking-[-0.03em]">
-            {channel.name}
-          </h1>
-          <span className="font-mono text-sm text-[#64748b] tabular-nums">
-            {total} {total === 1 ? "transcript" : "transcripts"}
-          </span>
-          <a
-            className="text-sm font-bold text-[#0872b9] underline-offset-4"
-            href={channelUrlFromHandle(channel.handle)}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {"YouTube ->"}
-          </a>
+        <div className="mt-4 flex items-center gap-4">
+          <ChannelAvatar
+            avatarUrl={channel.avatarUrl}
+            name={channel.name}
+            size="lg"
+          />
+          <div className="min-w-0">
+            <h1 className="m-0 font-serif text-[clamp(32px,4vw,44px)] leading-[1.05] font-semibold tracking-[-0.03em]">
+              {channel.name}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+              <span className="font-mono text-sm text-[#64748b] tabular-nums">
+                {total} {total === 1 ? "transcript" : "transcripts"}
+              </span>
+              <a
+                className="text-sm font-bold text-[#0872b9] underline-offset-4"
+                href={channelUrlFromHandle(channel.handle)}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {"YouTube ->"}
+              </a>
+            </div>
+          </div>
         </div>
 
         {items.length === 0 ? (

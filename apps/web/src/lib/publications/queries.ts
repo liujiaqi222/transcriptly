@@ -10,6 +10,7 @@ import {
   user,
 } from "../../db/schema";
 import { channelUrlFromHandle } from "../channels/queries";
+import { escapeLike } from "../search/search";
 
 export const TRANSCRIPT_PAGE_SIZE = 24;
 
@@ -53,7 +54,7 @@ export async function countPublicTranscripts(
 ): Promise<number> {
   const conditions = [eq(publicPublications.active, true)];
   if (query) {
-    const pattern = `%${query}%`;
+    const pattern = `%${escapeLike(query)}%`;
     const match = or(
       ilike(canonicalVideos.title, pattern),
       ilike(channels.name, pattern),
@@ -84,7 +85,7 @@ export async function listPublicTranscripts(
 ): Promise<PublicTranscriptSummary[]> {
   const conditions = [eq(publicPublications.active, true)];
   if (query) {
-    const pattern = `%${query}%`;
+    const pattern = `%${escapeLike(query)}%`;
     const match = or(
       ilike(canonicalVideos.title, pattern),
       ilike(channels.name, pattern),

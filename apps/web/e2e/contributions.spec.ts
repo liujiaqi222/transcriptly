@@ -19,6 +19,7 @@ const sessionToken = `contribution-${randomUUID()}`;
 const secondSessionToken = `contribution-${randomUUID()}`;
 const thirdSessionToken = `contribution-${randomUUID()}`;
 const videoId = "M7lc1UVf-VE";
+const punctuationVideoId = "dQw4w9WgXcQ";
 
 const capture = {
   source: {
@@ -47,6 +48,19 @@ const replacementCapture = {
     { start: 50, text: "The latest qualified capture wins the publication." },
   ],
   chapters: [{ start: 0, title: "Latest qualified" }],
+};
+
+const punctuatedChannelCapture = {
+  ...capture,
+  source: {
+    ...capture.source,
+    videoId: punctuationVideoId,
+    url: `https://www.youtube.com/watch?v=${punctuationVideoId}`,
+    title: "Punctuated channel slug transcript",
+    channelName: "Transcriptly Underscore Channel",
+    channelHandle: "/@transcriptly_test",
+  },
+  capturedAt: "2026-08-20T13:00:00.000Z",
 };
 
 /** Two distinct captures raced by different users in the concurrency test. */
@@ -113,7 +127,11 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await sql`
     delete from public_publications
-    where video_id = (select id from canonical_videos where youtube_video_id = ${videoId})
+    where video_id in (
+      select id
+      from canonical_videos
+      where youtube_video_id in (${videoId}, ${punctuationVideoId})
+    )
   `;
   await sql`delete from "user" where id in (${userId}, ${secondUserId}, ${thirdUserId})`;
   await sql.end();
@@ -274,6 +292,49 @@ test("serves only active publications through detail, search, and sitemap", asyn
   await expect(
     page.getByText("Observable behavior makes agent systems reliable."),
   ).toBeVisible();
+  expect(await page.locator("a a").count()).toBe(0);
+
+  await page.goto("/transcripts");
+  await expect(
+    page.getByRole("link", { name: "Public archive E2E transcript" }),
+  ).toBeVisible();
+  expect(await page.locator("a a").count()).toBe(0);
+
+  await page.goto("/transcripts?scope=videos&q=%25");
+  await expect(page.getByText("No videos match “%”")).toBeVisible();
+  await expect(page.getByText("Public archive E2E transcript")).toHaveCount(0);
+
+  expect(
+    (
+      await request.get("/transcripts?page=999999999999999999999999999999999")
+    ).status(),
+  ).toBe(404);
+
+  await page.goto("/channels");
+  await expect(
+    page.getByRole("link", { name: "Transcriptly Test Channel" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Public archive E2E transcript" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("[data-channel-avatar]", { hasText: "T" }),
+  ).toBeVisible();
+
+  await page.goto("/channels/transcriptly-test");
+  await expect(
+    page.getByRole("heading", { name: "Transcriptly Test Channel" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("[data-channel-avatar]", { hasText: "T" }),
+  ).toBeVisible();
+  expect(
+    (
+      await request.get(
+        "/channels/transcriptly-test?page=999999999999999999999999999999999",
+      )
+    ).status(),
+  ).toBe(404);
 
   const sitemap = await request.get("/sitemap.xml");
   expect(await sitemap.text()).toContain(`/transcripts/${videoId}`);
@@ -686,4 +747,31 @@ test("unpublishes the video and deletes the transcript when the final contributo
   await expect(
     page.getByText("The latest qualified capture wins the publication."),
   ).toBeVisible();
+});
+
+test("preserves handle punctuation in channel slugs", async ({ request }) => {
+  const response = await request.post("/api/v1/contributions", {
+    headers: {
+      Origin: baseURL,
+      Cookie: await sessionCookie(),
+      "Content-Type": "application/json",
+    },
+    data: {
+      capture: punctuatedChannelCapture,
+      targetVideoId: punctuationVideoId,
+    },
+  });
+  expect(response.status()).toBe(200);
+
+  const rows = await sql`
+    select handle, slug
+    from channels
+    where handle in ('/@transcriptly-test', '/@transcriptly_test')
+    order by handle
+  `;
+  expect(rows).toHaveLength(2);
+  expect(rows).toEqual([
+    { handle: "/@transcriptly-test", slug: "transcriptly-test" },
+    { handle: "/@transcriptly_test", slug: "transcriptly_test" },
+  ]);
 });

@@ -9,21 +9,33 @@ export type ChannelSummary = {
   handle: string;
   slug: string;
   name: string;
+  avatarUrl: string | null;
   transcriptCount: number;
   latestPublicationAt: Date | null;
+  latestTranscript: { videoId: string; title: string } | null;
 };
 
-/** Postgres renders max(timestamptz) as text through the SQL subquery. */
-type ChannelRow = Omit<ChannelSummary, "latestPublicationAt"> & {
+/** Postgres renders the raw timestamptz subquery as text. */
+type ChannelRow = Omit<
+  ChannelSummary,
+  "latestPublicationAt" | "latestTranscript"
+> & {
   latestPublicationAt: string | null;
+  latestVideoId: string | null;
+  latestTitle: string | null;
 };
 
 function toChannelSummary(row: ChannelRow): ChannelSummary {
+  const { latestVideoId, latestTitle, ...summary } = row;
   return {
-    ...row,
+    ...summary,
     latestPublicationAt: row.latestPublicationAt
       ? new Date(row.latestPublicationAt)
       : null,
+    latestTranscript:
+      latestVideoId && latestTitle
+        ? { videoId: latestVideoId, title: latestTitle }
+        : null,
   };
 }
 
@@ -41,26 +53,6 @@ export function channelUrlFromHandle(handle: string): string {
   return `https://www.youtube.com${handle.startsWith("/") ? handle : `/${handle}`}`;
 }
 
-/**
- * Derives the URL slug from the handle: `@veritasium` -> `veritasium`,
- * `channel/UCxxx` -> `channel-ucxxx`. Computed once at write time and stored
- * on the channel row (#96); the unique index makes lookups index-backed.
- */
-export function channelSlug(handle: string): string {
-  if (handle.startsWith("@")) {
-    return handle
-      .slice(1)
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
-  return handle
-    .toLowerCase()
-    .replace(/\//g, "-")
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 const publishedCount = sql<number>`(
   select count(*)::int
   from ${publicPublications}
@@ -71,12 +63,36 @@ const publishedCount = sql<number>`(
 )`;
 
 const latestPublication = sql<string | null>`(
-  select max(${publicPublications.updatedAt})::text
+  select ${publicPublications.updatedAt}::text
   from ${publicPublications}
   inner join ${canonicalVideos}
     on ${canonicalVideos.id} = ${publicPublications.videoId}
   where ${publicPublications.active} = true
     and ${canonicalVideos.channelId} = ${channels.id}
+  order by ${publicPublications.publishedAt} desc, ${publicPublications.id} desc
+  limit 1
+)`;
+
+const latestVideoId = sql<string | null>`(
+  select ${canonicalVideos.youtubeVideoId}
+  from ${publicPublications}
+  inner join ${canonicalVideos}
+    on ${canonicalVideos.id} = ${publicPublications.videoId}
+  where ${publicPublications.active} = true
+    and ${canonicalVideos.channelId} = ${channels.id}
+  order by ${publicPublications.publishedAt} desc, ${publicPublications.id} desc
+  limit 1
+)`;
+
+const latestTitle = sql<string | null>`(
+  select ${canonicalVideos.title}
+  from ${publicPublications}
+  inner join ${canonicalVideos}
+    on ${canonicalVideos.id} = ${publicPublications.videoId}
+  where ${publicPublications.active} = true
+    and ${canonicalVideos.channelId} = ${channels.id}
+  order by ${publicPublications.publishedAt} desc, ${publicPublications.id} desc
+  limit 1
 )`;
 
 const channelColumns = {
@@ -84,8 +100,11 @@ const channelColumns = {
   handle: channels.handle,
   slug: channels.slug,
   name: channels.name,
+  avatarUrl: channels.avatarUrl,
   transcriptCount: publishedCount,
   latestPublicationAt: latestPublication,
+  latestVideoId,
+  latestTitle,
 };
 
 /** Channels ordered by published transcript count, then recency. */

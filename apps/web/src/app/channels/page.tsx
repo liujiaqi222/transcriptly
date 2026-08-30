@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ChannelAvatar } from "@/app/channels/components/channel-avatar";
 import { LogoMark } from "@/components/logo-mark";
 import { getDatabase } from "@/db/client";
 import { listChannels } from "@/lib/channels/queries";
@@ -56,25 +57,44 @@ export default async function ChannelsPage() {
                 className="border-t border-[#e2e8f0] first:border-t-0"
                 key={channel.id}
               >
-                <a
-                  className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 rounded-[10px] py-4 no-underline hover:bg-[#edf7ff] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
-                  href={`/channels/${channel.slug}`}
-                >
-                  <strong className="text-base text-[#202124]">
-                    {channel.name}
-                  </strong>
-                  <span className="font-mono text-xs text-[#64748b] tabular-nums">
-                    {channel.transcriptCount}{" "}
-                    {channel.transcriptCount === 1
-                      ? "transcript"
-                      : "transcripts"}
-                    {channel.latestPublicationAt
-                      ? ` · latest ${dateFormatter.format(
-                          channel.latestPublicationAt,
-                        )}`
-                      : ""}
-                  </span>
-                </a>
+                <article className="flex items-center gap-4 rounded-[10px] py-4 hover:bg-[#edf7ff]">
+                  <ChannelAvatar
+                    avatarUrl={channel.avatarUrl}
+                    name={channel.name}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                      <a
+                        className="rounded-sm text-base font-bold text-[#202124] no-underline focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
+                        href={`/channels/${channel.slug}`}
+                      >
+                        {channel.name}
+                      </a>
+                      <span className="font-mono text-xs text-[#64748b] tabular-nums">
+                        {channel.transcriptCount}{" "}
+                        {channel.transcriptCount === 1
+                          ? "transcript"
+                          : "transcripts"}
+                      </span>
+                    </div>
+                    {channel.latestTranscript ? (
+                      <p className="mt-1 mb-0 truncate text-sm text-[#64748b]">
+                        Latest:{" "}
+                        <a
+                          className="font-bold text-[#0872b9] underline-offset-4"
+                          href={`/transcripts/${channel.latestTranscript.videoId}`}
+                        >
+                          {channel.latestTranscript.title}
+                        </a>
+                        {channel.latestPublicationAt
+                          ? ` · ${dateFormatter.format(
+                              channel.latestPublicationAt,
+                            )}`
+                          : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
               </li>
             ))}
           </ul>

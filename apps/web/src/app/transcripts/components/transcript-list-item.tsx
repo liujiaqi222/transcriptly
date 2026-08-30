@@ -28,27 +28,33 @@ export function TranscriptListItem({
 }) {
   return (
     <li className="border-t border-[#e2e8f0] first:border-t-0">
-      <a
-        className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-6 gap-y-2 rounded-[10px] py-4 no-underline hover:bg-[#edf7ff] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40 max-sm:grid-cols-[112px_minmax(0,1fr)] max-sm:gap-x-3"
-        href={`/transcripts/${item.videoId}`}
-      >
-        {/* biome-ignore lint/performance/noImgElement: YouTube thumbnails are remote page imagery, not layout assets. */}
-        <img
-          alt=""
-          className="h-[94px] w-[168px] rounded-lg object-cover max-sm:h-[63px] max-sm:w-[112px]"
-          height="94"
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          src={`https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`}
-          width="168"
-        />
+      <div className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-6 gap-y-2 rounded-[10px] py-4 hover:bg-[#edf7ff] max-sm:grid-cols-[112px_minmax(0,1fr)] max-sm:gap-x-3">
+        <a
+          className="rounded-lg focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
+          href={`/transcripts/${item.videoId}`}
+          tabIndex={-1}
+        >
+          {/* biome-ignore lint/performance/noImgElement: YouTube thumbnails are remote page imagery, not layout assets. */}
+          <img
+            alt=""
+            className="h-[94px] w-[168px] rounded-lg object-cover max-sm:h-[63px] max-sm:w-[112px]"
+            height="94"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            src={`https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`}
+            width="168"
+          />
+        </a>
         <div className="min-w-0">
-          <strong className="block truncate text-base leading-6 text-[#202124]">
+          <a
+            className="block truncate rounded-sm text-base leading-6 font-bold text-[#202124] no-underline focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
+            href={`/transcripts/${item.videoId}`}
+          >
             {item.title}
-          </strong>
+          </a>
           {item.channelSlug ? (
             <a
-              className="mt-1 inline-block font-mono text-xs font-medium text-[#0872b9] underline-offset-4"
+              className="mt-1 inline-block rounded-sm font-mono text-xs font-medium text-[#0872b9] underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
               href={`/channels/${item.channelSlug}`}
             >
               {item.channelName}
@@ -69,7 +75,7 @@ export function TranscriptListItem({
             ) : null}
           </div>
         </div>
-      </a>
+      </div>
     </li>
   );
 }
