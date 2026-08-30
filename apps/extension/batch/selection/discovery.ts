@@ -11,6 +11,25 @@ const VIDEO_CARD_LINK_SELECTOR = `${VIDEO_CARD_SELECTOR} a[href*="/watch?v="]`;
 
 export { isBatchSourceUrl };
 
+/**
+ * YouTube keeps previous SPA pages mounted under ytd-page-manager and hides
+ * them instead of removing them. Discovery must stay inside the active browse
+ * page or stale watch recommendations / home feeds become batch candidates.
+ *
+ * Tests and non-YouTube fixtures do not have ytd-page-manager, so they keep
+ * using the whole document.
+ */
+function activeBatchSourceRoot(document: Document): ParentNode | undefined {
+  const pageManager = document.querySelector("ytd-page-manager");
+  if (!pageManager) return document;
+  return [...pageManager.children].find(
+    (element) =>
+      element.matches("ytd-browse") &&
+      !element.hasAttribute("hidden") &&
+      element.getAttribute("aria-hidden") !== "true",
+  );
+}
+
 function parseVideoId(rawUrl: string): string | undefined {
   try {
     const url = new URL(rawUrl, "https://www.youtube.com");
@@ -58,7 +77,9 @@ export function findLoadedVideoAnchor(
   document: Document,
   videoId: string,
 ): HTMLAnchorElement | undefined {
-  for (const anchor of document.querySelectorAll<HTMLAnchorElement>(
+  const root = activeBatchSourceRoot(document);
+  if (!root) return undefined;
+  for (const anchor of root.querySelectorAll<HTMLAnchorElement>(
     VIDEO_CARD_LINK_SELECTOR,
   )) {
     if (
@@ -71,9 +92,11 @@ export function findLoadedVideoAnchor(
 }
 
 export function discoverLoadedVideos(document: Document): BatchVideo[] {
+  const root = activeBatchSourceRoot(document);
+  if (!root) return [];
   const videos: BatchVideo[] = [];
   const seen = new Set<string>();
-  for (const anchor of document.querySelectorAll<HTMLAnchorElement>(
+  for (const anchor of root.querySelectorAll<HTMLAnchorElement>(
     VIDEO_CARD_LINK_SELECTOR,
   )) {
     const videoId = parseVideoId(

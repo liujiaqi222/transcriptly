@@ -6,7 +6,7 @@ import {
   RefreshCw,
   X,
 } from "lucide";
-import { BATCH_MAX_RUNNABLE_ITEMS, type BatchDestination } from "@/batch/jobs";
+import type { BatchDestination } from "@/batch/jobs";
 import { logoSvg } from "@/brand/logo";
 
 /**
@@ -15,8 +15,8 @@ import { logoSvg } from "@/brand/logo";
  * card checkboxes and badges injected by selection-cards.ts).
  *
  * Purely presentational: behaviour is wired in through handlers, and
- * state arrives via imperative setters, so the panel never owns
- * selection or quota logic.
+ * state arrives via imperative setters, so the panel never owns selection
+ * logic.
  */
 
 const ROOT_ID = "transcriptly-batch-panel";
@@ -34,15 +34,13 @@ export interface SelectionPanelHandlers {
   onSelectAll(): void;
   onClear(): void;
   onStart(): void;
-  /** A destination checkbox changed; re-derive skip/quota state. */
-  onDestinationsChange(): void;
 }
 
 export interface SelectionPanel {
   checkedDestinations(): BatchDestination[];
   /** Whether a mutation happened inside the panel (observer filter). */
   contains(node: Node): boolean;
-  setCounter(text: string, full: boolean): void;
+  setCounter(text: string): void;
   setLoadMore(active: boolean, discoveredCount: number): void;
   setStarting(starting: boolean): void;
   setCloudSession(signedIn: boolean, checked: boolean): void;
@@ -64,11 +62,10 @@ function addStyles() {
     #${ROOT_ID} .brand-mark { display: grid; place-items: center; width: 24px; height: 24px; color: #202124; }
     #${ROOT_ID} .brand-mark svg { width: 24px; height: 24px; }
     #${ROOT_ID} .brand { font-size: 12px; font-weight: 750; letter-spacing: -.01em; color: #202124; }
-    #${ROOT_ID} .summary-row { display: flex; align-items: baseline; min-height: 28px; padding: 4px 12px 0; }
-    #${ROOT_ID} .counter { display: flex; align-items: baseline; min-width: 0; width: 100%; font-variant-numeric: tabular-nums; }
-    #${ROOT_ID} .counter-value { color: #202124; font-size: 12px; font-weight: 750; line-height: 1.2; white-space: nowrap; }
-    #${ROOT_ID} .counter-meta { min-width: 0; overflow: hidden; color: #64748b; font-size: 10px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
-    #${ROOT_ID} .counter-full .counter-value { color: #c2410c; }
+    #${ROOT_ID} .summary-row { display: flex; align-items: flex-start; min-height: 28px; padding: 4px 12px 8px; }
+    #${ROOT_ID} .counter { display: block; min-width: 0; width: 100%; font-variant-numeric: tabular-nums; text-decoration: none; }
+    #${ROOT_ID} .counter-value { display: inline; color: #202124; font-size: 12px; font-weight: 750; line-height: 1.4; white-space: nowrap; text-decoration: none; }
+    #${ROOT_ID} .counter-meta { display: inline; min-width: 0; overflow: visible; color: #64748b; font-size: 10px; line-height: 1.4; white-space: normal; text-decoration: none; }
     #${ROOT_ID} .panel-close { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; margin: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; }
     #${ROOT_ID} .panel-close:hover { background: #f1f5f9; color: #202124; }
     #${ROOT_ID} .panel-close svg { width: 17px; height: 17px; }
@@ -102,9 +99,6 @@ function addStyles() {
     .transcriptly-batch-check:focus-visible { outline: 3px solid rgba(27,144,237,.55); outline-offset: 1px; border-radius: 9px; }
     .transcriptly-batch-check.is-checked::before { background: #1b90ed; border-color: #fff; }
     .transcriptly-batch-check.is-checked::after { content: ""; position: absolute; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
-    .transcriptly-batch-check.is-disabled { cursor: not-allowed; }
-    .transcriptly-batch-check.is-disabled::before { opacity: .45; }
-    .transcriptly-batch-badge { position: absolute; top: 8px; left: 36px; z-index: 3; padding: 4px 8px; border-radius: 999px; background: #1b90ed; color: #202124; font-size: 11px; font-weight: 650; }
   `;
   document.documentElement.append(style);
 }
@@ -124,7 +118,7 @@ export function createSelectionPanel(
         <span class="brand">Transcriptly</span>
       </div>
       <div class="summary-row">
-        <span class="counter" aria-live="polite">0/${BATCH_MAX_RUNNABLE_ITEMS}</span>
+        <span class="counter" aria-live="polite">0 selected</span>
       </div>
       <div class="tool-row">
         <button type="button" class="load-more" data-action="load-more">${icon(RefreshCw)}<span>Load more</span></button>
@@ -174,8 +168,6 @@ export function createSelectionPanel(
     .querySelector('[data-action="clear"]')
     ?.addEventListener("click", handlers.onClear);
   startButton?.addEventListener("click", handlers.onStart);
-  localInput?.addEventListener("change", handlers.onDestinationsChange);
-  cloudInput?.addEventListener("change", handlers.onDestinationsChange);
 
   // --- toast: bottom-center, latest only, 3 s auto-dismiss ----------------
   let toastElement: HTMLElement | undefined;
@@ -218,7 +210,7 @@ export function createSelectionPanel(
           : []),
       ];
     },
-    setCounter(text, full) {
+    setCounter(text) {
       if (!counter) return;
       if (counter.getAttribute("aria-label") !== text) {
         const [value, ...details] = text.split(" · ");
@@ -235,7 +227,6 @@ export function createSelectionPanel(
         counter.replaceChildren(...children);
         counter.setAttribute("aria-label", text);
       }
-      counter.classList.toggle("counter-full", full);
     },
     setLoadMore(active, discoveredCount) {
       if (!loadMoreButton || !loadMoreLabel || !loadStatus) return;

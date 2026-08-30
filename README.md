@@ -105,7 +105,7 @@ pnpm run lint:fix     # Biome 自动修复
 
 ## 批量捕获
 
-在 playlist 或频道页点 popup 的批量入口后进入选择模式：卡片出现复选框，工具栏提供 Load more、Select all 与配额（单批上限 50 个视频），满配额时禁用勾选并以 toast 提示。在 `watch?v=…&list=…` 的带播放画面 playlist 页，popup 会在捕获视图上方显示引导条，一键跳转纯 `playlist?list=…` 页再进入批量选择（#69）。确认后由 background worker 逐个打开标签页捕获，SPA 导航由 source/target 身份校验保护（详见 `docs/agents/youtube-spa-safety.md`）。用户 Pause 语义是先完成当前视频再暂停，popup 与管理页都会如实显示。
+在 playlist 或频道页点 popup 的批量入口后进入选择模式：卡片出现复选框，工具栏提供 Load more、Select all、已选数量与 ETA，不限制批量视频数量；超过 100 个视频时显示大任务提示，但不阻止开始。Load more 每次最多自动滚动 10 秒，可反复点击继续加载。在 `watch?v=…&list=…` 的带播放画面 playlist 页，popup 会在捕获视图上方显示引导条，一键跳转纯 `playlist?list=…` 页再进入批量选择（#69）。确认后由 background worker 逐个打开标签页捕获，SPA 导航由 source/target 身份校验保护（详见 `docs/agents/youtube-spa-safety.md`）。用户 Pause 语义是先完成当前视频再暂停，popup 与管理页都会如实显示。
 
 进度统一在批量管理页（`manager` extension page）查看：总进度与滑动 ETA、每个视频的 Local / Public Archive 双目的地结果与失败原因、失败项 Retry、Pause / Stop / Resume，以及最近批次历史。源页面关闭后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 可深链到单个批次。管理页同时承载本地保存宿主（目录授权与 Markdown 写入）：浏览器重启或目录授权过期时批次置为 paused，页面显示确切原因与对应操作（继续 / 重新授权），不会静默丢任务。
 
@@ -200,7 +200,7 @@ pnpm --filter @transcriptly/extension run test
 
 批量捕获应重点验收：
 
-1. 在 playlist / 频道页点批量入口进入选择模式，Load more、Select all、配额上限 50 与满额 toast 表现正确；`watch?v=…&list=…` 页显示引导条并可跳转纯 playlist 页。
+1. 在 playlist / 频道页点批量入口进入选择模式，Load more 可反复加载、Select all 选择全部已加载视频且没有数量上限，超过 100 个视频只显示大任务提示；`watch?v=…&list=…` 页显示引导条并可跳转纯 playlist 页。
 2. 确认后批量管理页展示总进度、ETA、每个视频的 Local / Public Archive 结果与失败原因，失败项可 Retry，可 Pause（先完成当前视频再暂停）/ Stop / Resume。
 3. 关闭源页面后管理页仍可从 popup 或悬浮胶囊重新打开，`?task=<id>` 深链到对应批次。
 4. 浏览器重启或目录授权过期后批次置为 paused，管理页显示确切原因与对应操作，不静默丢任务。

@@ -285,7 +285,7 @@ const batchCapabilities = [
   {
     title: "Playlists",
     description: "Capture the whole playlist in one pass.",
-    proof: ["One selection", "Up to 50 videos"],
+    proof: ["One selection", "No video limit"],
     Icon: List,
   },
   {

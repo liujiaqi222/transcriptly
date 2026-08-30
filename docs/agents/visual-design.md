@@ -32,11 +32,14 @@ surfaces feel like one product.
 - Vertically center the batch-source popup task group in the available content
   area. Keep capture and error states content-led rather than forcing them into
   the same centering rule.
-- Selection counters must handle their longest state. Give quota, ETA, and
-  saved metadata a full-width summary row; keep Load more on its own row.
+- Selection counters must handle their longest state. Give selected count, ETA,
+  and large-batch guidance a wrapping full-width summary row; keep Load more on
+  its own row. Selection cards stay uniform: show the checkbox only, without
+  saved/public receipt badges.
 - During bounded auto-loading, keep the discovered count in a separate status
-  label. Change the action to Stop while the 10-second/100-card loader is active
-  and restore Load more when it finishes.
+  label. Change the action to Stop while the 10-second loader is active and
+  restore Load more when it finishes; repeated runs may continue discovering
+  videos without a cumulative card cap.
 - Keep YouTube red out of Transcriptly branding. Reserve red for destructive
   actions and errors.
 - Use icons to make action and state semantics scannable, but always retain a

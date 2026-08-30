@@ -1,10 +1,6 @@
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
-import {
-  BATCH_MAX_RUNNABLE_ITEMS,
-  type BatchVideo,
-  createBatchJobStore,
-} from "../batch/jobs";
+import { type BatchVideo, createBatchJobStore } from "../batch/jobs";
 
 const videos: BatchVideo[] = [
   {
@@ -67,13 +63,13 @@ describe("batch job store", () => {
     expect(task.items.every((item) => item.cloud === "queued")).toBe(true);
   });
 
-  it("excludes already-saved videos from the batch limit", async () => {
+  it("persists saved and runnable videos in the same task", async () => {
     const store = createBatchJobStore({
       indexedDB: new IDBFactory(),
       newId: () => "task-1",
     });
     const savedCount = 50;
-    const runnableCount = BATCH_MAX_RUNNABLE_ITEMS - 1;
+    const runnableCount = 75;
     const selection = Array.from(
       { length: savedCount + runnableCount },
       (_, index) => ({
@@ -103,21 +99,19 @@ describe("batch job store", () => {
     );
   });
 
-  it("rejects more than the batch limit", async () => {
+  it("accepts more than the previous 50-video limit", async () => {
     const store = createBatchJobStore({ indexedDB: new IDBFactory() });
-    const tooMany = Array.from(
-      { length: BATCH_MAX_RUNNABLE_ITEMS + 1 },
-      (_, index) => ({
-        videoId: `${String(index).padStart(11, "0")}`,
-        url: `https://www.youtube.com/watch?v=${String(index).padStart(11, "0")}`,
-        title: `Video ${index}`,
-      }),
-    );
+    const largeSelection = Array.from({ length: 120 }, (_, index) => ({
+      videoId: `${String(index).padStart(11, "0")}`,
+      url: `https://www.youtube.com/watch?v=${String(index).padStart(11, "0")}`,
+      title: `Video ${index}`,
+    }));
 
-    await expect(
-      store.create(tooMany, { destinations: ["local"] }),
-    ).rejects.toThrow(
-      `A batch can contain at most ${BATCH_MAX_RUNNABLE_ITEMS} videos that still need saving.`,
-    );
+    const task = await store.create(largeSelection, {
+      destinations: ["local"],
+    });
+
+    expect(task.items).toHaveLength(120);
+    expect(task.items.every((item) => item.local === "queued")).toBe(true);
   });
 });

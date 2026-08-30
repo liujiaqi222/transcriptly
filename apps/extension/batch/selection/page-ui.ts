@@ -1,11 +1,7 @@
 import type { MarkdownFormat } from "@transcriptly/capture";
-import { BATCH_MAX_RUNNABLE_ITEMS } from "@/batch/jobs";
 import { isBatchSourceUrl } from "@/batch/selection/discovery";
 import { createCardLayer } from "@/batch/selection/selection-cards";
-import {
-  batchFullToast,
-  createSelectionModel,
-} from "@/batch/selection/selection-model";
+import { createSelectionModel } from "@/batch/selection/selection-model";
 import { createSelectionPanel } from "@/batch/selection/selection-panel";
 import {
   isChannelRootUrl,
@@ -16,11 +12,9 @@ import {
   normalizeMarkdownFormat,
 } from "@/markdown-format";
 import {
-  BATCH_LOOKUP_REQUEST,
   BATCH_OPEN_MANAGER,
   BATCH_START,
   type BatchEnterSelectionStatus,
-  type BatchLookupResult,
   type BatchMutationStatus,
   type BatchStartStatus,
   CLOUD_SESSION_REQUEST,
@@ -31,17 +25,15 @@ import {
  * On-demand selection mode for playlist / channel /videos pages (#56, #57).
  *
  * Entered only when the popup asks - never auto-injected. The select view
- * is a compact floating toolbar (#57): a live `N/50 · ~X min` counter,
- * Load more (explicit auto-scroll, capped at 100 cards or 10 s), Select
- * all (unsaved first, quota 50) / Clear, per-task destination pickers and
- * Start. Per-card checkboxes ride a ~40 px hit zone whose capture-phase
- * click handler never lets the click reach the card's navigation; when the
- * 50-video quota is full, unchecked unsaved checkboxes grey out and any
- * click on them toasts instead of selecting. Transient messages surface as
- * a bottom-center toast (3 s, latest only) - persistent info (count, ETA)
- * stays in the toolbar.
+ * is a compact floating toolbar (#57): a live selected-count / ETA counter,
+ * Load more (explicit auto-scroll, capped at 10 s per click), Select
+ * all / Clear, per-task destination pickers and Start. Per-card checkboxes
+ * ride a ~40 px hit zone whose capture-phase click handler never lets the
+ * click reach the card's navigation. Transient messages surface as a
+ * bottom-center toast (3 s, latest only) - persistent info (count, ETA and
+ * large-batch guidance) stays in the toolbar.
  *
- * Structure: selection-model.ts holds the pure selection/quota state,
+ * Structure: selection-model.ts holds the pure selection state,
  * selection-panel.ts renders the toolbar and toast, selection-cards.ts
  * projects the model onto the feed's cards. This file orchestrates them:
  * entry guards, Load more, the Start flow, cloud gating and the SPA
@@ -61,8 +53,6 @@ import {
  */
 
 const CLOUD_PREFERENCE_KEY = "cloud-save-enabled";
-/** Load more: hard stops after this many discovered cards or seconds (#57). */
-const LOAD_MORE_MAX_CARDS = 100;
 const LOAD_MORE_TIMEOUT_MS = 10_000;
 const LOAD_MORE_SCROLL_INTERVAL_MS = 400;
 
@@ -146,7 +136,7 @@ export async function enterBatchSelectionMode(
       else startLoadMore();
     },
     onSelectAll: () => {
-      if (model.selectUpToQuota()) panel.showToast(batchFullToast());
+      model.selectAll();
       updateToolbar();
     },
     onClear: () => {
@@ -154,36 +144,17 @@ export async function enterBatchSelectionMode(
       updateToolbar();
     },
     onStart: () => void startBatch(),
-    onDestinationsChange: () => {
-      model.setDestinations(panel.checkedDestinations());
-      updateToolbar();
-    },
   });
-  model.setDestinations(panel.checkedDestinations());
 
   const cards = createCardLayer({
     model,
-    showToast: (message) => panel.showToast(message),
     onSelectionChange: updateToolbar,
   });
 
   function updateToolbar() {
-    panel.setCounter(model.counterText(), model.counterFull());
+    panel.setCounter(model.counterText());
     cards.sync();
     updateLoadMoreButton();
-  }
-
-  async function refreshSavedInfo(videoIds: string[]) {
-    if (videoIds.length === 0) return;
-    try {
-      const result = await runtime.sendMessage<BatchLookupResult>({
-        type: BATCH_LOOKUP_REQUEST,
-        videoIds,
-      });
-      model.setSavedInfo(result.videos);
-    } catch {
-      // Badges are best-effort; the start request re-checks receipts.
-    }
   }
 
   function refreshCards() {
@@ -197,11 +168,7 @@ export async function enterBatchSelectionMode(
     }
     refreshing = true;
     try {
-      const newVideoIds = cards.refresh();
-      void refreshSavedInfo(newVideoIds).then(() => {
-        cards.refreshBadges();
-        updateToolbar();
-      });
+      cards.refresh();
       updateToolbar();
     } finally {
       refreshing = false;
@@ -220,7 +187,7 @@ export async function enterBatchSelectionMode(
     updateToolbar();
   }
 
-  // --- Load more: explicit auto-scroll, 100 cards / 10 s hard cap --------
+  // --- Load more: explicit auto-scroll, 10 s hard cap per click -----------
   function loadMoreActive(): boolean {
     return loadMoreTimer !== undefined;
   }
@@ -235,10 +202,7 @@ export async function enterBatchSelectionMode(
   function startLoadMore() {
     loadMoreStartedAt = Date.now();
     loadMoreTimer = window.setInterval(() => {
-      if (
-        model.videoIds().length >= LOAD_MORE_MAX_CARDS ||
-        Date.now() - loadMoreStartedAt >= LOAD_MORE_TIMEOUT_MS
-      ) {
+      if (Date.now() - loadMoreStartedAt >= LOAD_MORE_TIMEOUT_MS) {
         stopLoadMore();
         return;
       }
@@ -257,10 +221,6 @@ export async function enterBatchSelectionMode(
     const destinations = panel.checkedDestinations();
     if (videos.length === 0 || destinations.length === 0) {
       panel.showToast("Select videos and at least one destination.");
-      return;
-    }
-    if (model.runnableCount() > BATCH_MAX_RUNNABLE_ITEMS) {
-      panel.showToast(batchFullToast());
       return;
     }
     panel.setStarting(true);
@@ -324,7 +284,6 @@ export async function enterBatchSelectionMode(
       }
     }
     panel.setCloudSession(publicAvailable, preferred);
-    model.setDestinations(panel.checkedDestinations());
     updateToolbar();
   }
 
