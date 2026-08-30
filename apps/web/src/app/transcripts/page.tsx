@@ -12,6 +12,11 @@ import {
   TRANSCRIPT_PAGE_SIZE,
 } from "@/lib/publications/queries";
 import { normalizeQuery, searchPublicArchive } from "@/lib/search/search";
+import {
+  buildTermPattern,
+  Highlight,
+  queryTerms,
+} from "./components/highlight";
 import { Pagination } from "./components/pagination";
 import { TranscriptListItem } from "./components/transcript-list-item";
 
@@ -62,6 +67,7 @@ export default async function TranscriptsPage({
   const querying = query !== "";
   const searchingText = querying && searchScope === "text";
   const searchingVideos = querying && searchScope === "videos";
+  const termPattern = buildTermPattern(queryTerms(query));
 
   const [total, search, channels] = await Promise.all([
     searchingText
@@ -180,7 +186,7 @@ export default async function TranscriptsPage({
                       <article className="grid grid-cols-[minmax(0,1fr)_180px] gap-x-6 gap-y-2 py-4 hover:bg-[#edf7ff] max-sm:grid-cols-1">
                         <Link
                           className="rounded-sm text-base font-bold text-[#202124] no-underline focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
-                          href={`/transcripts/${hit.videoId}`}
+                          href={`/transcripts/${hit.videoId}?q=${encodeURIComponent(query)}&hit=${hit.hitStart}`}
                         >
                           {hit.title}
                         </Link>
@@ -196,7 +202,21 @@ export default async function TranscriptsPage({
                           {formatTimestamp(hit.hitStart)} · YouTube
                         </a>
                         <p className="col-span-full m-0 leading-relaxed text-[#64748b]">
-                          {hit.window.find((segment) => segment.isHit)?.text}
+                          {hit.window.map((segment) => (
+                            <span
+                              className={
+                                segment.isHit
+                                  ? "font-bold text-[#202124]"
+                                  : undefined
+                              }
+                              key={segment.position}
+                            >
+                              <Highlight
+                                pattern={termPattern}
+                                text={segment.text}
+                              />{" "}
+                            </span>
+                          ))}
                         </p>
                       </article>
                     </li>
@@ -233,7 +253,11 @@ export default async function TranscriptsPage({
               </div>
               <ul className="m-0 mt-2 list-none p-0">
                 {items.map((item) => (
-                  <TranscriptListItem item={item} key={item.videoId} />
+                  <TranscriptListItem
+                    highlightPattern={termPattern}
+                    item={item}
+                    key={item.videoId}
+                  />
                 ))}
               </ul>
               <Pagination

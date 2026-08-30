@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatTimestamp } from "@/lib/captures/transcript";
 import type { PublicTranscriptSummary } from "@/lib/publications/queries";
+import { Highlight } from "./highlight";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
@@ -15,6 +16,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
  */
 export function TranscriptListItem({
   item,
+  highlightPattern = null,
 }: {
   item: Pick<
     PublicTranscriptSummary,
@@ -26,6 +28,7 @@ export function TranscriptListItem({
     | "durationSeconds"
     | "publishedAt"
   >;
+  highlightPattern?: RegExp | null;
 }) {
   return (
     <li className="border-t border-[#e2e8f0] first:border-t-0">
@@ -51,18 +54,24 @@ export function TranscriptListItem({
             className="block truncate rounded-sm text-base leading-6 font-bold text-[#202124] no-underline focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
             href={`/transcripts/${item.videoId}`}
           >
-            {item.title}
+            <Highlight pattern={highlightPattern} text={item.title} />
           </Link>
           {item.channelSlug ? (
             <Link
               className="mt-1 inline-block rounded-sm font-mono text-xs font-medium text-[#0872b9] underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
               href={`/channels/${item.channelSlug}`}
             >
-              {item.channelName}
+              <Highlight
+                pattern={highlightPattern}
+                text={item.channelName ?? "Unknown channel"}
+              />
             </Link>
           ) : (
             <span className="mt-1 block font-mono text-xs text-[#64748b]">
-              {item.channelName ?? "Unknown channel"}
+              <Highlight
+                pattern={highlightPattern}
+                text={item.channelName ?? "Unknown channel"}
+              />
             </span>
           )}
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs text-[#64748b] tabular-nums">

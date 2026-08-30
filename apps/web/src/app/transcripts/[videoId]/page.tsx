@@ -8,6 +8,7 @@ import { getAuthEnv } from "@/env/server";
 import { formatTimestamp } from "@/lib/captures/transcript";
 import { YOUTUBE_VIDEO_ID_PATTERN } from "@/lib/contributions/validation";
 import { getPublicTranscript } from "@/lib/publications/queries";
+import { normalizeQuery } from "@/lib/search/search";
 
 export const dynamic = "force-dynamic";
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -77,13 +78,21 @@ export async function generateMetadata({
 
 export default async function PublicVideoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ videoId: string }>;
+  searchParams: Promise<{ q?: string; hit?: string }>;
 }) {
   const { videoId } = await params;
+  const { q, hit } = await searchParams;
   if (!YOUTUBE_VIDEO_ID_PATTERN.test(videoId)) notFound();
   const item = await getPublicTranscript(getDatabase(), videoId);
   if (!item) notFound();
+  // Search terms carried over from the results list so the reader page can
+  // mark and scroll to the hit that brought the visitor here.
+  const query = normalizeQuery(q ?? "") ?? "";
+  const hitStart =
+    hit !== undefined && /^\d+$/.test(hit) ? Number(hit) : undefined;
   const description = publicDescription(
     item.title,
     item.channelName ?? "an unknown channel",
@@ -170,6 +179,8 @@ export default async function PublicVideoPage({
         ) : null}
         <TranscriptSection
           chapters={item.chapters}
+          hitStart={hitStart}
+          query={query === "" ? undefined : query}
           segments={item.segments}
           url={item.url}
         />
