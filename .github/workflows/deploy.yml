@@ -48,7 +48,9 @@ jobs:
 
       # Attach the ZIP to a per-version GitHub Release so the store-upload
       # artifact is downloadable without a local build. Same version pushed
-      # again overwrites the asset (--clobber) instead of failing.
+      # again recreates the release (tag included) so the tag and source
+      # archives always point at the newest commit, not the first one that
+      # published that version.
       - name: Attach ZIP to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,13 +59,14 @@ jobs:
           TAG="extension-v${VERSION}"
           ZIP=$(find apps/extension/.output -maxdepth 1 -name '*.zip' -print -quit)
           echo "releasing ${ZIP} as ${TAG}"
-          if ! gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release create "${TAG}" \
-              --title "Extension ${VERSION}" \
-              --notes "Chrome Web Store package for extension v${VERSION}, built from ${GITHUB_SHA}." \
-              --target "${GITHUB_SHA}"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release delete "${TAG}" --yes --cleanup-tag
           fi
-          gh release upload "${TAG}" "${ZIP}" --clobber
+          gh release create "${TAG}" \
+            --title "Extension ${VERSION}" \
+            --notes "Chrome Web Store package for extension v${VERSION}, built from ${GITHUB_SHA}." \
+            --target "${GITHUB_SHA}" \
+            "${ZIP}"
 
   build-and-deploy:
     name: build & deploy to Tokyo
