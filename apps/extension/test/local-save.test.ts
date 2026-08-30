@@ -102,9 +102,9 @@ function createSaverOptions(
 }
 
 describe("suggestedMarkdownFilename", () => {
-  it("uses the capture date and a filesystem-safe title slug", () => {
+  it("uses a filesystem-safe title slug without a capture date", () => {
     expect(suggestedMarkdownFilename(capture)).toBe(
-      "2026-08-15 · build-agents-a-practical-guide.md",
+      "build-agents-a-practical-guide.md",
     );
   });
 
@@ -114,7 +114,7 @@ describe("suggestedMarkdownFilename", () => {
         ...capture,
         source: { ...capture.source, title: "如何构建 AI Agent？" },
       }),
-    ).toBe("2026-08-15 · 如何构建-ai-agent.md");
+    ).toBe("如何构建-ai-agent.md");
   });
 });
 
@@ -190,7 +190,7 @@ describe("local Markdown saving", () => {
     ]);
     expect(first).toEqual({
       directoryName: "Transcript Vault",
-      filename: "2026-08-15 · build-agents-a-practical-guide.md",
+      filename: "build-agents-a-practical-guide.md",
     });
     expect(second.filename).toBe("edited title.md");
     expect(directory.files.get(first.filename)).toContain("# Build Agents");

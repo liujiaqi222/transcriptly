@@ -94,14 +94,7 @@ const dependencies: PopupDependencies = {
     })) as BatchMutationStatus,
   closePopup: () => window.close(),
   createSaver: () => createLocalMarkdownSaver(),
-  // The AI Playground is a standalone extension page (#78): opening it
-  // never touches the capture/save flow, and the page renders its
-  // "unsupported" state even when the browser has no built-in AI.
-  openAiPlayground: () => {
-    void browser.tabs
-      .create({ url: browser.runtime.getURL("/playground.html") })
-      .catch(() => undefined);
-  },
+
   markdown: {
     async getPreference() {
       const stored = await browser.storage.local.get(

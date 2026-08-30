@@ -104,8 +104,7 @@ export function slugifyFilename(value: string): string {
 }
 
 export function suggestedMarkdownFilename(capture: Capture): string {
-  const date = capture.capturedAt.slice(0, 10);
-  return `${date} · ${slugifyFilename(capture.source.title)}.md`;
+  return `${slugifyFilename(capture.source.title)}.md`;
 }
 
 export function normalizeMarkdownFilename(filename: string): string {
