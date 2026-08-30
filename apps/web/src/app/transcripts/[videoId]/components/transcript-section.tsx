@@ -1,7 +1,12 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  buildTermPattern,
+  Highlight,
+  queryTerms,
+} from "@/app/transcripts/components/highlight";
 import type { TranscriptTimeline } from "@/lib/captures/transcript";
 import {
   articleBlocks,
@@ -17,6 +22,9 @@ const FORMATS: { value: TranscriptFormat; label: string }[] = [
   { value: "timeline", label: "Timeline" },
   { value: "article", label: "Article" },
 ];
+
+/** Anchors the scroll-to-hit lookup in both formats. */
+const HIT_ELEMENT_ID = "transcript-hit";
 
 function transcriptCopyText(
   timeline: TranscriptTimeline,
@@ -43,15 +51,53 @@ export function TranscriptSection({
   url,
   segments,
   chapters,
+  query,
+  hitStart,
 }: {
   url: string;
   segments: TranscriptTimeline["segments"];
   chapters: TranscriptTimeline["chapters"];
+  /** Query terms carried from the search results, marked in the text. */
+  query?: string;
+  /** Whole-second start of the hit segment, scrolled into view once. */
+  hitStart?: number;
 }) {
   const timeline: TranscriptTimeline = { segments, chapters };
   const [format, setFormat] = useState<TranscriptFormat>("timeline");
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<number | undefined>(undefined);
+  const termPattern = useMemo(
+    () => buildTermPattern(queryTerms(query ?? "")),
+    [query],
+  );
+
+  const blocks =
+    format === "article" ? articleBlocks(timeline) : transcriptBlocks(timeline);
+
+  // The search hit anchors scrolling: the block starting at hitStart, or -
+  // when the article format reflowed that segment into an earlier paragraph -
+  // the first block carrying a marked term.
+  const hasExactHit =
+    hitStart !== undefined &&
+    blocks.some(
+      (block) => block.kind !== "chapter" && block.start === hitStart,
+    );
+  let firstMarkSpent = false;
+
+  // Fires when the hit element mounts, including after a format toggle
+  // re-creates it, so no effect bookkeeping is needed.
+  const scrollHitIntoView = useCallback((element: HTMLElement | null) => {
+    if (element !== null) element.scrollIntoView({ block: "center" });
+  }, []);
+
+  const isHitBlock = (start: number, text: string): boolean => {
+    if (hitStart === undefined) return false;
+    if (start === hitStart) return true;
+    if (hasExactHit || firstMarkSpent || termPattern === null) return false;
+    if (!termPattern.test(text)) return false;
+    firstMarkSpent = true;
+    return true;
+  };
 
   const copyTranscript = async () => {
     await navigator.clipboard.writeText(transcriptCopyText(timeline, format));
@@ -59,9 +105,6 @@ export function TranscriptSection({
     window.clearTimeout(copiedTimer.current);
     copiedTimer.current = window.setTimeout(() => setCopied(false), 1500);
   };
-
-  const blocks =
-    format === "article" ? articleBlocks(timeline) : transcriptBlocks(timeline);
 
   return (
     <section
@@ -124,18 +167,24 @@ export function TranscriptSection({
       </div>
       {format === "article" ? (
         <div className="mt-7">
-          {blocks.map((block) =>
-            block.kind === "chapter" ? (
-              <h3
-                className="mt-10 mb-2 text-xl font-bold"
-                key={`chapter-${block.title}`}
-              >
-                {block.title}
-              </h3>
-            ) : (
+          {blocks.map((block) => {
+            if (block.kind === "chapter") {
+              return (
+                <h3
+                  className="mt-10 mb-2 text-xl font-bold"
+                  key={`chapter-${block.title}`}
+                >
+                  {block.title}
+                </h3>
+              );
+            }
+            const isHit = isHitBlock(block.start, block.text);
+            return (
               <p
                 className="-mx-3 m-0 rounded-lg px-3 py-1.5 leading-7 transition-colors hover:bg-white max-sm:-mx-2 max-sm:px-2"
+                id={isHit ? HIT_ELEMENT_ID : undefined}
                 key={`paragraph-${block.start}-${block.text}`}
+                ref={isHit ? scrollHitIntoView : undefined}
               >
                 <a
                   className="mr-3 inline-block font-mono text-sm text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
@@ -145,22 +194,30 @@ export function TranscriptSection({
                 >
                   {formatTimestamp(block.start)}
                 </a>
-                {block.text}
+                <Highlight pattern={termPattern} text={block.text} />
               </p>
-            ),
-          )}
+            );
+          })}
         </div>
       ) : (
         <ol className="mt-7 mb-0 list-none p-0">
-          {blocks.map((block) =>
-            block.kind === "chapter" ? (
-              <li key={`chapter-${block.title}`}>
-                <h3 className="mt-10 mb-2 text-xl font-bold">{block.title}</h3>
-              </li>
-            ) : (
+          {blocks.map((block) => {
+            if (block.kind === "chapter") {
+              return (
+                <li key={`chapter-${block.title}`}>
+                  <h3 className="mt-10 mb-2 text-xl font-bold">
+                    {block.title}
+                  </h3>
+                </li>
+              );
+            }
+            const isHit = isHitBlock(block.start, block.text);
+            return (
               <li
                 className="-mx-3 grid grid-cols-[64px_minmax(0,1fr)] gap-4 rounded-lg px-3 py-1.5 leading-7 transition-colors hover:bg-white max-sm:-mx-2 max-sm:grid-cols-[52px_minmax(0,1fr)] max-sm:gap-3 max-sm:px-2"
+                id={isHit ? HIT_ELEMENT_ID : undefined}
                 key={`segment-${block.start}-${block.text}`}
+                ref={isHit ? scrollHitIntoView : undefined}
               >
                 <a
                   className="font-mono text-sm leading-7 text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40 max-sm:text-xs"
@@ -170,10 +227,10 @@ export function TranscriptSection({
                 >
                   {formatTimestamp(block.start)}
                 </a>
-                <span>{block.text}</span>
+                <Highlight pattern={termPattern} text={block.text} />
               </li>
-            ),
-          )}
+            );
+          })}
         </ol>
       )}
     </section>

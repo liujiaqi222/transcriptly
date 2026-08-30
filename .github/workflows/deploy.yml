@@ -46,24 +46,32 @@ jobs:
       - name: Build & verify extension ZIP
         run: pnpm release
 
-      # Attach the ZIP to a per-version GitHub Release so the store-upload
-      # artifact is downloadable without a local build. Same version pushed
-      # again overwrites the asset (--clobber) instead of failing.
-      - name: Attach ZIP to GitHub Release
+      # Attach both ZIPs to a per-version GitHub Release. Same version
+      # pushed again recreates the release (tag included) so the tag and
+      # source archives always point at the newest commit, not the first
+      # one that published that version. The sideload ZIP keeps the
+      # manifest key, so a download-unpacked-load works fully (stable
+      # extension ID); the store ZIP is the keyless Dashboard artifact.
+      - name: Attach ZIPs to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(node -p "require('./apps/extension/package.json').version")
           TAG="extension-v${VERSION}"
-          ZIP=$(find apps/extension/.output -maxdepth 1 -name '*.zip' -print -quit)
-          echo "releasing ${ZIP} as ${TAG}"
-          if ! gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release create "${TAG}" \
-              --title "Extension ${VERSION}" \
-              --notes "Chrome Web Store package for extension v${VERSION}, built from ${GITHUB_SHA}." \
-              --target "${GITHUB_SHA}"
+          SIDELOAD_ZIP=$(find apps/extension/.output -maxdepth 1 -name '*-chrome-sideload.zip' -print -quit)
+          STORE_ZIP=$(find apps/extension/.output -maxdepth 1 -name '*-chrome-store.zip' -print -quit)
+          echo "releasing ${SIDELOAD_ZIP} + ${STORE_ZIP} as ${TAG}"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release delete "${TAG}" --yes --cleanup-tag
           fi
-          gh release upload "${TAG}" "${ZIP}" --clobber
+          gh release create "${TAG}" \
+            --title "Extension ${VERSION}" \
+            --notes "Chrome Web Store package for extension v${VERSION}, built from ${GITHUB_SHA}.
+
+          - \`*-chrome-sideload.zip\` - unpacked-load ready: contains the manifest key, so the extension ID is stable and server sync (reads and writes) works. Use this for local testing.
+          - \`*-chrome-store.zip\` - keyless artifact for the Chrome Web Store Dashboard upload." \
+            --target "${GITHUB_SHA}" \
+            "${SIDELOAD_ZIP}" "${STORE_ZIP}"
 
   build-and-deploy:
     name: build & deploy to Tokyo

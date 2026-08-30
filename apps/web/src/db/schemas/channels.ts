@@ -12,8 +12,8 @@ import {
  * The cloud's shared identity for a YouTube channel, derived from the channel
  * URL path captured alongside a video (e.g. `@veritasium` or
  * `channel/UCxxxx`). `name` follows the latest capture that referenced this
- * channel; `avatarUrl` is backfilled by future capture-side work and stays
- * nullable until then.
+ * channel; `avatarUrl` follows the latest capture that provides one (#98)
+ * and stays null when the page exposes no avatar.
  */
 export const channels = pgTable(
   "channels",

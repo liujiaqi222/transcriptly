@@ -72,6 +72,21 @@ describe("serializeToMarkdown", () => {
 
     expect(markdown).not.toContain("publishedAt");
     expect(markdown).not.toContain("durationSeconds");
+    expect(markdown).not.toContain("channelAvatarUrl");
+  });
+
+  it("includes the channel avatar URL when the capture provides one", () => {
+    const markdown = serializeToMarkdown(
+      makeCapture({
+        source: {
+          channelAvatarUrl: "https://yt3.ggpht.com/ytc/avatar=s48-c-k",
+        },
+      }),
+    );
+
+    expect(markdown).toContain(
+      'channelAvatarUrl: "https://yt3.ggpht.com/ytc/avatar=s48-c-k"',
+    );
   });
 
   it("includes source attribution linking the title back to the video", () => {

@@ -8,6 +8,7 @@ Extension background fetches to the web app run under `host_permissions`, which 
 - **Read-only, cookie-authenticated GETs the extension calls accept a missing `Origin`.** The safety argument does not need the allowlist: `SameSite=Lax` stops other websites' fetches from attaching the session cookie, the website's own requests always present an allowlisted `Origin`, so a valid cookie without `Origin` can only come from the extension background (or a curl — acceptable for a read with no side effects).
 - **Never set `Origin` from fetch.** It is a forbidden header name; the browser strips it. The fix is always on the route side.
 - **Reads degrade to the safe default, never to a crash.** A failed session/status fetch returns "unknown", which may re-ask a one-time question (e.g. the public-contribution disclosure) but must not block local saves.
+- **Compose `environment:` overrides image ENV even when empty.** A `${EXTENSION_ORIGINS:-}` entry on a host whose `.env` lacks the key clobbers the value baked into the image at build time, so the extension origin is silently un-allowlisted on every deploy. The compose entry therefore defaults to the pinned origin, not to an empty string.
 
 ## Regression contract
 

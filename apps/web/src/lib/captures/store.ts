@@ -97,7 +97,9 @@ export async function findOrCreateTranscript(
 
 /**
  * Upserts the channel a capture references. The name follows the latest
- * capture; a capture with no channel handle leaves the stored channel alone.
+ * capture; the avatar follows the latest capture that provides one, and a
+ * capture with neither a channel handle nor an avatar leaves the stored
+ * channel alone (#98).
  */
 export async function upsertChannel(
   tx: CaptureTransaction,
@@ -110,10 +112,17 @@ export async function upsertChannel(
       handle: source.channelHandle,
       slug: channelSlug(source.channelHandle),
       name: source.channelName,
+      ...(source.channelAvatarUrl
+        ? { avatarUrl: source.channelAvatarUrl }
+        : {}),
     })
     .onConflictDoUpdate({
       target: channels.handle,
-      set: { name: sql`excluded.name` },
+      set: {
+        name: sql`excluded.name`,
+        // A capture without an avatar keeps any earlier one.
+        avatarUrl: sql`coalesce(excluded.avatar_url, ${channels.avatarUrl})`,
+      },
     })
     .returning({ id: channels.id });
   const id = inserted[0]?.id;

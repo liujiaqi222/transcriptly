@@ -14,11 +14,15 @@ The key keeps unpacked development builds on the Chrome Web Store item ID:
 **jkopejjjgdkkacabdhgdlploehikphai**.
 
 Chrome Web Store upload validation rejects a submitted manifest containing
-`key`, so `pnpm release` validates the configured key and then removes the
-field while rebuilding the final store ZIP. The published extension uses the
-Dashboard item's ID. After the first successful upload, the Dashboard item ID
-and public key become the source of truth and must be reconciled with the
-development key and server allowlist.
+`key`, so `pnpm release` validates the configured key and produces two
+ZIPs: a keyless `*-chrome-store.zip` for the Dashboard upload, and a
+`*-chrome-sideload.zip` that keeps the key so an unpacked load (GitHub
+Release download or local production test) derives the stable extension
+ID and server sync works. The `key` is a public key - distributing it
+leaks nothing. The published extension uses the Dashboard item's ID.
+After the first successful upload, the Dashboard item ID and public key
+become the source of truth and must be reconciled with the development
+key and server allowlist.
 
 The server allowlists the matching origin in:
 
@@ -28,8 +32,9 @@ The server allowlists the matching origin in:
 - `apps/web/src/lib/api/origin-allowlist.test.ts` (regression test)
 
 `pnpm release` re-verifies that the configured development key still derives
-to this ID, that the committed allowlist files carry it, and that the final
-store ZIP contains no `key` field.
+to this ID, that the committed allowlist files carry it, that the store ZIP
+contains no `key` field, and that the sideload ZIP keeps a `key` deriving to
+the same ID.
 
 ## First-upload checklist (manual, once)
 
@@ -66,9 +71,12 @@ The dashboard's ID wins - it cannot be edited. In that order:
 
 1. Bump the version in both `package.json` files.
 2. Push to `main`: the Deploy workflow runs `pnpm release` (same checks)
-   and attaches the ZIP to the `extension-v<version>` GitHub Release
-   (re-uploads overwrite the asset). Download it from the repo's
-   Releases page.
-3. `pnpm release` locally if you want a pre-push check - must pass.
-4. Upload the ZIP in the Dashboard.
+   and attaches both ZIPs to the `extension-v<version>` GitHub Release
+   (same version pushed again recreates the release so the tag and source
+   archives follow the newest commit). The sideload ZIP is the one to
+   download for a directly usable unpacked install.
+3. `pnpm release` locally if you want a pre-push check - must pass. It
+   also leaves `.output/chrome-mv3` with the key restored, so loading
+   that directory unpacked is a full production test.
+4. Upload `*-chrome-store.zip` (the keyless variant) in the Dashboard.
 5. No ID work needed: the key, allowlists, and store item already agree.

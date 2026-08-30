@@ -16,6 +16,9 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const MAX_INT4 = 2_147_483_647;
 /** Captured channel identity: the YouTube channel URL path, `@handle` first. */
 const CHANNEL_HANDLE = /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/;
+/** Hosts YouTube serves channel avatars from (#98). */
+const CHANNEL_AVATAR_HOST =
+  /^(?:[a-z0-9-]+\.)*(?:ggpht\.com|googleusercontent\.com|ytimg\.com)$/i;
 const nonNegativeInt4 = z.number().int().min(0).max(MAX_INT4);
 
 export const captureSourceSchema = z
@@ -29,6 +32,8 @@ export const captureSourceSchema = z
     // The producer uses an empty string when YouTube exposes no channel URL;
     // the stored value is the channel URL path (`@handle`, `channel/UC…`).
     channelHandle: z.string(),
+    // https channel avatar URL when the page exposes one; omitted otherwise.
+    channelAvatarUrl: z.url().optional(),
     description: z.string(),
     // Producers normalize YouTube display dates to UTC midnight before upload.
     publishedAt: z.iso.datetime({ offset: true, precision: 3 }).optional(),
@@ -56,6 +61,26 @@ export const captureSourceSchema = z
         path: ["url"],
         message: "must be a valid URL",
       });
+    }
+
+    if (source.channelAvatarUrl !== undefined) {
+      try {
+        const url = new URL(source.channelAvatarUrl);
+        if (
+          url.protocol !== "https:" ||
+          !CHANNEL_AVATAR_HOST.test(url.hostname) ||
+          url.username ||
+          url.password
+        ) {
+          throw new Error("invalid channel avatar URL");
+        }
+      } catch {
+        context.addIssue({
+          code: "custom",
+          path: ["channelAvatarUrl"],
+          message: "must be an https URL on a YouTube image host",
+        });
+      }
     }
 
     if (source.channelHandle !== "") {
