@@ -56,6 +56,9 @@ function buildFrontmatter(source: CaptureSource, capturedAt: string): string {
     `url: ${yamlString(source.url)}`,
     `videoId: ${yamlString(source.videoId)}`,
   ];
+  if (source.channelAvatarUrl !== undefined) {
+    lines.push(`channelAvatarUrl: ${yamlString(source.channelAvatarUrl)}`);
+  }
   if (source.publishedAt !== undefined) {
     lines.push(`publishedAt: ${yamlString(source.publishedAt)}`);
   }

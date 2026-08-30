@@ -15,6 +15,9 @@ import { canonicalWatchUrl, parseVideoId } from "./video";
 
 /** YouTube channel URL path shapes accepted for a captured handle. */
 const CHANNEL_HANDLE = /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/;
+/** Hosts YouTube serves channel avatars from (#98). */
+const CHANNEL_AVATAR_HOST =
+  /^(?:[a-z0-9-]+\.)*(?:ggpht\.com|googleusercontent\.com|ytimg\.com)$/i;
 
 export interface CaptureOptions {
   selectors?: SiteSelectors;
@@ -66,6 +69,27 @@ function readMeta(doc: Document, rules: SelectorRule[]): string {
   return sanitizeText(readFirstAttribute(doc, rules) ?? "");
 }
 
+/** An https avatar URL on a YouTube image host, or undefined if unusable. */
+function normalizeChannelAvatarUrl(raw: string): string | undefined {
+  const trimmed = raw.trim();
+  if (trimmed === "") return undefined;
+
+  try {
+    const url = new URL(trimmed);
+    if (
+      url.protocol !== "https:" ||
+      !CHANNEL_AVATAR_HOST.test(url.hostname) ||
+      url.username ||
+      url.password
+    ) {
+      return undefined;
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 /** The channel URL path (`@handle` or `channel/UC…`), or "" if unusable. */
 function normalizeChannelHandle(raw: string, base: string): string {
   if (raw.trim() === "") return "";
@@ -110,14 +134,44 @@ function findVideoOwnerRenderer(
 }
 
 interface InitialChannel {
-  name: string;
-  handle: string;
+  name: string | null;
+  handle: string | null;
+  avatarUrl?: string;
+}
+
+/** Reads the avatar the owner renderer carries, across its two shapes. */
+function readOwnerAvatarUrl(
+  owner: Record<string, unknown> | null,
+): string | undefined {
+  const thumbnail = asRecord(owner?.thumbnail);
+  if (!thumbnail) return undefined;
+
+  // Classic renderer: thumbnail.thumbnails[0].url.
+  if (Array.isArray(thumbnail.thumbnails)) {
+    const first = asRecord(thumbnail.thumbnails[0]);
+    if (typeof first?.url === "string") {
+      return normalizeChannelAvatarUrl(first.url);
+    }
+  }
+
+  // Current view model: thumbnail.videoRendererThumbnailViewModel.image.sources[0].url.
+  const image = asRecord(
+    asRecord(thumbnail.videoRendererThumbnailViewModel)?.image,
+  );
+  if (Array.isArray(image?.sources)) {
+    const first = asRecord(image.sources[0]);
+    if (typeof first?.url === "string") {
+      return normalizeChannelAvatarUrl(first.url);
+    }
+  }
+  return undefined;
 }
 
 function readInitialChannel(
   doc: Document,
   base: string,
 ): InitialChannel | null {
+  let avatarOnly: InitialChannel | null = null;
   for (const script of Array.from(doc.scripts)) {
     const match = script.textContent?.match(
       /var ytInitialData\s*=\s*(\{[\s\S]*\})\s*;?\s*$/,
@@ -126,19 +180,28 @@ function readInitialChannel(
 
     try {
       const owner = findVideoOwnerRenderer(JSON.parse(match[1]));
+      if (!owner) continue;
+      // The avatar hangs directly off the owner renderer and survives dialog
+      // structure changes, so read it before digging for name and handle.
+      const avatarUrl = readOwnerAvatarUrl(owner);
       const listItems = asRecord(
         asRecord(
           asRecord(
             asRecord(
               asRecord(
-                asRecord(asRecord(owner?.navigationEndpoint)?.showDialogCommand)
+                asRecord(asRecord(owner.navigationEndpoint)?.showDialogCommand)
                   ?.panelLoadingStrategy,
               )?.inlineContent,
             )?.dialogViewModel,
           )?.customContent,
         )?.listViewModel,
       )?.listItems;
-      if (!Array.isArray(listItems)) continue;
+      if (!Array.isArray(listItems)) {
+        if (avatarUrl && !avatarOnly) {
+          avatarOnly = { name: null, handle: null, avatarUrl };
+        }
+        continue;
+      }
 
       for (const item of listItems) {
         const itemRecord = asRecord(item);
@@ -155,7 +218,11 @@ function readInitialChannel(
         if (typeof canonicalBaseUrl === "string" && typeof name === "string") {
           const handle = normalizeChannelHandle(canonicalBaseUrl, base);
           if (handle && name.trim() !== "") {
-            return { name: sanitizeText(name), handle };
+            return {
+              name: sanitizeText(name),
+              handle,
+              ...(avatarUrl ? { avatarUrl } : {}),
+            };
           }
         }
       }
@@ -163,7 +230,7 @@ function readInitialChannel(
       // Ignore malformed or unrelated scripts and continue with DOM metadata.
     }
   }
-  return null;
+  return avatarOnly;
 }
 
 function normalizePublishedAt(raw: string): string | undefined {
@@ -226,6 +293,16 @@ function readSource(
     readFirstAttribute(doc, selectors.meta.channelUrl) ?? "";
   const channelHandle =
     initialChannel?.handle || normalizeChannelHandle(rawChannelUrl, url);
+  // Prefer the avatar embedded in ytInitialData; fall back to the rendered
+  // avatar image. Live-DOM sources may be placeholders (data URIs), which the
+  // host check rejects.
+  const channelAvatarUrl =
+    initialChannel?.avatarUrl ??
+    (selectors.meta.channelAvatar
+      ? normalizeChannelAvatarUrl(
+          readFirstAttribute(doc, selectors.meta.channelAvatar) ?? "",
+        )
+      : undefined);
 
   const publishedAt = selectors.meta.publishedAt
     ? normalizePublishedAt(readMeta(doc, selectors.meta.publishedAt))
@@ -246,6 +323,7 @@ function readSource(
     title,
     channelName,
     channelHandle,
+    ...(channelAvatarUrl !== undefined ? { channelAvatarUrl } : {}),
     description,
     ...(publishedAt !== undefined ? { publishedAt } : {}),
     ...(durationSeconds !== undefined ? { durationSeconds } : {}),

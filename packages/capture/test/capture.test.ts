@@ -172,6 +172,143 @@ describe("capture", () => {
     expect(captureSchema.safeParse(result).success).toBe(true);
   });
 
+  it("captures the channel avatar from the owner renderer thumbnail", async () => {
+    const doc = loadDocument("watch-open.html");
+    const script = doc.createElement("script");
+    script.textContent = `var ytInitialData = ${JSON.stringify({
+      contents: {
+        videoOwnerRenderer: {
+          thumbnail: {
+            thumbnails: [
+              {
+                url: "https://yt3.ggpht.com/ytc/avatar=s48-c-k-c0x00ffffff-no-rj",
+              },
+            ],
+          },
+          navigationEndpoint: {
+            showDialogCommand: {
+              panelLoadingStrategy: {
+                inlineContent: {
+                  dialogViewModel: {
+                    customContent: {
+                      listViewModel: {
+                        listItems: [
+                          {
+                            listItemViewModel: {
+                              title: {
+                                content: "Open Residency",
+                                commandRuns: [
+                                  {
+                                    onTap: {
+                                      innertubeCommand: {
+                                        browseEndpoint: {
+                                          canonicalBaseUrl: "/@openresidency",
+                                        },
+                                      },
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })}`;
+    doc.body.append(script);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.channelAvatarUrl).toBe(
+      "https://yt3.ggpht.com/ytc/avatar=s48-c-k-c0x00ffffff-no-rj",
+    );
+    expect(captureSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("captures the avatar from the current view-model thumbnail shape", async () => {
+    const doc = loadDocument("watch-open.html");
+    const script = doc.createElement("script");
+    script.textContent = `var ytInitialData = ${JSON.stringify({
+      contents: {
+        videoOwnerRenderer: {
+          thumbnail: {
+            videoRendererThumbnailViewModel: {
+              image: {
+                sources: [
+                  {
+                    url: "https://yt3.googleusercontent.com/ytc/avatar=s176-c-k-c0x00ffffff-no-rj",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    })}`;
+    doc.body.append(script);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.channelAvatarUrl).toBe(
+      "https://yt3.googleusercontent.com/ytc/avatar=s176-c-k-c0x00ffffff-no-rj",
+    );
+    // No dialog identity in the script: channel data falls back to the DOM.
+    expect(result.source.channelName).toBe("Crab People");
+    expect(result.source.channelHandle).toBe("/@crabpeople");
+  });
+
+  it("falls back to the rendered avatar image when ytInitialData has none", async () => {
+    const doc = loadDocument("watch-open.html");
+    const owner = doc.createElement("ytd-video-owner-renderer");
+    owner.innerHTML =
+      '<div id="avatar"><img src="https://yt3.googleusercontent.com/ytc/dom-avatar=s88"></div>';
+    doc.body.append(owner);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.channelAvatarUrl).toBe(
+      "https://yt3.googleusercontent.com/ytc/dom-avatar=s88",
+    );
+  });
+
+  it("drops avatar URLs that are not https YouTube image hosts", async () => {
+    const doc = loadDocument("watch-open.html");
+    for (const url of [
+      "http://yt3.ggpht.com/ytc/avatar=s48",
+      "https://evil.example/avatar.png",
+    ]) {
+      const script = doc.createElement("script");
+      script.textContent = `var ytInitialData = ${JSON.stringify({
+        contents: {
+          videoOwnerRenderer: {
+            thumbnail: { thumbnails: [{ url }] },
+          },
+        },
+      })}`;
+      doc.body.append(script);
+
+      const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+      expect(result.source.channelAvatarUrl).toBeUndefined();
+      expect(captureSchema.safeParse(result).success).toBe(true);
+    }
+  });
+
+  it("rejects a schema payload whose avatar sits on a foreign host", async () => {
+    const doc = loadDocument("watch-open.html");
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+    result.source.channelAvatarUrl = "https://evil.example/avatar.png";
+
+    expect(captureSchema.safeParse(result).success).toBe(false);
+  });
+
   it("reads already-rendered segments without opening the panel", async () => {
     const doc = loadDocument("watch-open.html");
 

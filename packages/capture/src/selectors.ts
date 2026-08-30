@@ -30,6 +30,7 @@ export interface SiteSelectors {
     description: SelectorRule[];
     channelName: SelectorRule[];
     channelUrl: SelectorRule[];
+    channelAvatar?: SelectorRule[];
     publishedAt?: SelectorRule[];
     duration?: SelectorRule[];
   };
@@ -64,6 +65,10 @@ export const youtubeSelectors: SiteSelectors = {
     channelUrl: [
       { selector: YOUTUBE_CHANNEL_LINK_SELECTOR, attribute: "href" },
       { selector: 'link[itemprop="url"]', attribute: "href" },
+    ],
+    channelAvatar: [
+      { selector: "ytd-video-owner-renderer #avatar img", attribute: "src" },
+      { selector: "#owner #avatar img", attribute: "src" },
     ],
     publishedAt: [
       { selector: "#info-strings yt-formatted-string" },
