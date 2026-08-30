@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isAllowedOrigin, parseOrigins } from "./origin-allowlist";
 
 const websiteOrigin = "http://localhost:3000";
-const extensionOrigin = "chrome-extension://nieojpobkpchdjmijgdgnnllkggijbdh";
+const extensionOrigin = "chrome-extension://jkopejjjgdkkacabdhgdlploehikphai";
 
 describe("origin allowlist", () => {
   it("allows the website origin and the exact extension origin", () => {

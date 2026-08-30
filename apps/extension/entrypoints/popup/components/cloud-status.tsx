@@ -91,7 +91,7 @@ export function CloudSaveStatus({
         <div className="cloud-saved" role="status">
           <span>Contributed ({current.receipt.outcome})</span>
           <a
-            href={`${webOrigin}/videos/${current.receipt.videoId}`}
+            href={`${webOrigin}/transcripts/${current.receipt.videoId}`}
             target="_blank"
             rel="noreferrer"
           >

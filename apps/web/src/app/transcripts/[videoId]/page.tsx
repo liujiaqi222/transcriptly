@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TranscriptSection } from "@/app/videos/[videoId]/components/transcript-section";
-import { LogoMark } from "@/components/logo-mark";
+import { TranscriptSection } from "@/app/transcripts/[videoId]/components/transcript-section";
+import { SiteHeader } from "@/components/site-header";
 import { getDatabase } from "@/db/client";
 import { getAuthEnv } from "@/env/server";
 import { formatTimestamp } from "@/lib/captures/transcript";
@@ -50,19 +51,19 @@ export async function generateMetadata({
   if (!item) return {};
   const description = publicDescription(
     item.title,
-    item.channelName,
+    item.channelName ?? "an unknown channel",
     item.description,
   );
   const thumbnail = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
   return {
     title: `${item.title} — Transcriptly`,
     description,
-    alternates: { canonical: `/videos/${videoId}` },
+    alternates: { canonical: `/transcripts/${videoId}` },
     openGraph: {
       title: item.title,
       description,
       type: "video.other",
-      url: `/videos/${videoId}`,
+      url: `/transcripts/${videoId}`,
       images: [thumbnail],
     },
     twitter: {
@@ -85,10 +86,10 @@ export default async function PublicVideoPage({
   if (!item) notFound();
   const description = publicDescription(
     item.title,
-    item.channelName,
+    item.channelName ?? "an unknown channel",
     item.description,
   );
-  const canonical = `${getAuthEnv().BETTER_AUTH_URL}/videos/${videoId}`;
+  const canonical = `${getAuthEnv().BETTER_AUTH_URL}/transcripts/${videoId}`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
@@ -105,36 +106,22 @@ export default async function PublicVideoPage({
 
   return (
     <main className="min-h-screen bg-[#fffdf8] font-sans text-[#202124]">
-      <header className="border-b border-[#e2e8f0] bg-white">
-        <div className="mx-auto flex min-h-18 w-[min(920px,calc(100%-48px))] items-center justify-between max-sm:w-[calc(100%-32px)]">
-          <a
-            className="inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.03em] no-underline"
-            href="/"
-          >
-            <LogoMark size={28} />
-            <span>Transcriptly</span>
-          </a>
-          <a
-            className="text-sm font-bold text-[#0872b9] underline-offset-4"
-            href="/#archive"
-          >
-            Search the archive
-          </a>
-        </div>
-      </header>
+      <SiteHeader />
       <article className="mx-auto w-[min(820px,calc(100%-48px))] py-18 pb-28 max-sm:w-[calc(100%-32px)] max-sm:py-12 max-sm:pb-20">
         <h1 className="m-0 font-serif text-[clamp(36px,5vw,56px)] leading-[1.05] font-semibold tracking-[-0.03em] text-balance">
           {item.title}
         </h1>
         <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#64748b]">
-          <a
-            className="font-bold text-[#0872b9] underline-offset-4"
-            href={item.channelUrl || item.url}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {item.channelName}
-          </a>
+          {item.channelSlug ? (
+            <Link
+              className="font-bold text-[#0872b9] underline-offset-4"
+              href={`/channels/${item.channelSlug}`}
+            >
+              {item.channelName}
+            </Link>
+          ) : item.channelName ? (
+            <span>{item.channelName}</span>
+          ) : null}
           {item.publishedAt ? (
             <span>Published {dateFormatter.format(item.publishedAt)}</span>
           ) : null}
@@ -183,7 +170,6 @@ export default async function PublicVideoPage({
         ) : null}
         <TranscriptSection
           chapters={item.chapters}
-          segmentCount={item.segmentCount}
           segments={item.segments}
           url={item.url}
         />

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoMark } from "@/components/logo-mark";
 
@@ -44,18 +45,24 @@ export function SectionKicker({
 
 export function Brand() {
   return (
-    <a
+    <Link
       className={`inline-flex items-center gap-2 text-lg font-bold tracking-[-0.02em] no-underline ${focusRing}`}
       href="/"
       aria-label="Transcriptly home"
     >
       <LogoMark size={28} />
       <span>Transcriptly</span>
-    </a>
+    </Link>
   );
 }
 
-export function CtaPair({ compact = false }: { compact?: boolean }) {
+export function CtaPair({
+  compact = false,
+  mobile = false,
+}: {
+  compact?: boolean;
+  mobile?: boolean;
+}) {
   const button = `inline-flex items-center justify-center rounded-xl border px-5 py-3 text-sm font-bold no-underline transition-colors ${focusRing}`;
   return (
     <div
@@ -67,7 +74,12 @@ export function CtaPair({ compact = false }: { compact?: boolean }) {
         rel="noreferrer"
         target="_blank"
       >
-        Add to Chrome
+        <span className={mobile ? "sm:hidden" : undefined}>
+          {mobile ? "Install" : "Add to Chrome"}
+        </span>
+        {mobile ? (
+          <span className="hidden sm:inline">Add to Chrome</span>
+        ) : null}
       </a>
       {!compact && (
         <a

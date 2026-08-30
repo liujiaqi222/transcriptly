@@ -1,6 +1,11 @@
 import { and, asc, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import type { Database } from "../../db/client";
-import { canonicalVideos, publicPublications, segments } from "../../db/schema";
+import {
+  canonicalVideos,
+  channels,
+  publicPublications,
+  segments,
+} from "../../db/schema";
 
 /** Upper bound on matched segments returned for one query (#39). */
 export const SEARCH_HIT_LIMIT = 50;
@@ -121,7 +126,7 @@ export async function searchPublicArchive(
       videoId: canonicalVideos.youtubeVideoId,
       url: canonicalVideos.sourceUrl,
       title: canonicalVideos.title,
-      channelName: canonicalVideos.channelName,
+      channelName: sql<string>`coalesce(${channels.name}, '')`,
     })
     .from(segments)
     .innerJoin(
@@ -132,6 +137,7 @@ export async function searchPublicArchive(
       canonicalVideos,
       eq(canonicalVideos.id, publicPublications.videoId),
     )
+    .leftJoin(channels, eq(channels.id, canonicalVideos.channelId))
     .where(and(eq(publicPublications.active, true), searchPredicate))
     .orderBy(
       desc(rank),

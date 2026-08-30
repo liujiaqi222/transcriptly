@@ -16,7 +16,7 @@ const capture: Capture = {
     url: "https://www.youtube.com/watch?v=abc123",
     title: "Build Agents: A Practical Guide!",
     channelName: "Ship It Weekly",
-    channelUrl: "https://www.youtube.com/@shipitweekly",
+    channelHandle: "/@shipitweekly",
     description: "Production lessons.",
   },
   capturedAt: "2026-08-15T10:30:00.000Z",

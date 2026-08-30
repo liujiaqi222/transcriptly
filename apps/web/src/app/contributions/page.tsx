@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogoMark } from "@/components/logo-mark";
+import { SiteHeader } from "@/components/site-header";
 import { getDatabase } from "@/db/client";
 import { auth } from "@/lib/auth/auth";
 import { formatTimestamp } from "@/lib/captures/transcript";
@@ -37,23 +38,7 @@ export default async function MyContributionsPage() {
 
   return (
     <main className="min-h-screen bg-[#fffdf8] font-sans text-[#202124]">
-      <header className="border-b border-[#e2e8f0] bg-white">
-        <div className="mx-auto flex min-h-18 w-[min(820px,calc(100%-48px))] items-center justify-between max-sm:w-[calc(100%-32px)]">
-          <a
-            className="inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.03em] no-underline"
-            href="/"
-          >
-            <LogoMark size={28} />
-            <span>Transcriptly</span>
-          </a>
-          <a
-            className="text-sm font-bold text-[#0872b9] underline-offset-4"
-            href="/#archive"
-          >
-            Search the archive
-          </a>
-        </div>
-      </header>
+      <SiteHeader />
       <div className="mx-auto w-[min(820px,calc(100%-48px))] py-18 pb-28 max-sm:w-[calc(100%-32px)] max-sm:py-12 max-sm:pb-20">
         <p className="m-0 text-sm font-bold tracking-[0.14em] text-[#0872b9] uppercase">
           My contributions
@@ -81,14 +66,13 @@ export default async function MyContributionsPage() {
                 key={item.videoId}
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-                  <a
+                  <Link
                     className="text-xl font-bold tracking-[-0.02em] text-[#202124] underline-offset-4 hover:text-[#0872b9]"
-                    href={`/videos/${item.videoId}`}
+                    href={`/transcripts/${item.videoId}`}
                   >
                     {item.title}
-                  </a>
+                  </Link>
                   <span className="font-mono text-sm text-[#64748b] tabular-nums">
-                    {item.segmentCount} segments ·{" "}
                     {item.durationSeconds !== null
                       ? formatTimestamp(item.durationSeconds)
                       : "duration unknown"}

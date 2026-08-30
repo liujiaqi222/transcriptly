@@ -14,7 +14,7 @@ function captureFor(videoId: string, title = "Ship It"): Capture {
       url: `https://www.youtube.com/watch?v=${videoId}`,
       title,
       channelName: "Ship It Weekly",
-      channelUrl: "https://www.youtube.com/@shipitweekly",
+      channelHandle: "/@shipitweekly",
       description: "An episode.",
     },
     capturedAt: "2026-08-20T10:30:00.000Z",

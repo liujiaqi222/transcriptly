@@ -7,7 +7,7 @@ const base = {
     url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     title: "Title",
     channelName: "Channel",
-    channelUrl: "https://www.youtube.com/@channel",
+    channelHandle: "/@channel",
     description: "Description",
   },
   capturedAt: "2026-08-20T10:00:00.000Z",

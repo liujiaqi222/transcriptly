@@ -19,6 +19,7 @@ const sessionToken = `contribution-${randomUUID()}`;
 const secondSessionToken = `contribution-${randomUUID()}`;
 const thirdSessionToken = `contribution-${randomUUID()}`;
 const videoId = "M7lc1UVf-VE";
+const punctuationVideoId = "dQw4w9WgXcQ";
 
 const capture = {
   source: {
@@ -26,7 +27,7 @@ const capture = {
     url: `https://www.youtube.com/watch?v=${videoId}`,
     title: "Public archive E2E transcript",
     channelName: "Transcriptly Test Channel",
-    channelUrl: "https://www.youtube.com/@transcriptly-test",
+    channelHandle: "/@transcriptly-test",
     description: "A public transcript used to verify Issue 64.",
     durationSeconds: 180,
   },
@@ -47,6 +48,19 @@ const replacementCapture = {
     { start: 50, text: "The latest qualified capture wins the publication." },
   ],
   chapters: [{ start: 0, title: "Latest qualified" }],
+};
+
+const punctuatedChannelCapture = {
+  ...capture,
+  source: {
+    ...capture.source,
+    videoId: punctuationVideoId,
+    url: `https://www.youtube.com/watch?v=${punctuationVideoId}`,
+    title: "Punctuated channel slug transcript",
+    channelName: "Transcriptly Underscore Channel",
+    channelHandle: "/@transcriptly_test",
+  },
+  capturedAt: "2026-08-20T13:00:00.000Z",
 };
 
 /** Two distinct captures raced by different users in the concurrency test. */
@@ -113,7 +127,11 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await sql`
     delete from public_publications
-    where video_id = (select id from canonical_videos where youtube_video_id = ${videoId})
+    where video_id in (
+      select id
+      from canonical_videos
+      where youtube_video_id in (${videoId}, ${punctuationVideoId})
+    )
   `;
   await sql`delete from "user" where id in (${userId}, ${secondUserId}, ${thirdUserId})`;
   await sql.end();
@@ -253,7 +271,7 @@ test("serves only active publications through detail, search, and sitemap", asyn
   page,
   request,
 }) => {
-  await page.goto(`/videos/${videoId}`);
+  await page.goto(`/transcripts/${videoId}`);
   await expect(page).toHaveTitle(/Public archive E2E transcript/);
   await expect(
     page.getByRole("heading", { name: "Public archive E2E transcript" }),
@@ -270,25 +288,68 @@ test("serves only active publications through detail, search, and sitemap", asyn
     1,
   );
 
-  await page.goto("/?q=observable");
+  await page.goto("/transcripts?q=observable");
   await expect(
     page.getByText("Observable behavior makes agent systems reliable."),
   ).toBeVisible();
+  expect(await page.locator("a a").count()).toBe(0);
+
+  await page.goto("/transcripts");
+  await expect(
+    page.getByRole("link", { name: "Public archive E2E transcript" }),
+  ).toBeVisible();
+  expect(await page.locator("a a").count()).toBe(0);
+
+  await page.goto("/transcripts?scope=videos&q=%25");
+  await expect(page.getByText("No videos match “%”")).toBeVisible();
+  await expect(page.getByText("Public archive E2E transcript")).toHaveCount(0);
+
+  expect(
+    (
+      await request.get("/transcripts?page=999999999999999999999999999999999")
+    ).status(),
+  ).toBe(404);
+
+  await page.goto("/channels");
+  await expect(
+    page.getByRole("link", { name: "Transcriptly Test Channel" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Public archive E2E transcript" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("[data-channel-avatar]", { hasText: "T" }),
+  ).toBeVisible();
+
+  await page.goto("/channels/transcriptly-test");
+  await expect(
+    page.getByRole("heading", { name: "Transcriptly Test Channel" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("[data-channel-avatar]", { hasText: "T" }),
+  ).toBeVisible();
+  expect(
+    (
+      await request.get(
+        "/channels/transcriptly-test?page=999999999999999999999999999999999",
+      )
+    ).status(),
+  ).toBe(404);
 
   const sitemap = await request.get("/sitemap.xml");
-  expect(await sitemap.text()).toContain(`/videos/${videoId}`);
+  expect(await sitemap.text()).toContain(`/transcripts/${videoId}`);
 
   await sql`
     update public_publications
     set active = false
     where video_id = (select id from canonical_videos where youtube_video_id = ${videoId})
   `;
-  expect((await request.get(`/videos/${videoId}`)).status()).toBe(404);
-  expect(await (await request.get("/?q=observable")).text()).not.toContain(
-    "Observable behavior makes agent systems reliable.",
-  );
+  expect((await request.get(`/transcripts/${videoId}`)).status()).toBe(404);
+  expect(
+    await (await request.get("/transcripts?q=observable")).text(),
+  ).not.toContain("Observable behavior makes agent systems reliable.");
   expect(await (await request.get("/sitemap.xml")).text()).not.toContain(
-    `/videos/${videoId}`,
+    `/transcripts/${videoId}`,
   );
 });
 
@@ -372,7 +433,7 @@ test("replaces the current publication with the latest qualified capture and pru
   });
 
   // The public surface serves the replacement with the new attribution.
-  await page.goto(`/videos/${videoId}`);
+  await page.goto(`/transcripts/${videoId}`);
   await expect(
     page.getByRole("heading", { name: "Public archive E2E transcript" }),
   ).toBeVisible();
@@ -616,7 +677,7 @@ test("keeps the publication and transcript when another contributor remains (#74
     active: true,
   });
 
-  await page.goto(`/videos/${videoId}`);
+  await page.goto(`/transcripts/${videoId}`);
   await expect(
     page.getByText("Contributed by Second Contributor"),
   ).toBeVisible();
@@ -654,12 +715,12 @@ test("unpublishes the video and deletes the transcript when the final contributo
     segments: 0,
   });
 
-  expect((await api.get(`/videos/${videoId}`)).status()).toBe(404);
+  expect((await api.get(`/transcripts/${videoId}`)).status()).toBe(404);
   expect(await (await api.get("/?q=observable")).text()).not.toContain(
     "Observable behavior makes agent systems reliable.",
   );
   expect(await (await api.get("/sitemap.xml")).text()).not.toContain(
-    `/videos/${videoId}`,
+    `/transcripts/${videoId}`,
   );
 
   // Withdrawing again is a 404, not a second unpublish.
@@ -682,8 +743,35 @@ test("unpublishes the video and deletes the transcript when the final contributo
   });
   expect(republished.status()).toBe(200);
   expect((await republished.json()).data.outcome).toBe("published");
-  await page.goto(`/videos/${videoId}`);
+  await page.goto(`/transcripts/${videoId}`);
   await expect(
     page.getByText("The latest qualified capture wins the publication."),
   ).toBeVisible();
+});
+
+test("preserves handle punctuation in channel slugs", async ({ request }) => {
+  const response = await request.post("/api/v1/contributions", {
+    headers: {
+      Origin: baseURL,
+      Cookie: await sessionCookie(),
+      "Content-Type": "application/json",
+    },
+    data: {
+      capture: punctuatedChannelCapture,
+      targetVideoId: punctuationVideoId,
+    },
+  });
+  expect(response.status()).toBe(200);
+
+  const rows = await sql`
+    select handle, slug
+    from channels
+    where handle in ('/@transcriptly-test', '/@transcriptly_test')
+    order by handle
+  `;
+  expect(rows).toHaveLength(2);
+  expect(rows).toEqual([
+    { handle: "/@transcriptly-test", slug: "transcriptly-test" },
+    { handle: "/@transcriptly_test", slug: "transcriptly_test" },
+  ]);
 });

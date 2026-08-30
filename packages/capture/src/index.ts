@@ -29,6 +29,7 @@ export {
   type ArticleBlock,
   type ArticleParagraph,
   articleBlocks,
+  channelUrlFromHandle,
   formatTimestamp,
   type MarkdownFormat,
   serializeToMarkdown,

@@ -171,7 +171,7 @@ const capturePayload = {
     url: "https://www.youtube.com/watch?v=e2etestvid1",
     title: "E2E Public Contribution",
     channelName: "Ship It Weekly",
-    channelUrl: "https://www.youtube.com/@shipitweekly",
+    channelHandle: "/@shipitweekly",
     description: "An episode.",
   },
   capturedAt: "2026-08-21T10:30:00.000Z",
