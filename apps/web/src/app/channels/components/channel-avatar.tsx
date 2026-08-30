@@ -1,3 +1,5 @@
+import { displayAvatarUrl } from "@/lib/channels/avatar";
+
 export function ChannelAvatar({
   name,
   avatarUrl,
@@ -23,7 +25,7 @@ export function ChannelAvatar({
           alt=""
           className="h-full w-full object-cover"
           referrerPolicy="no-referrer"
-          src={avatarUrl}
+          src={displayAvatarUrl(avatarUrl)}
         />
       ) : (
         initial
