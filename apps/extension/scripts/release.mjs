@@ -11,11 +11,14 @@
  * - only the expected entrypoints ship (popup, manager, background,
  *   content script) - no unused pages such as the removed playground
  * - no test files, no source maps, no dev addresses (localhost, ports)
+ * - the manifest `key` still derives to the extension ID the server
+ *   allowlists (EXTENSION_ORIGINS in deploy.yml / .env.example)
  *
  * Exit code 1 with a report of every violation; success prints the ZIP
  * path and size.
  */
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, relative } from "node:path";
@@ -24,6 +27,7 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const extensionRoot = join(scriptDir, "..");
+const repoRoot = join(extensionRoot, "../..");
 const outDir = join(extensionRoot, ".output");
 const chromeDir = join(outDir, "chrome-mv3");
 
@@ -56,6 +60,19 @@ const EXPECTED_HOST_PERMISSIONS = ["https://transcript.libmap.cn/*"];
 
 /** HTML pages that ship; anything else is an unused page. */
 const EXPECTED_HTML_PAGES = ["manager.html", "popup.html"];
+
+/**
+ * The extension ID the web server allowlists (EXTENSION_ORIGINS). It is
+ * SHA256(manifest key DER) first 16 bytes mapped 0-f -> a-p. Must match
+ * the `key` in wxt.config.ts and every EXTENSION_ORIGINS value in the
+ * repo; see docs/agents/chrome-web-store-release.md for the store-side
+ * verification (dashboard Item ID) that can only happen after the first
+ * upload.
+ */
+const EXPECTED_EXTENSION_ID = "nieojpobkpchdjmijgdgnnllkggijbdh";
+
+/** Files (repo-root-relative) that must allowlist the extension origin. */
+const ORIGIN_ALLOWLIST_FILES = [".env.example", ".github/workflows/deploy.yml"];
 
 const violations = [];
 const check = (ok, message) => {
@@ -131,7 +148,32 @@ check(
   `unexpected host_permissions: ${JSON.stringify(manifest.host_permissions)}`,
 );
 
-// 4. No dev addresses baked into shipped text assets.
+// 4. Extension identity: the manifest key must derive to the ID the
+// server allowlists, and every repo allowlist entry must carry that ID.
+// The key is pinned in wxt.config.ts precisely so the unpacked, zipped,
+// and store builds share one origin the server can trust.
+const derivedId = createHash("sha256")
+  .update(Buffer.from(manifest.key, "base64"))
+  .digest()
+  .subarray(0, 16)
+  .toString("hex")
+  .split("")
+  .map((c) => String.fromCharCode(97 + Number.parseInt(c, 16)))
+  .join("");
+check(
+  derivedId === EXPECTED_EXTENSION_ID,
+  `manifest key derives to extension ID ${derivedId}, but the server allowlists ${EXPECTED_EXTENSION_ID}`,
+);
+const expectedOrigin = `chrome-extension://${EXPECTED_EXTENSION_ID}`;
+for (const allowlistFile of ORIGIN_ALLOWLIST_FILES) {
+  const contents = readFileSync(join(repoRoot, allowlistFile), "utf8");
+  check(
+    contents.includes(expectedOrigin),
+    `${allowlistFile} does not allowlist ${expectedOrigin}`,
+  );
+}
+
+// 5. No dev addresses baked into shipped text assets.
 for (const file of files) {
   if (!TEXT_EXTENSIONS.has(file.slice(file.lastIndexOf(".")))) continue;
   const contents = readFileSync(join(chromeDir, file), "utf8");
@@ -142,7 +184,7 @@ for (const file of files) {
   }
 }
 
-// 5. The ZIP itself: find the freshly written archive and verify its
+// 6. The ZIP itself: find the freshly written archive and verify its
 // entry list matches the checked directory (no extras, no misses).
 const zipCandidates = readdirSync(outDir)
   .filter((f) => f.endsWith(".zip"))
@@ -177,6 +219,7 @@ const zipKb = zipPath ? Math.round(statSync(zipPath).size / 1024) : 0;
 console.log("\nRelease checks passed.");
 console.log(`  version:   ${manifest.version}`);
 console.log(`  pages:     ${htmlPages.join(", ")}`);
+console.log(`  ext id:    ${derivedId}`);
 console.log(
   `  zip:       ${zipPath} (${zipKb} KB, ${zipEntries.length} files)`,
 );

@@ -83,7 +83,7 @@ export function RemoveContributionButton({
             {error}
           </p>
         ) : null}
-        <DialogFooter className="border-t-0 bg-transparent p-0">
+        <DialogFooter className="border-t-0 bg-transparent p-4">
           <DialogClose
             className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-bold text-[#202124] transition-colors hover:border-[#cbd5e1] focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={removing}

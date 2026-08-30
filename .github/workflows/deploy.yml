@@ -19,6 +19,52 @@ env:
   IMAGE_MIGRATE: ghcr.io/liujiaqi222/transcriptly-migrate
 
 jobs:
+  release-extension:
+    name: build & release extension zip
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # job-level permissions replace the workflow-level set for this job;
+    # creating releases needs contents:write, and this job pushes no images.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Runs the full store-readiness checks (version, permissions,
+      # entrypoints, dev addresses, manifest key -> extension ID, origin
+      # allowlists) and builds + verifies the Chrome Web Store ZIP.
+      - name: Build & verify extension ZIP
+        run: pnpm release
+
+      # Attach the ZIP to a per-version GitHub Release so the store-upload
+      # artifact is downloadable without a local build. Same version pushed
+      # again overwrites the asset (--clobber) instead of failing.
+      - name: Attach ZIP to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./apps/extension/package.json').version")
+          TAG="extension-v${VERSION}"
+          ZIP=$(find apps/extension/.output -maxdepth 1 -name '*.zip' -print -quit)
+          echo "releasing ${ZIP} as ${TAG}"
+          if ! gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release create "${TAG}" \
+              --title "Extension ${VERSION}" \
+              --notes "Chrome Web Store package for extension v${VERSION}, built from ${GITHUB_SHA}." \
+              --target "${GITHUB_SHA}"
+          fi
+          gh release upload "${TAG}" "${ZIP}" --clobber
+
   build-and-deploy:
     name: build & deploy to Tokyo
     runs-on: ubuntu-latest
