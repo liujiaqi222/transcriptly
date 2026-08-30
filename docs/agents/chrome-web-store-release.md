@@ -59,6 +59,10 @@ The dashboard's ID wins - it cannot be edited. In that order:
 ## Publishing an update
 
 1. Bump the version in both `package.json` files.
-2. `pnpm release` - must pass all checks.
-3. Upload the printed ZIP path in the Dashboard.
-4. No ID work needed: the key, allowlists, and store item already agree.
+2. Push to `main`: the Deploy workflow runs `pnpm release` (same checks)
+   and attaches the ZIP to the `extension-v<version>` GitHub Release
+   (re-uploads overwrite the asset). Download it from the repo's
+   Releases page.
+3. `pnpm release` locally if you want a pre-push check - must pass.
+4. Upload the ZIP in the Dashboard.
+5. No ID work needed: the key, allowlists, and store item already agree.
