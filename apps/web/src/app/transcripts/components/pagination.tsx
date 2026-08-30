@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 /**
  * Server-side numbered pagination for the public list pages (#96). Invalid
  * pages are 404ed by the caller; this component only renders links.
@@ -19,12 +21,12 @@ export function Pagination({
       className="mt-10 flex items-center justify-between gap-6 border-t border-[#e2e8f0] pt-6"
     >
       {page > 1 ? (
-        <a
+        <Link
           className="text-sm font-bold text-[#0872b9] underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
           href={hrefFor(page - 1)}
         >
           {page === 2 ? "Newer transcripts" : `Page ${page - 1}`}
-        </a>
+        </Link>
       ) : (
         <span aria-hidden="true" />
       )}
@@ -32,12 +34,12 @@ export function Pagination({
         Page {page} of {pageCount}
       </span>
       {page < pageCount ? (
-        <a
+        <Link
           className="text-sm font-bold text-[#0872b9] underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
           href={hrefFor(page + 1)}
         >
           {page === 1 ? "Older transcripts" : `Page ${page + 1}`}
-        </a>
+        </Link>
       ) : (
         <span aria-hidden="true" />
       )}

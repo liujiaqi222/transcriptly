@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { focusRing, pageWidth } from "@/components/landing/shared";
-import { LogoMark } from "@/components/logo-mark";
+import { focusRing } from "@/components/landing/shared";
+import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
   title: "Privacy Policy - Transcriptly",
@@ -57,19 +57,7 @@ function Note({ children }: { children: React.ReactNode }) {
 export default function PrivacyPolicyPage() {
   return (
     <main className="min-h-screen bg-[#fffdf8] font-sans text-[#202124]">
-      <header className="border-b border-[#e2e8f0] bg-white">
-        <div
-          className={`${pageWidth} flex min-h-18 items-center justify-between`}
-        >
-          <a
-            className={`inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.03em] no-underline ${focusRing}`}
-            href="/"
-          >
-            <LogoMark size={28} />
-            <span>Transcriptly</span>
-          </a>
-        </div>
-      </header>
+      <SiteHeader />
 
       <div className="mx-auto  px-5 w-[min(820px,calc(100%-48px))] py-18 pb-28 max-sm:w-[calc(100%-32px)] max-sm:py-12 max-sm:pb-20">
         <p className="m-0 font-mono text-xs font-medium tracking-[0.16em] text-[#0872b9] uppercase">

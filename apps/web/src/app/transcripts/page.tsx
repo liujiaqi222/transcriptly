@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { LogoMark } from "@/components/logo-mark";
+import { SiteHeader } from "@/components/site-header";
 import { getDatabase } from "@/db/client";
 import { formatTimestamp } from "@/lib/captures/transcript";
 import { listChannels } from "@/lib/channels/queries";
@@ -82,23 +83,7 @@ export default async function TranscriptsPage({
 
   return (
     <main className="min-h-screen bg-[#fffdf8] font-sans text-[#202124]">
-      <header className="border-b border-[#e2e8f0] bg-white">
-        <div className="mx-auto flex min-h-18 w-[min(920px,calc(100%-48px))] items-center justify-between max-sm:w-[calc(100%-32px)]">
-          <a
-            className="inline-flex items-center gap-2 text-lg font-extrabold tracking-[-0.03em] no-underline"
-            href="/"
-          >
-            <LogoMark size={28} />
-            <span>Transcriptly</span>
-          </a>
-          <a
-            className="text-sm font-bold text-[#0872b9] underline-offset-4"
-            href="/channels"
-          >
-            Browse channels
-          </a>
-        </div>
-      </header>
+      <SiteHeader />
       <div className="mx-auto w-[min(920px,calc(100%-48px))] py-12 pb-24 max-sm:w-[calc(100%-32px)] max-sm:py-8">
         <h1 className="m-0 font-serif text-[clamp(32px,4vw,44px)] leading-[1.05] font-semibold tracking-[-0.03em]">
           Public transcripts
@@ -151,8 +136,8 @@ export default async function TranscriptsPage({
             <span className="mr-2 text-sm font-bold text-[#64748b]">
               Channels
             </span>
-            {channels.map((channel) => (
-              <a
+            {channels.slice(0, 8).map((channel) => (
+              <Link
                 className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-[#202124] no-underline hover:bg-[#edf7ff] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
                 href={`/channels/${channel.slug}`}
                 key={channel.id}
@@ -161,14 +146,14 @@ export default async function TranscriptsPage({
                 <span className="font-mono text-xs font-medium text-[#64748b] tabular-nums">
                   {channel.transcriptCount}
                 </span>
-              </a>
+              </Link>
             ))}
-            <a
+            <Link
               className="ml-auto text-sm font-bold text-[#0872b9] underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
               href="/channels"
             >
-              All channels
-            </a>
+              All channels →
+            </Link>
           </nav>
         ) : null}
 
@@ -177,12 +162,12 @@ export default async function TranscriptsPage({
             <div aria-live="polite" className="mt-10">
               <div className="flex items-baseline justify-between gap-6">
                 <h2 className="m-0 text-xl font-bold">Results for “{query}”</h2>
-                <a
+                <Link
                   className="font-bold text-[#0872b9] underline-offset-4"
                   href="/transcripts"
                 >
                   Clear search
-                </a>
+                </Link>
               </div>
               {search === null || search.hits.length === 0 ? (
                 <p className="mt-6 text-[#64748b]">
@@ -193,12 +178,12 @@ export default async function TranscriptsPage({
                   {search.hits.map((hit) => (
                     <li className="border-t border-[#e2e8f0]" key={hit.key}>
                       <article className="grid grid-cols-[minmax(0,1fr)_180px] gap-x-6 gap-y-2 py-4 hover:bg-[#edf7ff] max-sm:grid-cols-1">
-                        <a
+                        <Link
                           className="rounded-sm text-base font-bold text-[#202124] no-underline focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
                           href={`/transcripts/${hit.videoId}`}
                         >
                           {hit.title}
-                        </a>
+                        </Link>
                         <span className="text-right font-mono text-sm text-[#0872b9] max-sm:text-left">
                           {hit.channelName}
                         </span>
@@ -225,12 +210,12 @@ export default async function TranscriptsPage({
                 <h2 className="m-0 text-xl font-bold">
                   No videos match “{query}”
                 </h2>
-                <a
+                <Link
                   className="font-bold text-[#0872b9] underline-offset-4"
                   href="/transcripts"
                 >
                   Clear search
-                </a>
+                </Link>
               </div>
             </div>
           ) : (
@@ -239,12 +224,12 @@ export default async function TranscriptsPage({
                 <h2 className="m-0 text-xl font-bold">
                   Videos matching “{query}”
                 </h2>
-                <a
+                <Link
                   className="font-bold text-[#0872b9] underline-offset-4"
                   href="/transcripts"
                 >
                   Clear search
-                </a>
+                </Link>
               </div>
               <ul className="m-0 mt-2 list-none p-0">
                 {items.map((item) => (

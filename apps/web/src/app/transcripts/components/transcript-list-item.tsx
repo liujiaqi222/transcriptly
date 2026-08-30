@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatTimestamp } from "@/lib/captures/transcript";
 import type { PublicTranscriptSummary } from "@/lib/publications/queries";
 
@@ -29,7 +30,7 @@ export function TranscriptListItem({
   return (
     <li className="border-t border-[#e2e8f0] first:border-t-0">
       <div className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-6 gap-y-2 rounded-[10px] py-4 hover:bg-[#edf7ff] max-sm:grid-cols-[112px_minmax(0,1fr)] max-sm:gap-x-3">
-        <a
+        <Link
           className="rounded-lg focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
           href={`/transcripts/${item.videoId}`}
           tabIndex={-1}
@@ -44,21 +45,21 @@ export function TranscriptListItem({
             src={`https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`}
             width="168"
           />
-        </a>
+        </Link>
         <div className="min-w-0">
-          <a
+          <Link
             className="block truncate rounded-sm text-base leading-6 font-bold text-[#202124] no-underline focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
             href={`/transcripts/${item.videoId}`}
           >
             {item.title}
-          </a>
+          </Link>
           {item.channelSlug ? (
-            <a
+            <Link
               className="mt-1 inline-block rounded-sm font-mono text-xs font-medium text-[#0872b9] underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
               href={`/channels/${item.channelSlug}`}
             >
               {item.channelName}
-            </a>
+            </Link>
           ) : (
             <span className="mt-1 block font-mono text-xs text-[#64748b]">
               {item.channelName ?? "Unknown channel"}

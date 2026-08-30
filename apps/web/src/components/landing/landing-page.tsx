@@ -1,11 +1,11 @@
 import type { PublicTranscriptSummary } from "@/lib/publications/queries";
 import { ArchiveSection } from "./archive-section";
+import { LandingHeader } from "./landing-header";
 import {
   BatchSection,
   FinalCtaSection,
   HeroSection,
   LandingFooter,
-  LandingHeader,
   LocalMarkdownSection,
   Marquee,
   OpenSourceStrip,

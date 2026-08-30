@@ -46,6 +46,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       className={`${inter.variable} ${fraunces.variable} ${jetBrainsMono.variable}`}
+      data-scroll-behavior="smooth"
       lang="en"
     >
       <body className="min-h-screen bg-[#fffdf8] font-sans text-[#202124] antialiased">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LogoMark } from "@/components/logo-mark";
 import { LocalKnowledgeDemo } from "./local-knowledge-demo";
 import { MotionReveal } from "./motion-reveal";
@@ -17,94 +18,6 @@ import {
   SectionHeading,
   SectionKicker,
 } from "./shared";
-
-/** Signed-in identity, rendered as the account entry; null when signed out. */
-export function LandingHeader({
-  user,
-}: {
-  user: { name: string; image: string | null } | null;
-}) {
-  return (
-    <header className="sticky top-0 z-20 border-b border-[#e2e8f0] bg-[#fffdf8]/90 backdrop-blur-sm">
-      <div
-        className={`${pageWidth} flex min-h-16 items-center gap-8 max-sm:gap-3`}
-      >
-        <Brand />
-        <nav
-          aria-label="Primary"
-          className="ml-4 hidden items-center gap-6 lg:flex"
-        >
-          <a
-            className={`text-sm font-medium text-[#64748b] hover:text-[#202124] ${focusRing}`}
-            href="#capture"
-          >
-            Capture
-          </a>
-          <a
-            className={`text-sm font-medium text-[#64748b] hover:text-[#202124] ${focusRing}`}
-            href="#batch"
-          >
-            Batch
-          </a>
-          <a
-            className={`text-sm font-medium text-[#64748b] hover:text-[#202124] ${focusRing}`}
-            href="#local"
-          >
-            Local Markdown
-          </a>
-          <a
-            className={`text-sm font-medium text-[#64748b] hover:text-[#202124] ${focusRing}`}
-            href="#archive"
-          >
-            Archive
-          </a>
-        </nav>
-        <nav
-          className="ml-auto flex items-center gap-5 max-sm:gap-3"
-          aria-label="Account"
-        >
-          {user ? (
-            <a
-              aria-label="My contributions"
-              className={`inline-flex min-h-10 items-center gap-2 rounded-full border border-[#e2e8f0] bg-white py-1 pr-3 pl-1 text-sm font-bold text-[#202124] transition-colors hover:border-[#cbd5e1] ${focusRing}`}
-              href="/contributions"
-            >
-              {user.image ? (
-                // biome-ignore lint/performance/noImgElement: remote account avatar, not page imagery.
-                <img
-                  alt=""
-                  className="h-8 w-8 rounded-full object-cover"
-                  height="32"
-                  referrerPolicy="no-referrer"
-                  src={user.image}
-                  width="32"
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="grid h-8 w-8 place-items-center rounded-full bg-[#edf7ff] text-sm font-bold text-[#0872b9]"
-                >
-                  {user.name.slice(0, 1).toUpperCase()}
-                </span>
-              )}
-              <span className="max-w-[20ch] truncate max-sm:hidden">
-                {user.name}
-              </span>
-            </a>
-          ) : (
-            <a
-              className={`text-sm font-bold text-[#0872b9] underline-offset-4 hover:underline ${focusRing}`}
-              href="/sign-in?callbackURL=%2Fcontributions"
-            >
-              Sign in
-            </a>
-          )}
-          <CtaPair compact />
-        </nav>
-      </div>
-    </header>
-  );
-}
 
 /** The Capture beat: one video becomes a local Markdown file. */
 export function HeroSection() {
@@ -136,7 +49,15 @@ export function HeroSection() {
           Markdown. Everything stays on your computer — searchable, portable,
           and yours.
         </p>
-        <CtaPair />
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <CtaPair />
+          <Link
+            className={`inline-flex min-h-12 items-center font-bold text-[#0872b9] underline-offset-4 hover:underline ${focusRing}`}
+            href="/transcripts"
+          >
+            Browse public transcripts →
+          </Link>
+        </div>
         <p className="mt-5 mb-0 flex flex-wrap gap-x-3 gap-y-2 font-mono text-xs text-[#64748b]">
           <span className="text-[#16a34a]" aria-hidden="true">
             ✓

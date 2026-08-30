@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { PublicTranscriptSummary } from "@/lib/publications/queries";
 import {
   CHROME_INSTALL_URL,
@@ -64,7 +65,7 @@ export function ArchiveSection({
             <ul className="mt-8 m-0 list-none p-0">
               {publicItems.map((item) => (
                 <li className="border-t border-[#e2e8f0]" key={item.videoId}>
-                  <a
+                  <Link
                     className={`grid gap-1 py-4 no-underline hover:text-[#0872b9] ${focusRing}`}
                     href={`/transcripts/${item.videoId}`}
                   >
@@ -75,16 +76,16 @@ export function ArchiveSection({
                     <small className="font-mono text-xs text-[#64748b]">
                       {item.publicationUpdatedAt.toISOString().slice(0, 10)}
                     </small>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
-            <a
+            <Link
               className={`mt-6 inline-block font-bold text-[#0872b9] ${focusRing}`}
               href="/transcripts"
             >
               {"View all transcripts ->"}
-            </a>
+            </Link>
           </>
         ) : (
           <div className="mt-8 max-w-190 rounded-2xl border border-[#e2e8f0] bg-[#f7f4ec] p-8 text-[#64748b]">
