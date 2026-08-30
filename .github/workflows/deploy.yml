@@ -100,7 +100,7 @@ jobs:
             GITHUB_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }}
             GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
             GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-            EXTENSION_ORIGINS=chrome-extension://nieojpobkpchdjmijgdgnnllkggijbdh
+            EXTENSION_ORIGINS=chrome-extension://jkopejjjgdkkacabdhgdlploehikphai
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
