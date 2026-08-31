@@ -83,6 +83,12 @@ function createHarness(tasks: BatchTask[]): Harness {
   const deps: ManagerDependencies = {
     sendMessage: sendMessage as unknown as ManagerDependencies["sendMessage"],
     openCloudSignIn: vi.fn(async () => undefined),
+    preferences: {
+      getMarkdownFormat: vi.fn(async () => "timeline" as const),
+      setMarkdownFormat: vi.fn(async () => undefined),
+      getPublicContributionEnabled: vi.fn(async () => false),
+      setPublicContributionEnabled: vi.fn(async () => undefined),
+    },
   };
   return {
     tasks,
@@ -241,6 +247,60 @@ describe("batch manager page (#58)", () => {
     expect(
       screen.getByRole("switch", { name: "Contribute publicly" }),
     ).toBeTruthy();
+  });
+
+  it("loads and updates the same save preferences used by the popup", async () => {
+    const harness = createHarness([]);
+    const preferences = {
+      getMarkdownFormat: vi.fn(async () => "article" as const),
+      setMarkdownFormat: vi.fn(async () => undefined),
+      getPublicContributionEnabled: vi.fn(async () => true),
+      setPublicContributionEnabled: vi.fn(async () => undefined),
+    };
+    harness.deps.preferences = preferences;
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, {
+      status: "signed-in",
+      email: "user@example.com",
+      publicContributionConfirmed: true,
+    });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={createFakeHost({
+          directoryName: "Vault",
+          writePermission: true,
+        })}
+      />,
+    );
+
+    const article = await screen.findByRole("button", { name: "Article" });
+    await waitFor(() =>
+      expect(article.getAttribute("aria-pressed")).toBe("true"),
+    );
+    const publicToggle = screen.getByRole("switch", {
+      name: "Contribute publicly",
+    }) as HTMLInputElement;
+    await waitFor(() => expect(publicToggle.checked).toBe(true));
+
+    screen.getByRole("button", { name: "Timeline" }).click();
+    publicToggle.click();
+
+    await waitFor(() => {
+      expect(preferences.setMarkdownFormat).toHaveBeenCalledWith("timeline");
+      expect(preferences.setPublicContributionEnabled).toHaveBeenCalledWith(
+        false,
+      );
+    });
   });
 
   it("guides a signed-out user through sign-in and first-contribution consent", async () => {
