@@ -161,12 +161,13 @@ function readInitialChannel(
   if (!owner) return null;
 
   const avatarUrl = readOwnerAvatarUrl(owner);
-  const titleRunName = readOwnerName(owner);
-  const dialogName = readOwnerDialogName(owner);
-  const browseId = readOwnerBrowseId(owner);
-  let handle = readOwnerHandle(owner, base);
+  const identity = readOwnerIdentity(owner);
+  const dialog = readOwnerDialogListItem(owner);
+  const titleRunName = readOwnerTitleRunName(owner);
+  const dialogName = dialog === null ? null : dialog.name;
+  let handle = readOwnerHandle(identity, base);
   if (handle !== null) {
-    handle = normalizeHandleByBrowseId(data, handle, browseId);
+    handle = normalizeHandleByBrowseId(data, handle, identity.browseId);
   }
   if (titleRunName === null && dialogName === null && handle === null) {
     return avatarUrl
@@ -178,6 +179,36 @@ function readInitialChannel(
     dialogName,
     handle,
     ...(avatarUrl ? { avatarUrl } : {}),
+  };
+}
+
+/** Channel identity read from the owner renderer's navigation endpoints. */
+interface OwnerIdentity {
+  /** The first title run's browseEndpoint, when present (primary source). */
+  titleRunEndpoint: Record<string, unknown> | null;
+  /** The share-dialog list item's browseEndpoint, when present (fallback). */
+  dialogEndpoint: Record<string, unknown> | null;
+  /** The browseId (stable UC… identity) either endpoint carries, if any. */
+  browseId: string | null;
+}
+
+/**
+ * Reads the browseEndpoints that carry the owner's identity: the title
+ * runs' endpoint is the primary source in every observed variant, the
+ * dialog item's is the fallback (older variants). Both handle and browseId
+ * come from the same two endpoints (#100).
+ */
+function readOwnerIdentity(
+  owner: Record<string, unknown> | null,
+): OwnerIdentity {
+  const titleRunEndpoint = readTitleRunEndpoint(owner);
+  const dialogEndpoint = readOwnerDialogListItem(owner)?.endpoint ?? null;
+  return {
+    titleRunEndpoint,
+    dialogEndpoint,
+    browseId:
+      readEndpointBrowseId(titleRunEndpoint) ??
+      readEndpointBrowseId(dialogEndpoint),
   };
 }
 
@@ -244,49 +275,54 @@ function readYtInitialData(doc: Document): Record<string, unknown> | null {
   return null;
 }
 
+/** The browseEndpoint the owner's first title run carries, if any. */
+function readTitleRunEndpoint(
+  owner: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  const titleRuns = asRecord(owner?.title)?.runs;
+  if (!Array.isArray(titleRuns)) return null;
+  const first = asRecord(titleRuns[0]);
+  return asRecord(asRecord(first?.navigationEndpoint)?.browseEndpoint);
+}
+
+/** The browseId an endpoint carries, when non-empty. */
+function readEndpointBrowseId(
+  endpoint: Record<string, unknown> | null,
+): string | null {
+  const id = endpoint?.browseId;
+  return typeof id === "string" && id !== "" ? id : null;
+}
+
+/** The handle (canonicalBaseUrl) an endpoint carries, if it normalizes. */
+function readEndpointHandle(
+  endpoint: Record<string, unknown> | null,
+  base: string,
+): string | null {
+  if (typeof endpoint?.canonicalBaseUrl === "string") {
+    const handle = normalizeChannelHandle(endpoint.canonicalBaseUrl, base);
+    if (handle) return handle;
+  }
+  return null;
+}
+
 /**
  * The handle path the owner's own endpoint gives: title runs carry the
  * channel's preferred `@handle` form in every observed variant, while the
  * dialog path may yield the raw `channel/UC…` form (#100).
  */
-function readOwnerHandle(
-  owner: Record<string, unknown> | null,
-  base: string,
-): string | null {
-  const titleRuns = asRecord(owner?.title)?.runs;
-  if (Array.isArray(titleRuns)) {
-    const first = asRecord(titleRuns[0]);
-    const endpoint = asRecord(
-      asRecord(first?.navigationEndpoint)?.browseEndpoint,
-    );
-    if (typeof endpoint?.canonicalBaseUrl === "string") {
-      const handle = normalizeChannelHandle(endpoint.canonicalBaseUrl, base);
-      if (handle) return handle;
-    }
-  }
-
-  // Dialog fallback: the share-sheet list item (older variants).
-  const dialog = readOwnerDialogListItem(owner);
-  if (dialog) {
-    const endpoint = asRecord(
-      asRecord(
-        asRecord(asRecord(dialog.commandRuns[0])?.onTap)?.innertubeCommand,
-      )?.browseEndpoint,
-    );
-    if (typeof endpoint?.canonicalBaseUrl === "string") {
-      const handle = normalizeChannelHandle(endpoint.canonicalBaseUrl, base);
-      if (handle) return handle;
-    }
-  }
-  return null;
-}
-
-interface OwnerDialogListItem {
-  name: string | null;
-  commandRuns: unknown[];
+function readOwnerHandle(identity: OwnerIdentity, base: string): string | null {
+  return (
+    readEndpointHandle(identity.titleRunEndpoint, base) ??
+    readEndpointHandle(identity.dialogEndpoint, base)
+  );
 }
 
 /** The share-dialog list item (older variants), if the owner opens one. */
+interface OwnerDialogListItem {
+  name: string | null;
+  endpoint: Record<string, unknown> | null;
+}
+
 function readOwnerDialogListItem(
   owner: Record<string, unknown> | null,
 ): OwnerDialogListItem | null {
@@ -313,53 +349,25 @@ function readOwnerDialogListItem(
         typeof content === "string" && content.trim() !== ""
           ? sanitizeText(content)
           : null,
-      commandRuns,
+      endpoint: asRecord(
+        asRecord(asRecord(asRecord(commandRuns[0])?.onTap)?.innertubeCommand)
+          ?.browseEndpoint,
+      ),
     };
   }
   return null;
 }
 
-/** The dialog list item's title, spelled out (older variants). */
-function readOwnerDialogName(
+/** The channel name as the owner's title runs spell it. */
+function readOwnerTitleRunName(
   owner: Record<string, unknown> | null,
 ): string | null {
-  const dialog = readOwnerDialogListItem(owner);
-  return dialog === null ? null : dialog.name;
-}
-
-/** The channel name as the owner's title runs spell it. */
-function readOwnerName(owner: Record<string, unknown> | null): string | null {
   const runs = asRecord(owner?.title)?.runs;
   if (!Array.isArray(runs)) return null;
   const text = asRecord(runs[0])?.text;
   return typeof text === "string" && text.trim() !== ""
     ? sanitizeText(text)
     : null;
-}
-
-/** The browseId (stable UC… identity) the owner endpoint carries, if any. */
-function readOwnerBrowseId(
-  owner: Record<string, unknown> | null,
-): string | null {
-  const titleRuns = asRecord(owner?.title)?.runs;
-  if (Array.isArray(titleRuns)) {
-    const endpoint = asRecord(
-      asRecord(asRecord(titleRuns[0])?.navigationEndpoint)?.browseEndpoint,
-    );
-    const id = endpoint?.browseId;
-    if (typeof id === "string" && id !== "") return id;
-  }
-  const dialog = readOwnerDialogListItem(owner);
-  if (dialog) {
-    const endpoint = asRecord(
-      asRecord(
-        asRecord(asRecord(dialog.commandRuns[0])?.onTap)?.innertubeCommand,
-      )?.browseEndpoint,
-    );
-    const id = endpoint?.browseId;
-    if (typeof id === "string" && id !== "") return id;
-  }
-  return null;
 }
 
 /**
