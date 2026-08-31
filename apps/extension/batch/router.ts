@@ -92,14 +92,17 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
           return {
             ok: false,
             message:
-              "Sign in to Transcriptly from the popup before contributing publicly.",
+              "Sign in to Transcriptly in batch setup before contributing publicly.",
           };
         }
-        if (!session.publicContributionConfirmed) {
+        if (
+          !session.publicContributionConfirmed &&
+          message.confirmPublicProfile !== true
+        ) {
           return {
             ok: false,
             message:
-              "Confirm the public disclosure in the popup before adding it to a batch.",
+              "Confirm the public disclosure before adding it to a batch.",
           };
         }
       }
@@ -122,6 +125,9 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
         markdownFormat: normalizeMarkdownFormat(message.markdownFormat),
         localReceipts,
         cloudReceipts,
+        publicProfileConfirmationPending:
+          destinations.includes("cloud") &&
+          message.confirmPublicProfile === true,
       });
       if (message.draftId) await deps.drafts.delete(message.draftId);
       void deps.executor.wake();

@@ -46,6 +46,8 @@ export interface ManagerLocalSaveHost {
    * for both the permission prompt and the folder picker).
    */
   grantAccess(): Promise<"granted" | "denied" | "no-directory">;
+  /** Always opens the directory picker, even when the current grant is valid. */
+  changeDirectory(): Promise<"changed" | "cancelled">;
 }
 
 export interface ManagerLocalSaveHostOptions {
@@ -191,6 +193,16 @@ export function mountManagerLocalSaveHost(
       const granted = await saver.requestWritePermission();
       setStatus(directoryName, granted);
       return granted ? "granted" : "denied";
+    },
+    async changeDirectory() {
+      const saver = await getSaver();
+      try {
+        const directoryName = await saver.changeDirectory();
+        setStatus(directoryName, true);
+        return "changed";
+      } catch {
+        return "cancelled";
+      }
     },
   };
 }

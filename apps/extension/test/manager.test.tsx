@@ -82,6 +82,7 @@ function createHarness(tasks: BatchTask[]): Harness {
   });
   const deps: ManagerDependencies = {
     sendMessage: sendMessage as unknown as ManagerDependencies["sendMessage"],
+    openCloudSignIn: vi.fn(async () => undefined),
   };
   return {
     tasks,
@@ -129,6 +130,11 @@ function createFakeHost(
       for (const listener of listeners) listener();
       return "granted";
     }),
+    changeDirectory: vi.fn(async (): Promise<"changed"> => {
+      current = { directoryName: "New Vault", writePermission: true };
+      for (const listener of listeners) listener();
+      return "changed";
+    }),
   };
   return host;
 }
@@ -169,7 +175,12 @@ describe("batch manager page (#58)", () => {
     );
 
     expect(await screen.findByText("1 video selected")).toBeTruthy();
-    expect(screen.queryByText("Public archive")).toBeNull();
+    expect(screen.getByText("Public archive")).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Sign in to contribute publicly",
+      }),
+    ).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "Start batch" }) as HTMLButtonElement)
         .disabled,
@@ -227,6 +238,97 @@ describe("batch manager page (#58)", () => {
     );
 
     expect(await screen.findByText("Public archive")).toBeTruthy();
+    expect(
+      screen.getByRole("switch", { name: "Contribute publicly" }),
+    ).toBeTruthy();
+  });
+
+  it("guides a signed-out user through sign-in and first-contribution consent", async () => {
+    const harness = createHarness([]);
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, { status: "signed-out" });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={createFakeHost({
+          directoryName: "Vault",
+          writePermission: true,
+        })}
+      />,
+    );
+
+    const signIn = await screen.findByRole("button", {
+      name: "Sign in to contribute publicly",
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, {
+      status: "signed-in",
+      email: "new@example.com",
+      displayName: "New User",
+      publicContributionConfirmed: false,
+    });
+    signIn.click();
+
+    await waitFor(() =>
+      expect(harness.deps.openCloudSignIn).toHaveBeenCalled(),
+    );
+    const publicToggle = await screen.findByRole("switch", {
+      name: "Contribute publicly",
+    });
+    publicToggle.click();
+    const confirmation = screen.getByRole("checkbox", {
+      name: "I understand these contributions will be public",
+    });
+    confirmation.click();
+    screen.getByRole("button", { name: "Start batch" }).click();
+
+    await waitFor(() =>
+      expect(harness.sent).toContainEqual(
+        expect.objectContaining({
+          type: BATCH_START,
+          destinations: ["local", "cloud"],
+          confirmPublicProfile: true,
+        }),
+      ),
+    );
+  });
+
+  it("changes an already-authorized local folder", async () => {
+    const harness = createHarness([]);
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, { status: "signed-out" });
+    const host = createFakeHost({
+      directoryName: "Vault",
+      writePermission: true,
+    });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={host}
+      />,
+    );
+
+    await screen.findByText("Vault");
+    screen.getByRole("button", { name: "Change" }).click();
+    await waitFor(() => expect(host.changeDirectory).toHaveBeenCalled());
+    expect(await screen.findByText("New Vault")).toBeTruthy();
   });
 
   it("requires re-granting an expired folder before starting", async () => {
@@ -255,9 +357,7 @@ describe("batch manager page (#58)", () => {
     expect(
       await screen.findByText("Folder access is required before starting."),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Grant folder access" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Grant access" })).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "Start batch" }) as HTMLButtonElement)
         .disabled,

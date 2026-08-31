@@ -37,6 +37,7 @@ const directory: LocalDirectoryHandle = {
 function createHarness(
   options: {
     signedIn?: boolean;
+    publicContributionConfirmed?: boolean;
     directory?: LocalDirectoryHandle;
     localReceipts?: { videoId: string; directoryName: string }[];
     cloudSavedVideoIds?: string[];
@@ -111,7 +112,8 @@ function createHarness(
         ? {
             status: "signed-in",
             email: "user@example.com",
-            publicContributionConfirmed: true,
+            publicContributionConfirmed:
+              options.publicContributionConfirmed ?? true,
           }
         : { status: "signed-out" },
     openManager,
@@ -176,6 +178,25 @@ describe("batch message router", () => {
     expect(result).toMatchObject({ ok: false });
     expect(await store.list()).toEqual([]);
     expect(executor.wake).not.toHaveBeenCalled();
+  });
+
+  it("accepts explicit first-contribution disclosure from Manager setup", async () => {
+    const { router, store } = createHarness({
+      signedIn: true,
+      publicContributionConfirmed: false,
+    });
+
+    const result = await router.handle({
+      type: "transcriptly:batch-start",
+      videos,
+      destinations: ["cloud"],
+      confirmPublicProfile: true,
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    expect((await store.list())[0]?.publicProfileConfirmationPending).toBe(
+      true,
+    );
   });
 
   it("rejects a local destination without a saved folder", async () => {

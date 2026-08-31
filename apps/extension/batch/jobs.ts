@@ -72,6 +72,8 @@ export interface BatchTask {
   destinations: BatchDestination[];
   /** Fixed when the batch starts so every Local item uses one format. */
   markdownFormat?: MarkdownFormat;
+  /** Consumed when the first Cloud Job is durably enqueued. */
+  publicProfileConfirmationPending?: boolean;
   items: BatchItem[];
   state: "queued" | "running" | "paused" | "completed" | "stopped";
   /** Why a `paused` task is paused; absent on records from before #59. */
@@ -88,6 +90,7 @@ export interface BatchJobStore {
       markdownFormat?: MarkdownFormat;
       localReceipts?: LocalSaveReceipt[];
       cloudReceipts?: CloudReceipt[];
+      publicProfileConfirmationPending?: boolean;
       now?: number;
       newId?: () => string;
     },
@@ -177,6 +180,9 @@ export function createBatchJobStore(
         id: (createOptions.newId ?? newId)(),
         destinations,
         markdownFormat: createOptions.markdownFormat ?? "timeline",
+        ...(createOptions.publicProfileConfirmationPending
+          ? { publicProfileConfirmationPending: true }
+          : {}),
         items: videos.map((video) => {
           const localReceipt = localByVideo.get(video.videoId);
           const cloudReceipt = cloudByVideo.get(video.videoId);

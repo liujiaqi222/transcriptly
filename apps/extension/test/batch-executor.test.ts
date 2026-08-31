@@ -1,6 +1,6 @@
 import type { Capture } from "@transcriptly/schema";
 import { IDBFactory } from "fake-indexeddb";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   type BatchExecutorDependencies,
   createBatchExecutor,
@@ -235,6 +235,45 @@ describe("batch executor", () => {
       cloud: "saved",
     });
     expect(finished?.items[1]).toMatchObject({ local: "saved" });
+  });
+
+  it("carries first-contribution disclosure on only the first Cloud Job", async () => {
+    const enqueueCloud = vi.fn(
+      async (
+        capture: Capture,
+        _options?: { confirmPublicProfile?: boolean },
+      ) => ({
+        jobId: `job-${capture.source.videoId}`,
+      }),
+    );
+    const { store, executor, cloudJobs } = createHarness({
+      enqueueCloud: async (capture, options) => {
+        const result = await enqueueCloud(capture, options);
+        cloudJobs.set(result.jobId, {
+          state: "saved",
+          receipt: makeCloudReceipt(capture.source.videoId),
+        });
+        return result;
+      },
+    });
+    const task = await store.create(videos, {
+      destinations: ["cloud"],
+      publicProfileConfirmationPending: true,
+    });
+
+    await executor.wake();
+
+    expect(enqueueCloud).toHaveBeenNthCalledWith(1, expect.anything(), {
+      confirmPublicProfile: true,
+    });
+    expect(enqueueCloud).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      undefined,
+    );
+    expect((await store.get(task.id))?.publicProfileConfirmationPending).toBe(
+      undefined,
+    );
   });
 
   it("fails only cloud when the enqueue rejects", async () => {

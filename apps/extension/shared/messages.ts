@@ -98,6 +98,8 @@ export interface BatchStartMessage {
   markdownFormat?: import("@transcriptly/capture").MarkdownFormat;
   /** Manager setup draft consumed after the task is created. */
   draftId?: string;
+  /** First public contribution carries the user's one-time disclosure. */
+  confirmPublicProfile?: boolean;
 }
 
 export type BatchStartStatus =
