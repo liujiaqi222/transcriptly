@@ -24,6 +24,7 @@ export interface SelectionModel {
   setChecked(videoId: string, checked: boolean): void;
   /** Selected videos in selection order, for BATCH_START. */
   checkedVideos(): BatchVideo[];
+  selectedCount(): number;
   /** Checks every currently loaded video in page order. */
   selectAll(): void;
   clearSelection(): void;
@@ -67,6 +68,9 @@ export function createSelectionModel(): SelectionModel {
       return [...selectedVideoIds]
         .map((videoId) => knownVideos.get(videoId))
         .filter((video): video is BatchVideo => Boolean(video));
+    },
+    selectedCount() {
+      return selectedVideoIds.size;
     },
     selectAll() {
       for (const video of knownVideos.values()) {

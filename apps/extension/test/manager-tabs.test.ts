@@ -110,6 +110,21 @@ describe("manager tab coordinator (#59)", () => {
     expect(createCount()).toBe(1);
   });
 
+  it("opens a selection draft in the Manager setup view", async () => {
+    const { api } = createTabs([{ id: 7, url: MANAGER_URL, active: false }]);
+    const coordinator = createManagerTabCoordinator({
+      tabs: api,
+      managerUrl: MANAGER_URL,
+    });
+
+    await coordinator.openSetup("draft-1");
+
+    expect(api.update).toHaveBeenCalledWith(7, {
+      url: `${MANAGER_URL}?setup=draft-1`,
+    });
+    expect(api.update).toHaveBeenCalledWith(7, { active: true });
+  });
+
   it("ensureOpen does not focus or re-navigate the tab (save-host use)", async () => {
     const { api, createCount } = createTabs([
       { id: 7, url: `${MANAGER_URL}?task=task-2`, active: false },

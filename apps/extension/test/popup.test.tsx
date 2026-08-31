@@ -414,7 +414,7 @@ describe("popup capture flow", () => {
     expect(harness.deps.enterBatchSelection).not.toHaveBeenCalled();
   });
 
-  it("warns on batch pages when folder access expired", async () => {
+  it("keeps folder permission out of the batch selection entry", async () => {
     const directory = new MemoryDirectory("Notes");
     directory.permission = "prompt";
     const harness = createHarness({
@@ -422,7 +422,9 @@ describe("popup capture flow", () => {
       rememberedDirectory: directory,
     });
     render(<Popup deps={harness.deps} />);
-    expect(await screen.findByText(/Write access is not active/)).toBeTruthy();
+    await screen.findByRole("button", { name: "Select videos on this page" });
+    expect(screen.queryByText(/Write access is not active/)).toBeNull();
+    expect(screen.queryByText(/Save to:/)).toBeNull();
   });
 
   it("enters selection mode on demand from a batch page and closes the popup", async () => {

@@ -1,3 +1,4 @@
+import { createBatchDraftStore } from "@/batch/drafts";
 import { createBatchExecutor } from "@/batch/executor";
 import { createBatchJobStore } from "@/batch/jobs";
 import { createLocalSaveClient } from "@/batch/local-save-client";
@@ -47,6 +48,15 @@ export default defineBackground({
     });
     const router = createCloudMessageRouter({ client: cloudClient, queue });
     const batchStore = createBatchJobStore();
+    const draftStore = createBatchDraftStore({
+      keys: async () => Object.keys(await browser.storage.local.get(null)),
+      get: async (key) => (await browser.storage.local.get(key))[key],
+      set: (key, value) => browser.storage.local.set({ [key]: value }),
+      remove: (key) => browser.storage.local.remove(key),
+    });
+    // Sweep drafts abandoned by a previous session right away; every
+    // later create() sweeps again (#102 review).
+    void draftStore.sweepExpired();
     const directoryStore = createIndexedDbDirectoryStore();
     const receiptStore = createIndexedDbLocalReceiptStore();
 
@@ -103,6 +113,7 @@ export default defineBackground({
 
     const batchRouter = createBatchMessageRouter({
       store: batchStore,
+      drafts: draftStore,
       executor,
       getSavedDirectory: () => directoryStore.get(),
       getLocalReceipts: (directoryName?: string) =>
@@ -111,6 +122,9 @@ export default defineBackground({
       getCloudSession: () => cloudClient.getSession(),
       openManager: async (taskId: string) => {
         await managerTabs.open(taskId);
+      },
+      openSetup: async (draftId: string) => {
+        await managerTabs.openSetup(draftId);
       },
     });
 

@@ -6,12 +6,9 @@ import {
 } from "../batch/selection/page-ui";
 import {
   BATCH_LOOKUP_REQUEST,
-  BATCH_OPEN_MANAGER,
-  BATCH_START,
+  BATCH_PREPARE,
   type BatchLookupResult,
-  type BatchStartStatus,
-  CLOUD_SESSION_REQUEST,
-  type CloudSessionStatus,
+  type BatchPrepareStatus,
 } from "../shared/messages";
 
 const CHANNEL_VIDEOS_PATH = "/@eoglobal/videos";
@@ -44,10 +41,7 @@ function manyVideoAnchors(count: number): string {
 }
 
 interface RuntimeOptions {
-  session?: CloudSessionStatus;
-  cloudPreference?: boolean;
-  markdownFormat?: "timeline" | "article";
-  startStatus?: BatchStartStatus;
+  startStatus?: BatchPrepareStatus;
   saved?: Record<string, { local: boolean; cloud: boolean }>;
 }
 
@@ -62,8 +56,6 @@ function createRuntime(options: RuntimeOptions = {}) {
     }): Promise<T> => {
       sent.push(message);
       switch (message.type) {
-        case CLOUD_SESSION_REQUEST:
-          return (options.session ?? { status: "signed-out" }) as T;
         case BATCH_LOOKUP_REQUEST: {
           const result: BatchLookupResult = {
             videos: (message.videoIds ?? []).map((videoId) => ({
@@ -74,14 +66,11 @@ function createRuntime(options: RuntimeOptions = {}) {
           };
           return result as T;
         }
-        case BATCH_START:
+        case BATCH_PREPARE:
           return (options.startStatus ?? {
             ok: true,
-            taskId: "task-1",
+            draftId: "draft-1",
           }) as T;
-        case BATCH_OPEN_MANAGER:
-          if (message.taskId) managerTabs.push(message.taskId);
-          return { ok: true } as T;
         default:
           return { ok: true } as T;
       }
@@ -93,8 +82,6 @@ function createRuntime(options: RuntimeOptions = {}) {
     callCount(): number;
   } = {
     sendMessage: sendMessage as BatchPageRuntime["sendMessage"],
-    getCloudPreference: async () => options.cloudPreference ?? false,
-    getMarkdownFormat: async () => options.markdownFormat ?? "timeline",
     sent,
     managerTabs,
     callCount: () => sendMessage.mock.calls.length,
@@ -156,11 +143,9 @@ async function mount(
   document.body.innerHTML = html;
   navigateTo(CHANNEL_VIDEOS_PATH);
   await enterBatchSelectionMode(runtime);
-  // Let the async defaults (session, badges) settle.
   await vi.waitFor(() => {
-    if (runtime.callCount() === 0) {
-      throw new Error("runtime not contacted");
-    }
+    if (!document.getElementById("transcriptly-batch-panel"))
+      throw new Error("selection panel not mounted");
   });
 }
 
@@ -196,35 +181,12 @@ describe("batch page panel", () => {
     );
   });
 
-  it("disables the Cloud destination for signed-out users", async () => {
-    const runtime = createRuntime({ session: { status: "signed-out" } });
+  it("does not render save destinations or public contribution controls", async () => {
+    const runtime = createRuntime();
     await mount(runtime);
-
-    const cloud = document.querySelector<HTMLInputElement>(
-      '[data-destination="cloud"]',
-    );
-    expect(cloud?.disabled).toBe(true);
-    expect(cloud?.checked).toBe(false);
-    const hint = document.querySelector("[data-cloud-hint]");
-    expect(hint?.textContent).toContain("Sign in");
-  });
-
-  it("checks Cloud by default for signed-in users with the preference on", async () => {
-    const runtime = createRuntime({
-      session: {
-        status: "signed-in",
-        email: "user@example.com",
-        publicContributionConfirmed: true,
-      },
-      cloudPreference: true,
-    });
-    await mount(runtime);
-
-    const cloud = document.querySelector<HTMLInputElement>(
-      '[data-destination="cloud"]',
-    );
-    expect(cloud?.disabled).toBe(false);
-    expect(cloud?.checked).toBe(true);
+    expect(document.querySelector('[data-destination="local"]')).toBeNull();
+    expect(document.querySelector('[data-destination="cloud"]')).toBeNull();
+    expect(document.body.textContent).not.toContain("Public archive");
   });
 
   it("does not distinguish previously saved videos in selection mode", async () => {
@@ -250,33 +212,31 @@ describe("batch page panel", () => {
     );
   });
 
-  it("requires videos and a destination before starting", async () => {
+  it("requires videos before continuing", async () => {
     const runtime = createRuntime();
     await mount(runtime);
 
-    clickAction("start");
-
-    expect(toastText()).toContain("Select videos");
+    const start = document.querySelector<HTMLButtonElement>(
+      '[data-action="start"]',
+    );
+    expect(start?.disabled).toBe(true);
     expect(
       runtime.sent.some(
-        (message) => (message as { type: string }).type === BATCH_START,
+        (message) => (message as { type: string }).type === BATCH_PREPARE,
       ),
     ).toBe(false);
   });
 
-  it("starts a batch, opens the manager page and resets the toolbar (#58)", async () => {
-    const runtime = createRuntime({
-      session: {
-        status: "signed-in",
-        email: "user@example.com",
-        publicContributionConfirmed: true,
-      },
-      cloudPreference: false,
-      markdownFormat: "article",
-    });
+  it("continues to Manager setup with the selection and resets the toolbar", async () => {
+    const runtime = createRuntime();
     await mount(runtime);
 
     selectFirstVideo();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('[data-action="start"] span')?.textContent,
+      ).toBe("Continue with 1 video");
+    });
     clickAction("start");
 
     const start = await vi.waitFor(() => {
@@ -286,31 +246,19 @@ describe("batch page panel", () => {
         ): message is {
           type: string;
           videos: unknown[];
-          destinations: string[];
-          markdownFormat: string;
-        } => (message as { type: string }).type === BATCH_START,
+        } => (message as { type: string }).type === BATCH_PREPARE,
       );
       if (!message) throw new Error("start message missing");
       return message;
     });
     expect(start.videos).toHaveLength(1);
-    expect(start.destinations).toEqual(["local"]);
-    expect(start.markdownFormat).toBe("article");
-
-    await vi.waitFor(() => {
-      expect(runtime.managerTabs).toEqual(["task-1"]);
-    });
-    expect(runtime.sent).toContainEqual({
-      type: BATCH_OPEN_MANAGER,
-      taskId: "task-1",
-    });
     // The task view moved to the manager page: the overlay keeps only
     // the selection toolbar, reset and ready for the next batch.
     expect(document.querySelector(".task-view")).toBeNull();
     expect(
       document.querySelector<HTMLButtonElement>('[data-action="start"]')
         ?.disabled,
-    ).toBe(false);
+    ).toBe(true);
     await vi.waitFor(() => {
       expect(counterText()).toBe("0 selected");
     });
@@ -347,7 +295,7 @@ describe("batch page panel", () => {
 
     await vi.waitFor(() => {
       expect(runtime.sent).toContainEqual({
-        type: BATCH_START,
+        type: BATCH_PREPARE,
         videos: [
           {
             videoId: "abc12345678",
@@ -355,8 +303,6 @@ describe("batch page panel", () => {
             title: "Bailey video",
           },
         ],
-        destinations: ["local"],
-        markdownFormat: "timeline",
       });
     });
   });
@@ -408,7 +354,7 @@ describe("batch page panel", () => {
 
     await vi.waitFor(() => {
       const start = runtime.sent.find(
-        (message) => (message as { type?: string }).type === BATCH_START,
+        (message) => (message as { type?: string }).type === BATCH_PREPARE,
       ) as { videos: { videoId: string }[] } | undefined;
       expect(start?.videos.map((video) => video.videoId)).toEqual([
         "hub12345678",
@@ -428,7 +374,7 @@ describe("batch page panel", () => {
 
   it("keeps the selection when the start request fails", async () => {
     const runtime = createRuntime({
-      startStatus: { ok: false, message: "Choose a local save folder first." },
+      startStatus: { ok: false, message: "Could not open batch setup." },
     });
     await mount(runtime);
 
@@ -436,7 +382,7 @@ describe("batch page panel", () => {
     clickAction("start");
 
     await vi.waitFor(() => {
-      expect(toastText()).toContain("folder");
+      expect(toastText()).toContain("setup");
     });
     expect(counterText()).toBe("1 selected · ~1 min");
     expect(runtime.managerTabs).toEqual([]);
@@ -542,7 +488,7 @@ describe("selection toolbar (#57)", () => {
 
     await vi.waitFor(() => {
       const start = runtime.sent.find(
-        (message) => (message as { type?: string }).type === BATCH_START,
+        (message) => (message as { type?: string }).type === BATCH_PREPARE,
       ) as { videos: { videoId: string }[] } | undefined;
       expect(start?.videos).toHaveLength(120);
     });
@@ -612,14 +558,17 @@ describe("selection toolbar (#57)", () => {
 
 describe("toast (#57)", () => {
   it("auto-dismisses after 3 seconds, keeping only the latest message", async () => {
-    const runtime = createRuntime();
+    const runtime = createRuntime({
+      startStatus: { ok: false, message: "Could not open setup." },
+    });
     await mount(runtime);
+    selectFirstVideo();
     vi.useFakeTimers();
 
     clickAction("start");
-    expect(toastText()).toContain("Select videos");
+    await vi.waitFor(() => expect(toastText()).toContain("setup"));
     clickAction("start");
-    expect(toastText()).toContain("Select videos");
+    await vi.waitFor(() => expect(toastText()).toContain("setup"));
     expect(document.querySelectorAll("#transcriptly-batch-toast")).toHaveLength(
       1,
     );
@@ -807,7 +756,7 @@ describe("selection mode lifecycle (#56)", () => {
 
     await vi.waitFor(() => {
       const start = runtime.sent.find(
-        (message) => (message as { type?: string }).type === BATCH_START,
+        (message) => (message as { type?: string }).type === BATCH_PREPARE,
       ) as { videos: { videoId: string }[] } | undefined;
       expect(start?.videos.map((video) => video.videoId)).toEqual([
         "dan12345678",

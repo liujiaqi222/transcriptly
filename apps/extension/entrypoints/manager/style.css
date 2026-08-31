@@ -114,6 +114,171 @@ h2 {
   text-align: center;
 }
 
+/* Pre-start setup: selection is already complete; this page owns every
+   destination and permission decision before a task exists. */
+.batch-setup {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.setup-heading h2 {
+  margin: 12px 0 4px;
+  color: var(--text);
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+.setup-heading p,
+.setup-option small,
+.folder-status small {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.setup-section {
+  margin: 20px 0 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+fieldset.setup-section {
+  min-width: 0;
+}
+
+.setup-section legend,
+.setup-section h3 {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.setup-section h3:not(:first-child) {
+  margin-top: 20px;
+}
+
+.setup-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.setup-option:hover {
+  background: var(--primary-soft);
+}
+
+.setup-option input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--primary);
+}
+
+.setup-option > svg {
+  margin-top: 2px;
+  color: var(--primary);
+}
+
+.folder-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.folder-status button,
+.start-batch,
+.cancel-setup,
+.format-picker button {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.folder-status button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--primary-text);
+}
+
+.format-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+}
+
+.format-picker button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.format-picker button.is-selected {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.start-batch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 10px 16px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text);
+}
+
+.start-batch:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.folder-status button:disabled,
+.start-batch:disabled {
+  border-color: var(--border);
+  background: #e2e8f0;
+  color: var(--muted);
+  cursor: default;
+}
+
+.cancel-setup {
+  display: block;
+  margin: 8px auto 0;
+  padding: 8px 12px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.cancel-setup:hover:not(:disabled) {
+  background: var(--background);
+  color: var(--text);
+}
+
 /* Loading / empty states */
 
 .empty-state {

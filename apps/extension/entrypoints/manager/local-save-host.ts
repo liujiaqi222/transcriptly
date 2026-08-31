@@ -39,6 +39,8 @@ export interface ManagerLocalSaveHost {
   getStatus(): ManagerLocalSaveHostStatus;
   /** Re-render hook for the UI; returns an unsubscribe. */
   subscribe(listener: () => void): () => void;
+  /** Refresh the remembered folder and current permission for setup UI. */
+  checkAccess(): Promise<ManagerLocalSaveHostStatus>;
   /**
    * Must run inside the grant button's user gesture (Chrome requires it
    * for both the permission prompt and the folder picker).
@@ -168,6 +170,10 @@ export function mountManagerLocalSaveHost(
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    async checkAccess() {
+      await preflight();
+      return status;
     },
     async grantAccess() {
       const saver = await getSaver();

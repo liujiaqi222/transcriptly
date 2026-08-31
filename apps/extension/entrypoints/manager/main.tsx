@@ -23,11 +23,14 @@ if (!rootElement) {
 // `?task=<id>` deep-links to one batch; without it the newest shows (#58).
 const initialTaskId =
   new URLSearchParams(location.search).get("task") ?? undefined;
+const initialDraftId =
+  new URLSearchParams(location.search).get("setup") ?? undefined;
 
 createRoot(rootElement).render(
   <ManagerApp
     deps={dependencies}
     initialTaskId={initialTaskId}
+    initialDraftId={initialDraftId}
     localSaveHost={localSaveHost}
   />,
 );

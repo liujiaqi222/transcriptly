@@ -1,4 +1,13 @@
-import { FolderOpen, LibraryBig, Pause, Play, RotateCw, X } from "lucide-react";
+import type { MarkdownFormat } from "@transcriptly/capture";
+import {
+  FolderOpen,
+  Globe2,
+  LibraryBig,
+  Pause,
+  Play,
+  RotateCw,
+  X,
+} from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -6,6 +15,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type { BatchDraft } from "@/batch/drafts";
 import {
   doneItemCount,
   estimateRemainingSeconds,
@@ -20,17 +30,24 @@ import type {
   ManagerLocalSaveHostStatus,
 } from "@/entrypoints/manager/local-save-host";
 import {
+  BATCH_DRAFT_DELETE,
+  BATCH_DRAFT_REQUEST,
   BATCH_PAUSE,
   BATCH_RESUME,
   BATCH_RETRY_ITEM,
+  BATCH_START,
   BATCH_STATUS_REQUEST,
   BATCH_STOP,
+  type BatchDraftResult,
   type BatchMutationStatus,
+  type BatchStartStatus,
   type BatchStatusResult,
+  CLOUD_SESSION_REQUEST,
+  type CloudSessionStatus,
 } from "@/shared/messages";
 
 /**
- * The batch manager page (#58, #59): everything the 300 px page overlay
+ * The batch manager page (#58, #59, #102): everything the 300 px page overlay
  * used to show now lives here - total progress with a sliding ETA,
  * per-video Local / Cloud results with failure reasons and Retry, Pause /
  * Stop / Resume, and the recent-batches history. `?task=<id>` deep-links
@@ -39,7 +56,8 @@ import {
  * source page and can be re-opened from the popup or the floating
  * capsule.
  *
- * Since #59 the page is also the single batch workbench: it hosts the
+ * Since #102 the page also owns pre-start destination and format setup.
+ * Since #59 it hosts the
  * Local Save Host (folder authorization and Markdown writes), so a
  * paused batch shows the exact reason and its matching action -
  * Continue after a browser restart, Grant folder access & continue for
@@ -366,17 +384,271 @@ function BatchTaskDetail({
   );
 }
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function BatchSetup({
+  draftId,
+  deps,
+  localSaveHost,
+  onStarted,
+  onCancel,
+}: {
+  draftId: string;
+  deps: ManagerDependencies;
+  localSaveHost?: ManagerLocalSaveHost;
+  onStarted(taskId: string): void;
+  onCancel(): void;
+}) {
+  const [draft, setDraft] = useState<BatchDraft>();
+  const [loadError, setLoadError] = useState<string>();
+  const [localEnabled, setLocalEnabled] = useState(true);
+  const [cloudEnabled, setCloudEnabled] = useState(false);
+  const [publicAvailable, setPublicAvailable] = useState(false);
+  const [markdownFormat, setMarkdownFormat] =
+    useState<MarkdownFormat>("timeline");
+  const [granting, setGranting] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [setupError, setSetupError] = useState<string>();
+  const subscribe = useCallback(
+    (onChange: () => void) => localSaveHost?.subscribe(onChange) ?? (() => {}),
+    [localSaveHost],
+  );
+  const getSnapshot = useCallback(
+    () => localSaveHost?.getStatus() ?? NO_LOCAL_HOST,
+    [localSaveHost],
+  );
+  const hostStatus = useSyncExternalStore(subscribe, getSnapshot);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      deps.sendMessage<BatchDraftResult>({
+        type: BATCH_DRAFT_REQUEST,
+        draftId,
+      }),
+      deps
+        .sendMessage<CloudSessionStatus>({ type: CLOUD_SESSION_REQUEST })
+        .catch(() => ({ status: "signed-out" }) as const),
+      localSaveHost?.checkAccess().catch(() => NO_LOCAL_HOST),
+    ])
+      .then(([draftResult, session]) => {
+        if (cancelled) return;
+        if (draftResult.ok) setDraft(draftResult.draft);
+        else setLoadError(draftResult.message);
+        setPublicAvailable(
+          session.status === "signed-in" &&
+            session.publicContributionConfirmed === true,
+        );
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(errorText(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [deps, draftId, localSaveHost]);
+
+  const destinations: BatchDestination[] = [
+    ...(localEnabled ? (["local"] as const) : []),
+    ...(cloudEnabled ? (["cloud"] as const) : []),
+  ];
+  const localReady = !localEnabled || hostStatus.writePermission;
+  const canStart =
+    Boolean(draft) && destinations.length > 0 && localReady && !starting;
+
+  if (loadError) {
+    return (
+      <p className="error-banner" role="alert">
+        {loadError}
+      </p>
+    );
+  }
+  if (!draft) {
+    return (
+      <p className="muted loading" role="status">
+        Loading batch setup…
+      </p>
+    );
+  }
+
+  return (
+    <section className="batch-setup">
+      <div className="setup-heading">
+        <span className="state state-queued">Ready to configure</span>
+        <h2>{`${draft.videos.length} ${
+          draft.videos.length === 1 ? "video" : "videos"
+        } selected`}</h2>
+        <p>Choose where to save them, then start the batch.</p>
+      </div>
+
+      <fieldset className="setup-section">
+        <legend>Save destinations</legend>
+        <label className="setup-option">
+          <input
+            type="checkbox"
+            checked={localEnabled}
+            onChange={(event) => setLocalEnabled(event.target.checked)}
+          />
+          <span>
+            <strong>Local Markdown</strong>
+            <small>Save one file per video to your chosen folder.</small>
+          </span>
+        </label>
+        {publicAvailable && (
+          <label className="setup-option">
+            <input
+              type="checkbox"
+              checked={cloudEnabled}
+              onChange={(event) => setCloudEnabled(event.target.checked)}
+            />
+            <Globe2 />
+            <span>
+              <strong>Public archive</strong>
+              <small>
+                Contribute these transcripts using your confirmed public
+                profile.
+              </small>
+            </span>
+          </label>
+        )}
+      </fieldset>
+
+      {localEnabled && (
+        <div className="setup-section">
+          <h3>Local folder</h3>
+          <div className="folder-status">
+            <span>
+              <strong>
+                {hostStatus.directoryName ?? "No folder selected"}
+              </strong>
+              <small>
+                {hostStatus.writePermission
+                  ? "Folder access is ready."
+                  : hostStatus.directoryName
+                    ? "Folder access is required before starting."
+                    : "Choose where Transcriptly should save the files."}
+              </small>
+            </span>
+            {!hostStatus.writePermission && (
+              <button
+                type="button"
+                disabled={granting || !localSaveHost}
+                onClick={() => {
+                  if (!localSaveHost) return;
+                  setGranting(true);
+                  setSetupError(undefined);
+                  void localSaveHost
+                    .grantAccess()
+                    .then((result) => {
+                      if (result !== "granted")
+                        setSetupError(
+                          result === "denied"
+                            ? "Folder access was not granted."
+                            : "No folder was selected.",
+                        );
+                    })
+                    .catch((error: unknown) => setSetupError(errorText(error)))
+                    .finally(() => setGranting(false));
+                }}
+              >
+                <FolderOpen />
+                {granting
+                  ? "Waiting for Chrome…"
+                  : hostStatus.directoryName
+                    ? "Grant folder access"
+                    : "Choose folder"}
+              </button>
+            )}
+          </div>
+          <h3>Local format</h3>
+          <fieldset className="format-picker" aria-label="Local format">
+            {(["timeline", "article"] as const).map((format) => (
+              <button
+                key={format}
+                type="button"
+                className={markdownFormat === format ? "is-selected" : ""}
+                aria-pressed={markdownFormat === format}
+                onClick={() => setMarkdownFormat(format)}
+              >
+                {format === "timeline" ? "Timeline" : "Article"}
+              </button>
+            ))}
+          </fieldset>
+        </div>
+      )}
+
+      {setupError && (
+        <p className="error-banner" role="alert">
+          {setupError}
+        </p>
+      )}
+      <button
+        type="button"
+        className="start-batch"
+        disabled={!canStart}
+        onClick={() => {
+          if (!canStart) return;
+          setStarting(true);
+          setSetupError(undefined);
+          void deps
+            .sendMessage<BatchStartStatus>({
+              type: BATCH_START,
+              draftId,
+              videos: draft.videos,
+              destinations,
+              markdownFormat,
+            })
+            .then((result) => {
+              if (result.ok) onStarted(result.taskId);
+              else setSetupError(result.message);
+            })
+            .catch((error: unknown) => setSetupError(errorText(error)))
+            .finally(() => setStarting(false));
+        }}
+      >
+        <Play />
+        {starting ? "Starting batch…" : "Start batch"}
+      </button>
+      <button
+        type="button"
+        className="cancel-setup"
+        disabled={starting}
+        onClick={() => {
+          setSetupError(undefined);
+          void deps
+            .sendMessage<BatchMutationStatus>({
+              type: BATCH_DRAFT_DELETE,
+              draftId,
+            })
+            .then((result) => {
+              if (result.ok) onCancel();
+              else setSetupError(result.message);
+            })
+            .catch((error: unknown) => setSetupError(errorText(error)));
+        }}
+      >
+        Cancel setup
+      </button>
+    </section>
+  );
+}
+
 export function ManagerApp({
   deps,
   initialTaskId,
+  initialDraftId,
   localSaveHost,
 }: {
   deps: ManagerDependencies;
   initialTaskId?: string;
+  initialDraftId?: string;
   localSaveHost?: ManagerLocalSaveHost;
 }) {
   const [tasks, setTasks] = useState<BatchTask[] | undefined>();
   const [selectedTaskId, setSelectedTaskId] = useState(initialTaskId);
+  const [draftId, setDraftId] = useState(initialDraftId);
   const [mutationError, setMutationError] = useState<string | undefined>();
 
   const refresh = useCallback(async () => {
@@ -426,11 +698,28 @@ export function ManagerApp({
   );
 
   const handleSelect = useCallback((taskId: string) => {
+    setDraftId(undefined);
     setSelectedTaskId(taskId);
     setMutationError(undefined);
     // Keep the URL shareable / reloadable on the selected batch (#58).
     const url = new URL(location.href);
     url.searchParams.set("task", taskId);
+    history.replaceState(null, "", url);
+  }, []);
+
+  const handleStarted = useCallback((taskId: string) => {
+    setDraftId(undefined);
+    setSelectedTaskId(taskId);
+    const url = new URL(location.href);
+    url.searchParams.delete("setup");
+    url.searchParams.set("task", taskId);
+    history.replaceState(null, "", url);
+  }, []);
+
+  const handleCancelSetup = useCallback(() => {
+    setDraftId(undefined);
+    const url = new URL(location.href);
+    url.searchParams.delete("setup");
     history.replaceState(null, "", url);
   }, []);
 
@@ -452,13 +741,22 @@ export function ManagerApp({
         </div>
       </header>
       <main className="manager">
-        {tasks === undefined && (
+        {draftId && (
+          <BatchSetup
+            draftId={draftId}
+            deps={deps}
+            localSaveHost={localSaveHost}
+            onStarted={handleStarted}
+            onCancel={handleCancelSetup}
+          />
+        )}
+        {!draftId && tasks === undefined && (
           <p className="muted loading" role="status">
             Loading batches…
           </p>
         )}
 
-        {tasks !== undefined && tasks.length === 0 && (
+        {!draftId && tasks !== undefined && tasks.length === 0 && (
           <section className="empty-state">
             <div className="state-icon">
               <LibraryBig />
@@ -479,7 +777,7 @@ export function ManagerApp({
             </p>
           )}
 
-        {shown && (
+        {!draftId && shown && (
           <BatchTaskDetail
             task={shown}
             mutationError={mutationError}
@@ -488,7 +786,7 @@ export function ManagerApp({
           />
         )}
 
-        {tasks !== undefined && tasks.length > 0 && (
+        {!draftId && tasks !== undefined && tasks.length > 0 && (
           <section className="history">
             <h2>Recent batches</h2>
             <ul>

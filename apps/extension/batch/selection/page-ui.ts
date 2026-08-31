@@ -1,4 +1,3 @@
-import type { MarkdownFormat } from "@transcriptly/capture";
 import { isBatchSourceUrl } from "@/batch/selection/discovery";
 import { createCardLayer } from "@/batch/selection/selection-cards";
 import { createSelectionModel } from "@/batch/selection/selection-model";
@@ -8,17 +7,9 @@ import {
   isYouTubeWatchUrl,
 } from "@/entrypoints/popup/utils/youtube";
 import {
-  MARKDOWN_FORMAT_PREFERENCE_KEY,
-  normalizeMarkdownFormat,
-} from "@/markdown-format";
-import {
-  BATCH_OPEN_MANAGER,
-  BATCH_START,
+  BATCH_PREPARE,
   type BatchEnterSelectionStatus,
-  type BatchMutationStatus,
-  type BatchStartStatus,
-  CLOUD_SESSION_REQUEST,
-  type CloudSessionStatus,
+  type BatchPrepareStatus,
 } from "@/shared/messages";
 
 /**
@@ -27,7 +18,7 @@ import {
  * Entered only when the popup asks - never auto-injected. The select view
  * is a compact floating toolbar (#57): a live selected-count / ETA counter,
  * Load more (explicit auto-scroll, capped at 10 s per click), Select
- * all / Clear, per-task destination pickers and Start. Per-card checkboxes
+ * all / Clear and Continue. Per-card checkboxes
  * ride a ~40 px hit zone whose capture-phase click handler never lets the
  * click reach the card's navigation. Transient messages surface as a
  * bottom-center toast (3 s, latest only) - persistent info (count, ETA and
@@ -39,9 +30,9 @@ import {
  * entry guards, Load more, the Start flow, cloud gating and the SPA
  * lifecycle.
  *
- * Progress, per-item results, controls and history live on the manager
- * page (#58): Start opens it on the new task and resets the toolbar so
- * another batch can be queued right away. On batch source pages the
+ * Destination setup, folder access, progress, results and history live on
+ * the manager page (#58, #102): Continue persists a selection draft and
+ * opens setup without creating a task. On batch source pages the
  * floating capsule (batch/capsule.ts) links back to the manager while a
  * batch runs.
  *
@@ -52,29 +43,16 @@ import {
  * re-injects the checkboxes over the re-rendered feed.
  */
 
-const CLOUD_PREFERENCE_KEY = "cloud-save-enabled";
 const LOAD_MORE_TIMEOUT_MS = 10_000;
 const LOAD_MORE_SCROLL_INTERVAL_MS = 400;
 
 export interface BatchPageRuntime {
   sendMessage<T = unknown>(message: unknown): Promise<T>;
-  getCloudPreference(): Promise<boolean>;
-  getMarkdownFormat?(): Promise<MarkdownFormat>;
 }
 
 function defaultRuntime(): BatchPageRuntime {
   return {
     sendMessage: (message) => browser.runtime.sendMessage(message),
-    getCloudPreference: async () => {
-      const stored = await browser.storage.local.get(CLOUD_PREFERENCE_KEY);
-      return stored[CLOUD_PREFERENCE_KEY] === true;
-    },
-    getMarkdownFormat: async () => {
-      const stored = await browser.storage.local.get(
-        MARKDOWN_FORMAT_PREFERENCE_KEY,
-      );
-      return normalizeMarkdownFormat(stored[MARKDOWN_FORMAT_PREFERENCE_KEY]);
-    },
   };
 }
 
@@ -143,7 +121,7 @@ export async function enterBatchSelectionMode(
       model.clearSelection();
       updateToolbar();
     },
-    onStart: () => void startBatch(),
+    onStart: () => void continueToSetup(),
   });
 
   const cards = createCardLayer({
@@ -153,6 +131,7 @@ export async function enterBatchSelectionMode(
 
   function updateToolbar() {
     panel.setCounter(model.counterText());
+    panel.setSelectedCount(model.selectedCount());
     cards.sync();
     updateLoadMoreButton();
   }
@@ -215,42 +194,22 @@ export async function enterBatchSelectionMode(
     panel.setLoadMore(loadMoreActive(), model.videoIds().length);
   }
 
-  // --- start -------------------------------------------------------------
-  async function startBatch() {
+  // --- continue to Manager setup ----------------------------------------
+  async function continueToSetup() {
     const videos = model.checkedVideos();
-    const destinations = panel.checkedDestinations();
-    if (videos.length === 0 || destinations.length === 0) {
-      panel.showToast("Select videos and at least one destination.");
+    if (videos.length === 0) {
+      panel.showToast("Select at least one video.");
       return;
     }
     panel.setStarting(true);
     try {
-      const markdownFormat = runtime.getMarkdownFormat
-        ? await runtime.getMarkdownFormat().catch(() => "timeline" as const)
-        : "timeline";
-      const result = await runtime.sendMessage<BatchStartStatus>({
-        type: BATCH_START,
+      const result = await runtime.sendMessage<BatchPrepareStatus>({
+        type: BATCH_PREPARE,
         videos,
-        destinations,
-        markdownFormat,
       });
       if (!result.ok) {
         panel.showToast(result.message);
         return;
-      }
-      // #58: Start jumps to the batch manager page, which now owns
-      // progress, results, controls and history. The toolbar resets
-      // so the next batch can be queued right away. The background
-      // worker opens the manager tab (tabs.create, #874a776) so the
-      // extension, not the content script, owns tab creation.
-      try {
-        const managerResult = await runtime.sendMessage<BatchMutationStatus>({
-          type: BATCH_OPEN_MANAGER,
-          taskId: result.taskId,
-        });
-        if (!managerResult.ok) panel.showToast(managerResult.message);
-      } catch (error) {
-        panel.showToast(errorText(error));
       }
       model.clearSelection();
       updateToolbar();
@@ -261,34 +220,7 @@ export async function enterBatchSelectionMode(
     }
   }
 
-  // --- cloud gating ------------------------------------------------------
-  async function applyCloudDefaults() {
-    let session: CloudSessionStatus = { status: "signed-out" };
-    try {
-      session = await runtime.sendMessage<CloudSessionStatus>({
-        type: CLOUD_SESSION_REQUEST,
-      });
-    } catch {
-      // Treat an unreachable worker as signed out.
-    }
-    const publicAvailable =
-      session.status === "signed-in" &&
-      session.publicContributionConfirmed === true;
-    let preferred = false;
-    if (publicAvailable) {
-      try {
-        // The preference stays off when it cannot be read.
-        preferred = await runtime.getCloudPreference();
-      } catch {
-        // Ignored: checked stays false.
-      }
-    }
-    panel.setCloudSession(publicAvailable, preferred);
-    updateToolbar();
-  }
-
   refreshCards();
-  void applyCloudDefaults();
 
   // Only react to page mutations outside our own panel.
   const observer = new MutationObserver((mutations) => {

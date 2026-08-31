@@ -277,17 +277,9 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
 
         {batchSource && batchPage === "selection" && (
           <BatchSourceView
-            saver={localSave.saver}
-            saverError={localSave.saverError}
-            directoryName={localSave.directoryName}
-            changingFolder={localSave.changingFolder}
-            folderReady={localSave.folderReady}
             enteringSelection={batchNav.enteringSelection}
             enterError={batchNav.batchError}
-            markdownFormat={localSave.markdownFormat}
-            onMarkdownFormatChange={localSave.handleMarkdownFormatChange}
             onEnterSelection={() => void batchNav.enterSelection()}
-            onChangeFolder={() => void handleChangeFolder()}
           />
         )}
 
