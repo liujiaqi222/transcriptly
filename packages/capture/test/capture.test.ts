@@ -167,9 +167,211 @@ describe("capture", () => {
 
     const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
-    expect(result.source.channelName).toBe("Open Residency");
+    // The dialog carries the handle, but the name follows the rendered
+    // attributed channel text: joint channels concatenate every member.
+    expect(result.source.channelName).toBe("Open Residency和AI with Remy");
     expect(result.source.channelHandle).toBe("/@openresidency");
     expect(captureSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("prefers the owner title runs over DOM metadata for channel identity", async () => {
+    const doc = loadDocument("watch-open.html");
+    const initialData = doc.createElement("script");
+    initialData.textContent = `var ytInitialData = ${JSON.stringify({
+      contents: {
+        videoOwnerRenderer: {
+          thumbnail: {
+            thumbnails: [{ url: "https://yt3.ggpht.com/ytc/avatar=s48-c-k" }],
+          },
+          title: {
+            runs: [
+              {
+                text: "TED",
+                navigationEndpoint: {
+                  browseEndpoint: {
+                    canonicalBaseUrl: "/@TED",
+                    browseId: "UCAuUUnT6oDeKwE6v1NGQxug",
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    })}`;
+    doc.body.append(initialData);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    // Variant C (#100): no share dialog at all - title runs carry identity.
+    expect(result.source.channelName).toBe("TED");
+    expect(result.source.channelHandle).toBe("/@TED");
+    expect(result.source.channelAvatarUrl).toBe(
+      "https://yt3.ggpht.com/ytc/avatar=s48-c-k",
+    );
+  });
+
+  it("normalizes an ID-form dialog handle using the page's handle form for the same browseId", async () => {
+    const doc = loadDocument("watch-open.html");
+    // Break the DOM channel metadata so only ytInitialData can supply
+    // identity.
+    for (const selector of ['link[itemprop="url"]', 'link[itemprop="name"]']) {
+      const meta = doc.querySelector(selector);
+      if (meta) meta.remove();
+    }
+
+    const owner = {
+      navigationEndpoint: {
+        showDialogCommand: {
+          panelLoadingStrategy: {
+            inlineContent: {
+              dialogViewModel: {
+                customContent: {
+                  listViewModel: {
+                    listItems: [
+                      {
+                        listItemViewModel: {
+                          title: {
+                            content: "TED",
+                            commandRuns: [
+                              {
+                                onTap: {
+                                  innertubeCommand: {
+                                    browseEndpoint: {
+                                      // Variant B (#100): the dialog names the
+                                      // channel in raw ID form.
+                                      canonicalBaseUrl:
+                                        "/channel/UCAuUUnT6oDeKwE6v1NGQxug",
+                                    },
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+    const initialData = doc.createElement("script");
+    initialData.textContent = `var ytInitialData = ${JSON.stringify({
+      contents: { videoOwnerRenderer: owner },
+      // The recommendations rail lists the same channel by browseId with the
+      // handle form - that entry is the normalization source.
+      secondaryResults: {
+        compactVideoRenderer: {
+          navigationEndpoint: {
+            browseEndpoint: {
+              canonicalBaseUrl: "/@TED",
+              browseId: "UCAuUUnT6oDeKwE6v1NGQxug",
+            },
+          },
+        },
+      },
+    })}`;
+    doc.body.append(initialData);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.channelName).toBe("TED");
+    expect(result.source.channelHandle).toBe("/@TED");
+  });
+
+  it("keeps the ID-form handle when the page never names the channel by handle", async () => {
+    const doc = loadDocument("watch-open.html");
+    for (const selector of ['link[itemprop="url"]', 'link[itemprop="name"]']) {
+      const meta = doc.querySelector(selector);
+      if (meta) meta.remove();
+    }
+
+    const initialData = doc.createElement("script");
+    initialData.textContent = `var ytInitialData = ${JSON.stringify({
+      contents: {
+        videoOwnerRenderer: {
+          navigationEndpoint: {
+            showDialogCommand: {
+              panelLoadingStrategy: {
+                inlineContent: {
+                  dialogViewModel: {
+                    customContent: {
+                      listViewModel: {
+                        listItems: [
+                          {
+                            listItemViewModel: {
+                              title: {
+                                content: "Some Channel",
+                                commandRuns: [
+                                  {
+                                    onTap: {
+                                      innertubeCommand: {
+                                        browseEndpoint: {
+                                          canonicalBaseUrl:
+                                            "/channel/UClegacyid0123456",
+                                        },
+                                      },
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })}`;
+    doc.body.append(initialData);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.channelHandle).toBe("/channel/UClegacyid0123456");
+    expect(result.source.channelName).toBe("Some Channel");
+  });
+
+  it("reads ytInitialData from the current JSON script element", async () => {
+    const doc = loadDocument("watch-open.html");
+    // Variant A (#100): the payload moved to a JSON-typed element and the
+    // inline var script no longer exists.
+    const jsonElement = doc.createElement("script");
+    jsonElement.id = "yt-initial-data";
+    jsonElement.setAttribute("type", "application/json");
+    jsonElement.textContent = JSON.stringify({
+      contents: {
+        videoOwnerRenderer: {
+          title: {
+            runs: [
+              {
+                text: "TED",
+                navigationEndpoint: {
+                  browseEndpoint: {
+                    canonicalBaseUrl: "/@TED",
+                    browseId: "UCAuUUnT6oDeKwE6v1NGQxug",
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+    doc.body.append(jsonElement);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.channelName).toBe("TED");
+    expect(result.source.channelHandle).toBe("/@TED");
   });
 
   it("captures the channel avatar from the owner renderer thumbnail", async () => {

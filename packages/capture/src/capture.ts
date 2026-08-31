@@ -133,10 +133,52 @@ function findVideoOwnerRenderer(
   return null;
 }
 
+/** Channel identity read from ytInitialData: any field may be absent. */
 interface InitialChannel {
-  name: string | null;
+  /** The owner renderer's title-run name, when present (full form). */
+  titleRunName: string | null;
+  /** The share-dialog item's name, when present (older variants). */
+  dialogName: string | null;
   handle: string | null;
   avatarUrl?: string;
+}
+
+/**
+ * Reads channel identity from the page's ytInitialData (#100). The owner
+ * renderer's title runs are the primary source for name, handle, and
+ * browseId across all observed page variants; the share dialog and page-wide
+ * browseId lookup fill in when the owner uses another shape. An ID-form
+ * handle is normalized to the `@handle` form so one channel cannot split
+ * into two rows.
+ */
+function readInitialChannel(
+  doc: Document,
+  base: string,
+): InitialChannel | null {
+  const data = readYtInitialData(doc);
+  if (!data) return null;
+  const owner = findVideoOwnerRenderer(data);
+  if (!owner) return null;
+
+  const avatarUrl = readOwnerAvatarUrl(owner);
+  const titleRunName = readOwnerName(owner);
+  const dialogName = readOwnerDialogName(owner);
+  const browseId = readOwnerBrowseId(owner);
+  let handle = readOwnerHandle(owner, base);
+  if (handle !== null) {
+    handle = normalizeHandleByBrowseId(data, handle, browseId);
+  }
+  if (titleRunName === null && dialogName === null && handle === null) {
+    return avatarUrl
+      ? { titleRunName: null, dialogName: null, handle: null, avatarUrl }
+      : null;
+  }
+  return {
+    titleRunName,
+    dialogName,
+    handle,
+    ...(avatarUrl ? { avatarUrl } : {}),
+  };
 }
 
 /** Reads the avatar the owner renderer carries, across its two shapes. */
@@ -167,70 +209,217 @@ function readOwnerAvatarUrl(
   return undefined;
 }
 
-function readInitialChannel(
-  doc: Document,
-  base: string,
-): InitialChannel | null {
-  let avatarOnly: InitialChannel | null = null;
-  for (const script of Array.from(doc.scripts)) {
+/**
+ * Extracts the page's ytInitialData payload across the two script shapes
+ * YouTube ships (#100): the classic `var ytInitialData = {…};` inline
+ * script and the current `<script id="yt-initial-data" type="application/json">`
+ * element. Returns the parsed object, or null when neither is present.
+ */
+function readYtInitialData(doc: Document): Record<string, unknown> | null {
+  const scripts = Array.from(doc.scripts);
+
+  // Current shape first: a JSON element whose textContent is the payload.
+  const jsonElement = scripts.find((script) => script.id === "yt-initial-data");
+  if (jsonElement?.textContent) {
+    try {
+      const parsed = asRecord(JSON.parse(jsonElement.textContent));
+      if (parsed) return parsed;
+    } catch {
+      // Fall through to the inline script shape.
+    }
+  }
+
+  for (const script of scripts) {
     const match = script.textContent?.match(
       /var ytInitialData\s*=\s*(\{[\s\S]*\})\s*;?\s*$/,
     );
     if (!match?.[1]) continue;
-
     try {
-      const owner = findVideoOwnerRenderer(JSON.parse(match[1]));
-      if (!owner) continue;
-      // The avatar hangs directly off the owner renderer and survives dialog
-      // structure changes, so read it before digging for name and handle.
-      const avatarUrl = readOwnerAvatarUrl(owner);
-      const listItems = asRecord(
-        asRecord(
-          asRecord(
-            asRecord(
-              asRecord(
-                asRecord(asRecord(owner.navigationEndpoint)?.showDialogCommand)
-                  ?.panelLoadingStrategy,
-              )?.inlineContent,
-            )?.dialogViewModel,
-          )?.customContent,
-        )?.listViewModel,
-      )?.listItems;
-      if (!Array.isArray(listItems)) {
-        if (avatarUrl && !avatarOnly) {
-          avatarOnly = { name: null, handle: null, avatarUrl };
-        }
-        continue;
-      }
-
-      for (const item of listItems) {
-        const itemRecord = asRecord(item);
-        const viewModel = asRecord(itemRecord?.listItemViewModel);
-        const title = asRecord(viewModel?.title);
-        const commandRuns = title?.commandRuns;
-        if (!Array.isArray(commandRuns)) continue;
-        const firstRun = asRecord(commandRuns[0]);
-        const endpoint = asRecord(
-          asRecord(asRecord(firstRun?.onTap)?.innertubeCommand)?.browseEndpoint,
-        );
-        const canonicalBaseUrl = endpoint?.canonicalBaseUrl;
-        const name = title?.content;
-        if (typeof canonicalBaseUrl === "string" && typeof name === "string") {
-          const handle = normalizeChannelHandle(canonicalBaseUrl, base);
-          if (handle && name.trim() !== "") {
-            return {
-              name: sanitizeText(name),
-              handle,
-              ...(avatarUrl ? { avatarUrl } : {}),
-            };
-          }
-        }
-      }
+      const parsed = asRecord(JSON.parse(match[1]));
+      if (parsed) return parsed;
     } catch {
-      // Ignore malformed or unrelated scripts and continue with DOM metadata.
+      // Ignore malformed scripts and continue.
     }
   }
-  return avatarOnly;
+  return null;
+}
+
+/**
+ * The handle path the owner's own endpoint gives: title runs carry the
+ * channel's preferred `@handle` form in every observed variant, while the
+ * dialog path may yield the raw `channel/UC…` form (#100).
+ */
+function readOwnerHandle(
+  owner: Record<string, unknown> | null,
+  base: string,
+): string | null {
+  const titleRuns = asRecord(owner?.title)?.runs;
+  if (Array.isArray(titleRuns)) {
+    const first = asRecord(titleRuns[0]);
+    const endpoint = asRecord(
+      asRecord(first?.navigationEndpoint)?.browseEndpoint,
+    );
+    if (typeof endpoint?.canonicalBaseUrl === "string") {
+      const handle = normalizeChannelHandle(endpoint.canonicalBaseUrl, base);
+      if (handle) return handle;
+    }
+  }
+
+  // Dialog fallback: the share-sheet list item (older variants).
+  const dialog = readOwnerDialogListItem(owner);
+  if (dialog) {
+    const endpoint = asRecord(
+      asRecord(
+        asRecord(asRecord(dialog.commandRuns[0])?.onTap)?.innertubeCommand,
+      )?.browseEndpoint,
+    );
+    if (typeof endpoint?.canonicalBaseUrl === "string") {
+      const handle = normalizeChannelHandle(endpoint.canonicalBaseUrl, base);
+      if (handle) return handle;
+    }
+  }
+  return null;
+}
+
+interface OwnerDialogListItem {
+  name: string | null;
+  commandRuns: unknown[];
+}
+
+/** The share-dialog list item (older variants), if the owner opens one. */
+function readOwnerDialogListItem(
+  owner: Record<string, unknown> | null,
+): OwnerDialogListItem | null {
+  const listItems = asRecord(
+    asRecord(
+      asRecord(
+        asRecord(
+          asRecord(
+            asRecord(asRecord(owner?.navigationEndpoint)?.showDialogCommand)
+              ?.panelLoadingStrategy,
+          )?.inlineContent,
+        )?.dialogViewModel,
+      )?.customContent,
+    )?.listViewModel,
+  )?.listItems;
+  if (!Array.isArray(listItems)) return null;
+  for (const item of listItems) {
+    const title = asRecord(asRecord(asRecord(item)?.listItemViewModel)?.title);
+    const commandRuns = title?.commandRuns;
+    if (!Array.isArray(commandRuns)) continue;
+    const content = title?.content;
+    return {
+      name:
+        typeof content === "string" && content.trim() !== ""
+          ? sanitizeText(content)
+          : null,
+      commandRuns,
+    };
+  }
+  return null;
+}
+
+/** The dialog list item's title, spelled out (older variants). */
+function readOwnerDialogName(
+  owner: Record<string, unknown> | null,
+): string | null {
+  const dialog = readOwnerDialogListItem(owner);
+  return dialog === null ? null : dialog.name;
+}
+
+/** The channel name as the owner's title runs spell it. */
+function readOwnerName(owner: Record<string, unknown> | null): string | null {
+  const runs = asRecord(owner?.title)?.runs;
+  if (!Array.isArray(runs)) return null;
+  const text = asRecord(runs[0])?.text;
+  return typeof text === "string" && text.trim() !== ""
+    ? sanitizeText(text)
+    : null;
+}
+
+/** The browseId (stable UC… identity) the owner endpoint carries, if any. */
+function readOwnerBrowseId(
+  owner: Record<string, unknown> | null,
+): string | null {
+  const titleRuns = asRecord(owner?.title)?.runs;
+  if (Array.isArray(titleRuns)) {
+    const endpoint = asRecord(
+      asRecord(asRecord(titleRuns[0])?.navigationEndpoint)?.browseEndpoint,
+    );
+    const id = endpoint?.browseId;
+    if (typeof id === "string" && id !== "") return id;
+  }
+  const dialog = readOwnerDialogListItem(owner);
+  if (dialog) {
+    const endpoint = asRecord(
+      asRecord(
+        asRecord(asRecord(dialog.commandRuns[0])?.onTap)?.innertubeCommand,
+      )?.browseEndpoint,
+    );
+    const id = endpoint?.browseId;
+    if (typeof id === "string" && id !== "") return id;
+  }
+  return null;
+}
+
+/**
+ * Normalizes an ID-form handle to the page's `@handle` form for the same
+ * browseId (#100): YouTube lists the channel elsewhere on the page (e.g. the
+ * recommendations rail) with the `@handle` form, and both forms identify the
+ * same channel, so keeping only the handle form prevents one channel from
+ * splitting into two rows. Returns the original handle when the page never
+ * names the channel in handle form.
+ */
+function normalizeHandleByBrowseId(
+  data: Record<string, unknown>,
+  handle: string,
+  browseId: string | null,
+): string {
+  if (!handle.startsWith("/channel/")) return handle;
+  // The ID form itself carries the browseId after `/channel/`.
+  const id = browseId ?? handle.replace(/^\/channel\//, "");
+  if (id === "") return handle;
+
+  const handleForms = new Set<string>();
+  collectHandleFormsByBrowseId(data, id, handleForms);
+  for (const candidate of handleForms) {
+    if (candidate.startsWith("/@")) return candidate;
+  }
+  return handle;
+}
+
+/**
+ * Collects `@handle`-form canonicalBaseUrl values whose browseEndpoint
+ * carries the given browseId anywhere in the page data.
+ */
+function collectHandleFormsByBrowseId(
+  value: unknown,
+  browseId: string,
+  into: Set<string>,
+): void {
+  const record = asRecord(value);
+  if (record) {
+    const endpoint = asRecord(record.browseEndpoint);
+    if (endpoint) {
+      const baseUrl = endpoint.canonicalBaseUrl;
+      const id = endpoint.browseId;
+      if (
+        typeof baseUrl === "string" &&
+        typeof id === "string" &&
+        id === browseId &&
+        baseUrl.startsWith("/@")
+      ) {
+        into.add(baseUrl);
+      }
+    }
+    for (const child of Object.values(record)) {
+      collectHandleFormsByBrowseId(child, browseId, into);
+    }
+  } else if (Array.isArray(value)) {
+    for (const child of value) {
+      collectHandleFormsByBrowseId(child, browseId, into);
+    }
+  }
 }
 
 function normalizePublishedAt(raw: string): string | undefined {
@@ -287,8 +476,17 @@ function readSource(
   const title = readMeta(doc, selectors.meta.title);
   const description = readMeta(doc, selectors.meta.description);
   const initialChannel = readInitialChannel(doc, url);
+  // Name priority: the owner's own title runs (full, from every current
+  // variant), then the rendered DOM text (joint channels concatenate every
+  // member there), then the share-dialog item (older variants) which carries
+  // a shortened name. Dialog name must not mask the richer DOM text. An
+  // empty name reaches the schema validator, which rejects it (#33).
+  const domChannelName = readMeta(doc, selectors.meta.channelName);
   const channelName =
-    initialChannel?.name ?? readMeta(doc, selectors.meta.channelName);
+    initialChannel?.titleRunName ??
+    (domChannelName !== "" ? domChannelName : null) ??
+    initialChannel?.dialogName ??
+    "";
   const rawChannelUrl =
     readFirstAttribute(doc, selectors.meta.channelUrl) ?? "";
   const channelHandle =
