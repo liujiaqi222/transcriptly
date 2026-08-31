@@ -53,7 +53,10 @@ export interface BatchExecutorDependencies {
     capture: Capture,
     markdownFormat: MarkdownFormat,
   ): Promise<LocalSaveOutcome>;
-  enqueueCloud(capture: Capture): Promise<{ jobId: string }>;
+  enqueueCloud(
+    capture: Capture,
+    options?: { confirmPublicProfile?: boolean },
+  ): Promise<{ jobId: string }>;
   getCloudJob(
     jobId: string,
   ): Promise<Pick<CloudJobRecord, "state" | "receipt" | "failure"> | undefined>;
@@ -329,7 +332,19 @@ export function createBatchExecutor(
         });
       } else {
         try {
-          const { jobId } = await deps.enqueueCloud(capture);
+          const confirmPublicProfile =
+            fresh.publicProfileConfirmationPending === true;
+          const { jobId } = await deps.enqueueCloud(
+            capture,
+            confirmPublicProfile ? { confirmPublicProfile: true } : undefined,
+          );
+          if (confirmPublicProfile) {
+            const task = await deps.store.get(taskId);
+            if (task?.publicProfileConfirmationPending) {
+              task.publicProfileConfirmationPending = undefined;
+              await persist(task);
+            }
+          }
           const outcome = await waitCloudJob(jobId);
           await applyItemUpdate(taskId, videoId, (item) => {
             if (item.cloud !== "running") return;

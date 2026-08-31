@@ -2,8 +2,8 @@
  * Manager tab coordination (#59).
  *
  * `manager.html` is the extension's single batch workbench: progress and
- * controls, folder authorization, and the Local Save Host. Everything
- * that needs the page - Start in selection mode, the popup entry, the
+ * setup, controls, folder authorization, and the Local Save Host. Everything
+ * that needs the page - Continue in selection mode, the popup entry, the
  * floating capsule, and the worker's local-save client - goes through
  * this coordinator instead of calling `tabs.create()` directly, so:
  *
@@ -35,6 +35,8 @@ export interface ManagerTabCoordinatorDependencies {
 export interface ManagerTabCoordinator {
   /** Reuse or open the manager tab, focused, deep-linked to a task. */
   open(taskId?: string): Promise<void>;
+  /** Focus the workbench on a not-yet-started selection draft. */
+  openSetup(draftId: string): Promise<void>;
   /**
    * Reuse or open (in the background) the manager tab and return its tab
    * id. Used by the Local Save Host client; never changes the shown task.
@@ -53,6 +55,10 @@ export function createManagerTabCoordinator(
 
   function taskUrl(taskId: string): string {
     return `${managerUrl}?task=${encodeURIComponent(taskId)}`;
+  }
+
+  function setupUrl(draftId: string): string {
+    return `${managerUrl}?setup=${encodeURIComponent(draftId)}`;
   }
 
   // Single-flight tab acquisition: concurrent callers share one
@@ -94,6 +100,15 @@ export function createManagerTabCoordinator(
 
   return {
     open,
+    async openSetup(draftId) {
+      const tabId = await acquireTabId();
+      const target = setupUrl(draftId);
+      const matches = await tabs.query({ url: target });
+      if (!matches.some((tab) => tab.id === tabId)) {
+        await tabs.update(tabId, { url: target });
+      }
+      await tabs.update(tabId, { active: true });
+    },
     ensureOpen: () => acquireTabId(),
     async focus() {
       const tabId = await acquireTabId();

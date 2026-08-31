@@ -1,5 +1,6 @@
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, vi } from "vitest";
+import type { BatchDraft, BatchDraftStore } from "../batch/drafts";
 import type { BatchExecutor } from "../batch/executor";
 import { type BatchVideo, createBatchJobStore } from "../batch/jobs";
 import { createBatchMessageRouter } from "../batch/router";
@@ -36,6 +37,7 @@ const directory: LocalDirectoryHandle = {
 function createHarness(
   options: {
     signedIn?: boolean;
+    publicContributionConfirmed?: boolean;
     directory?: LocalDirectoryHandle;
     localReceipts?: { videoId: string; directoryName: string }[];
     cloudSavedVideoIds?: string[];
@@ -53,8 +55,23 @@ function createHarness(
     retryItem: vi.fn(async (): Promise<BatchMutationStatus> => ({ ok: true })),
   };
   const openManager = vi.fn(async (_taskId: string) => undefined);
+  const openSetup = vi.fn(async (_draftId: string) => undefined);
+  const draftRecords = new Map<string, BatchDraft>();
+  const drafts: BatchDraftStore = {
+    create: vi.fn(async (draftVideos) => {
+      const draft = { id: "draft-1", videos: draftVideos, createdAt: 1 };
+      draftRecords.set(draft.id, draft);
+      return draft;
+    }),
+    get: vi.fn(async (id) => draftRecords.get(id)),
+    delete: vi.fn(async (id) => {
+      draftRecords.delete(id);
+    }),
+    sweepExpired: vi.fn(async () => []),
+  };
   const router = createBatchMessageRouter({
     store,
+    drafts,
     executor,
     getSavedDirectory: async () => options.directory,
     getLocalReceipts: async (directoryName?: string) =>
@@ -95,15 +112,45 @@ function createHarness(
         ? {
             status: "signed-in",
             email: "user@example.com",
-            publicContributionConfirmed: true,
+            publicContributionConfirmed:
+              options.publicContributionConfirmed ?? true,
           }
         : { status: "signed-out" },
     openManager,
+    openSetup,
   });
-  return { store, executor, openManager, router };
+  return { store, drafts, executor, openManager, openSetup, router };
 }
 
 describe("batch message router", () => {
+  it("persists a video selection and opens Manager setup without creating a task", async () => {
+    const { router, store, drafts, openSetup, executor } = createHarness();
+
+    const result = await router.handle({
+      type: "transcriptly:batch-prepare",
+      videos,
+    });
+
+    expect(result).toEqual({ ok: true, draftId: "draft-1" });
+    expect(drafts.create).toHaveBeenCalledWith(videos);
+    expect(openSetup).toHaveBeenCalledWith("draft-1");
+    expect(await store.list()).toEqual([]);
+    expect(executor.wake).not.toHaveBeenCalled();
+  });
+
+  it("deletes a cancelled setup draft without creating a task", async () => {
+    const { router, drafts, store } = createHarness();
+
+    const result = await router.handle({
+      type: "transcriptly:batch-draft-delete",
+      draftId: "draft-1",
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(drafts.delete).toHaveBeenCalledWith("draft-1");
+    expect(await store.list()).toEqual([]);
+  });
+
   it("opens manager pages through the background dependency", async () => {
     const { router, openManager } = createHarness();
 
@@ -133,6 +180,25 @@ describe("batch message router", () => {
     expect(executor.wake).not.toHaveBeenCalled();
   });
 
+  it("accepts explicit first-contribution disclosure from Manager setup", async () => {
+    const { router, store } = createHarness({
+      signedIn: true,
+      publicContributionConfirmed: false,
+    });
+
+    const result = await router.handle({
+      type: "transcriptly:batch-start",
+      videos,
+      destinations: ["cloud"],
+      confirmPublicProfile: true,
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    expect((await store.list())[0]?.publicProfileConfirmationPending).toBe(
+      true,
+    );
+  });
+
   it("rejects a local destination without a saved folder", async () => {
     const { router, store } = createHarness({ signedIn: true });
 
@@ -150,7 +216,7 @@ describe("batch message router", () => {
   });
 
   it("creates a task with fresh receipts and wakes the executor", async () => {
-    const { router, store, executor } = createHarness({
+    const { router, store, drafts, executor } = createHarness({
       signedIn: true,
       directory,
       localReceipts: [{ videoId: "abc12345678", directoryName: "Vault" }],
@@ -162,10 +228,12 @@ describe("batch message router", () => {
       videos,
       destinations: ["local", "cloud"],
       markdownFormat: "article",
+      draftId: "draft-1",
     });
 
     expect(result).toMatchObject({ ok: true });
     expect(executor.wake).toHaveBeenCalled();
+    expect(drafts.delete).toHaveBeenCalledWith("draft-1");
     const task = (await store.list())[0];
     if (!task) throw new Error("missing task");
     expect(task.destinations).toEqual(["local", "cloud"]);

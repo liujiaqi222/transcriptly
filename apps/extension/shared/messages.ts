@@ -96,11 +96,46 @@ export interface BatchStartMessage {
   destinations: import("@/batch/jobs").BatchDestination[];
   /** Missing only from an older content script; the router defaults it. */
   markdownFormat?: import("@transcriptly/capture").MarkdownFormat;
+  /** Manager setup draft consumed after the task is created. */
+  draftId?: string;
+  /** First public contribution carries the user's one-time disclosure. */
+  confirmPublicProfile?: boolean;
 }
 
 export type BatchStartStatus =
   | { ok: true; taskId: string }
   | { ok: false; message: string };
+
+/** Persist a page selection and open it in the Manager setup view. */
+export const BATCH_PREPARE = "transcriptly:batch-prepare" as const;
+
+export interface BatchPrepareMessage {
+  type: typeof BATCH_PREPARE;
+  videos: import("@/batch/jobs").BatchVideo[];
+}
+
+export type BatchPrepareStatus =
+  | { ok: true; draftId: string }
+  | { ok: false; message: string };
+
+/** Read a selection draft from the Manager setup view. */
+export const BATCH_DRAFT_REQUEST = "transcriptly:batch-draft-request" as const;
+
+export interface BatchDraftRequestMessage {
+  type: typeof BATCH_DRAFT_REQUEST;
+  draftId: string;
+}
+
+export type BatchDraftResult =
+  | { ok: true; draft: import("@/batch/drafts").BatchDraft }
+  | { ok: false; message: string };
+
+export const BATCH_DRAFT_DELETE = "transcriptly:batch-draft-delete" as const;
+
+export interface BatchDraftDeleteMessage {
+  type: typeof BATCH_DRAFT_DELETE;
+  draftId: string;
+}
 
 /** Ask the background worker for batch task state (#26). */
 export const BATCH_STATUS_REQUEST =
@@ -194,6 +229,9 @@ export type BatchEnterSelectionStatus =
 
 export type BatchMessage =
   | BatchStartMessage
+  | BatchPrepareMessage
+  | BatchDraftRequestMessage
+  | BatchDraftDeleteMessage
   | BatchStatusRequestMessage
   | BatchOpenManagerMessage
   | BatchPauseMessage
@@ -204,6 +242,8 @@ export type BatchMessage =
 
 export type BatchMessageResult =
   | BatchStartStatus
+  | BatchPrepareStatus
+  | BatchDraftResult
   | BatchStatusResult
   | BatchMutationStatus
   | BatchLookupResult;

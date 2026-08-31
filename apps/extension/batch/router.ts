@@ -1,10 +1,14 @@
+import type { BatchDraftStore } from "@/batch/drafts";
 import type { CloudQueueStatus, CloudReceipt } from "@/cloud/jobs";
 import type { LocalDirectoryHandle, LocalSaveReceipt } from "@/local-save";
 import { normalizeMarkdownFormat } from "@/markdown-format";
 import {
+  BATCH_DRAFT_DELETE,
+  BATCH_DRAFT_REQUEST,
   BATCH_LOOKUP_REQUEST,
   BATCH_OPEN_MANAGER,
   BATCH_PAUSE,
+  BATCH_PREPARE,
   BATCH_RESUME,
   BATCH_RETRY_ITEM,
   BATCH_START,
@@ -27,20 +31,24 @@ import { savedCloudReceipt } from "./executor";
 import type { BatchJobStore, BatchTask } from "./jobs";
 
 /**
- * The background message surface for batch capture (#26). The batch panel
- * on YouTube playlist / channel pages talks to this router; it validates a
- * start request (Cloud session, local folder) before persisting a task and
- * hands execution to the BatchExecutor.
+ * The background message surface for batch capture (#26). The YouTube
+ * selection panel only prepares drafts (#102); the Manager setup view
+ * sends the start after folder and destination setup. The router still
+ * validates every start itself (Cloud session, local folder) - never
+ * trusting the page UI alone - before persisting a task and handing
+ * execution to the BatchExecutor.
  */
 
 export interface BatchRouterDependencies {
   store: BatchJobStore;
+  drafts: BatchDraftStore;
   executor: BatchExecutor;
   getSavedDirectory(): Promise<LocalDirectoryHandle | undefined>;
   getLocalReceipts(directoryName?: string): Promise<LocalSaveReceipt[]>;
   getCloudStatus(videoId?: string): Promise<CloudQueueStatus>;
   getCloudSession(): Promise<CloudSessionStatus>;
   openManager(taskId: string): Promise<void>;
+  openSetup(draftId: string): Promise<void>;
 }
 
 /** How many recent tasks the status request returns without a taskId. */
@@ -68,7 +76,7 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
           return {
             ok: false,
             message:
-              "Choose a local save folder from the Transcriptly popup first, then start the batch.",
+              "Choose a local save folder in the batch setup before starting.",
           };
         }
         directoryName = directory.name;
@@ -84,14 +92,17 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
           return {
             ok: false,
             message:
-              "Sign in to Transcriptly from the popup before contributing publicly.",
+              "Sign in to Transcriptly in batch setup before contributing publicly.",
           };
         }
-        if (!session.publicContributionConfirmed) {
+        if (
+          !session.publicContributionConfirmed &&
+          message.confirmPublicProfile !== true
+        ) {
           return {
             ok: false,
             message:
-              "Confirm the public disclosure in the popup before adding it to a batch.",
+              "Confirm the public disclosure before adding it to a batch.",
           };
         }
       }
@@ -114,7 +125,11 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
         markdownFormat: normalizeMarkdownFormat(message.markdownFormat),
         localReceipts,
         cloudReceipts,
+        publicProfileConfirmationPending:
+          destinations.includes("cloud") &&
+          message.confirmPublicProfile === true,
       });
+      if (message.draftId) await deps.drafts.delete(message.draftId);
       void deps.executor.wake();
       return { ok: true, taskId: task.id };
     } catch (error) {
@@ -124,6 +139,24 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
           error instanceof Error
             ? error.message
             : "Could not start batch capture.",
+      };
+    }
+  }
+
+  async function prepare(
+    videos: import("@/batch/jobs").BatchVideo[],
+  ): Promise<import("@/shared/messages").BatchPrepareStatus> {
+    try {
+      const draft = await deps.drafts.create(videos);
+      await deps.openSetup(draft.id);
+      return { ok: true, draftId: draft.id };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not open batch setup.",
       };
     }
   }
@@ -181,6 +214,20 @@ export function createBatchMessageRouter(deps: BatchRouterDependencies) {
       message: BatchMessage,
     ): Promise<BatchMessageResult | undefined> {
       switch (message?.type) {
+        case BATCH_PREPARE:
+          return prepare(message.videos);
+
+        case BATCH_DRAFT_REQUEST: {
+          const draft = await deps.drafts.get(message.draftId);
+          return draft
+            ? { ok: true, draft }
+            : { ok: false, message: "That batch setup no longer exists." };
+        }
+
+        case BATCH_DRAFT_DELETE:
+          await deps.drafts.delete(message.draftId);
+          return { ok: true };
+
         case BATCH_START:
           return start(message);
 

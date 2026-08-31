@@ -1,12 +1,4 @@
-import {
-  ArrowRight,
-  createElement,
-  Globe2,
-  type IconNode,
-  RefreshCw,
-  X,
-} from "lucide";
-import type { BatchDestination } from "@/batch/jobs";
+import { ArrowRight, createElement, type IconNode, RefreshCw, X } from "lucide";
 import { logoSvg } from "@/brand/logo";
 
 /**
@@ -37,13 +29,12 @@ export interface SelectionPanelHandlers {
 }
 
 export interface SelectionPanel {
-  checkedDestinations(): BatchDestination[];
   /** Whether a mutation happened inside the panel (observer filter). */
   contains(node: Node): boolean;
   setCounter(text: string): void;
   setLoadMore(active: boolean, discoveredCount: number): void;
   setStarting(starting: boolean): void;
-  setCloudSession(signedIn: boolean, checked: boolean): void;
+  setSelectedCount(count: number): void;
   showToast(message: string): void;
   dismissToast(): void;
   /** Removes the panel, toast and styles (#56 zero-residue teardown). */
@@ -82,12 +73,7 @@ function addStyles() {
     #${ROOT_ID} .text-action:hover { background: #edf7ff; }
     #${ROOT_ID} .text-action.clear { color: #64748b; }
     #${ROOT_ID} .text-action.clear:hover { color: #b91c1c; background: #fef2f2; }
-    #${ROOT_ID} .destinations { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; min-height: 32px; padding: 0 12px 4px; }
-    #${ROOT_ID} .dest { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; margin: 0; color: #202124; cursor: pointer; }
-    #${ROOT_ID} .dest input { width: 16px; height: 16px; margin: 0; accent-color: #1b90ed; }
-    #${ROOT_ID} .dest svg { width: 16px; height: 16px; color: #1b90ed; }
-    #${ROOT_ID} .dest.disabled { color: #94a3b8; cursor: default; }
-    #${ROOT_ID} .hint { flex: 0 0 100%; color: #94a3b8; font-size: 11px; }
+    #${ROOT_ID} .selection-row { display: flex; align-items: center; min-height: 32px; padding: 0 12px 4px; }
     #${ROOT_ID} .start-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 24px); min-height: 36px; margin: 4px 12px 12px; padding: 8px 12px; border: 0; border-radius: 8px; background: #202124; color: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
     #${ROOT_ID} .start-button:hover { background: #111827; }
     #${ROOT_ID} .start-button:disabled { background: #e2e8f0; color: #64748b; cursor: default; }
@@ -125,29 +111,18 @@ export function createSelectionPanel(
         <button type="button" class="load-more" data-action="load-more">${icon(RefreshCw)}<span>Load more</span></button>
         <span class="load-status" aria-live="polite">0 videos found</span>
       </div>
-      <div class="destinations">
-        <label class="dest"><input type="checkbox" data-destination="local" checked>Local</label>
-        <label class="dest" data-cloud-label><input type="checkbox" data-destination="cloud">${icon(Globe2)}Public archive</label>
+      <div class="selection-row">
         <div class="selection-actions">
           <button type="button" class="text-action" data-action="select-all">Select all</button>
           <button type="button" class="text-action clear" data-action="clear">Clear</button>
         </div>
-        <span class="hint" data-cloud-hint></span>
       </div>
-      <button type="button" class="start-button" data-action="start"><span>Start batch</span>${icon(ArrowRight)}</button>
+      <button type="button" class="start-button" data-action="start" disabled><span>Select videos to continue</span>${icon(ArrowRight)}</button>
     </div>
   `;
   document.body.append(panel);
 
   const counter = panel.querySelector<HTMLElement>(".counter");
-  const localInput = panel.querySelector<HTMLInputElement>(
-    '[data-destination="local"]',
-  );
-  const cloudInput = panel.querySelector<HTMLInputElement>(
-    '[data-destination="cloud"]',
-  );
-  const cloudLabel = panel.querySelector<HTMLElement>("[data-cloud-label]");
-  const cloudHint = panel.querySelector<HTMLElement>("[data-cloud-hint]");
   const startButton = panel.querySelector<HTMLButtonElement>(
     '[data-action="start"]',
   );
@@ -157,6 +132,19 @@ export function createSelectionPanel(
   const loadMoreLabel = loadMoreButton?.querySelector("span");
   const loadStatus = panel.querySelector<HTMLElement>(".load-status");
   const startLabel = startButton?.querySelector("span");
+  let selectedCount = 0;
+  let starting = false;
+  // One place derives the CTA's disabled state and copy from both inputs,
+  // so setStarting and setSelectedCount can never disagree.
+  function renderStartButton() {
+    if (!startButton || !startLabel) return;
+    startButton.disabled = starting || selectedCount === 0;
+    startLabel.textContent = starting
+      ? "Opening setup…"
+      : selectedCount === 0
+        ? "Select videos to continue"
+        : `Continue with ${selectedCount} ${selectedCount === 1 ? "video" : "videos"}`;
+  }
 
   panel
     .querySelector('[data-action="close"]')
@@ -203,14 +191,6 @@ export function createSelectionPanel(
     contains(node) {
       return panel.contains(node);
     },
-    checkedDestinations() {
-      return [
-        ...(localInput?.checked ? (["local"] as const) : []),
-        ...(cloudInput?.checked && !cloudInput.disabled
-          ? (["cloud"] as const)
-          : []),
-      ];
-    },
     setCounter(text) {
       if (!counter) return;
       if (counter.getAttribute("aria-label") !== text) {
@@ -252,22 +232,13 @@ export function createSelectionPanel(
         loadMoreButton.removeAttribute("aria-busy");
       }
     },
-    setStarting(starting) {
-      if (!startButton || !startLabel) return;
-      startButton.disabled = starting;
-      startLabel.textContent = starting ? "Starting…" : "Start batch";
+    setStarting(isStarting) {
+      starting = isStarting;
+      renderStartButton();
     },
-    setCloudSession(publicAvailable, checked) {
-      if (cloudInput) {
-        cloudInput.disabled = !publicAvailable;
-        cloudInput.checked = publicAvailable && checked;
-      }
-      cloudLabel?.classList.toggle("disabled", !publicAvailable);
-      if (cloudHint) {
-        cloudHint.textContent = publicAvailable
-          ? ""
-          : "Sign in and confirm public contribution from the popup to enable";
-      }
+    setSelectedCount(count) {
+      selectedCount = count;
+      renderStartButton();
     },
     showToast,
     dismissToast,

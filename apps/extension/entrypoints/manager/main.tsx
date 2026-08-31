@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
+import { webOrigin } from "@/cloud/client";
 import { ManagerApp, type ManagerDependencies } from "./app";
 import { mountManagerLocalSaveHost } from "./local-save-host";
 import "./style.css";
@@ -7,6 +8,9 @@ import "./style.css";
 const dependencies: ManagerDependencies = {
   sendMessage: <T,>(message: unknown) =>
     browser.runtime.sendMessage(message) as Promise<T>,
+  async openCloudSignIn() {
+    await browser.tabs.create({ url: `${webOrigin}/sign-in` });
+  },
 };
 
 // The manager page doubles as the Local Save Host (#59): folder
@@ -23,11 +27,14 @@ if (!rootElement) {
 // `?task=<id>` deep-links to one batch; without it the newest shows (#58).
 const initialTaskId =
   new URLSearchParams(location.search).get("task") ?? undefined;
+const initialDraftId =
+  new URLSearchParams(location.search).get("setup") ?? undefined;
 
 createRoot(rootElement).render(
   <ManagerApp
     deps={dependencies}
     initialTaskId={initialTaskId}
+    initialDraftId={initialDraftId}
     localSaveHost={localSaveHost}
   />,
 );

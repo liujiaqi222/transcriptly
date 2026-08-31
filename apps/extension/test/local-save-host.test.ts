@@ -229,6 +229,22 @@ describe("manager local save host (#59)", () => {
     expect(host.getStatus().directoryName).toBe("Vault");
   });
 
+  it("changes an already-authorized folder from the Manager", async () => {
+    const saver = createSaverStub({
+      directoryName: "Vault",
+      permission: "granted",
+      pickedDirectory: "New Vault",
+    });
+    const { host } = createHost(saver);
+
+    await expect(host.changeDirectory()).resolves.toBe("changed");
+    expect(saver.changeDirectory).toHaveBeenCalled();
+    expect(host.getStatus()).toEqual({
+      directoryName: "New Vault",
+      writePermission: true,
+    });
+  });
+
   it("notifies subscribers when the status changes", async () => {
     const saver = createSaverStub({
       directoryName: "Vault",

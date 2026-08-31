@@ -65,8 +65,8 @@ svg {
 .manager-bar {
   display: flex;
   align-items: center;
-  max-width: 680px;
-  min-height: 56px;
+  max-width: 760px;
+  min-height: 64px;
   margin: 0 auto;
   padding: 8px 16px;
 }
@@ -95,9 +95,9 @@ h1 {
 }
 
 .manager {
-  max-width: 680px;
+  max-width: 760px;
   margin: 0 auto;
-  padding: 24px 16px 48px;
+  padding: 32px 16px 64px;
 }
 
 h2 {
@@ -112,6 +112,391 @@ h2 {
 .loading {
   padding: 24px 0;
   text-align: center;
+}
+
+/* Pre-start setup: selection is complete; Manager owns destinations,
+   folder permission, format, sign-in, and the final start action. */
+.batch-setup {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.setup-heading {
+  padding: 28px 28px 24px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, #fff 0%, var(--primary-soft) 100%);
+}
+
+.setup-eyebrow {
+  display: block;
+  margin-bottom: 16px;
+  color: var(--primary-text);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.setup-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.setup-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--primary);
+}
+
+.setup-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.setup-heading h2 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  text-transform: none;
+}
+
+.setup-heading p,
+.setup-option small,
+.folder-status small,
+.format-row small {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.setup-section {
+  margin: 24px 28px 0;
+  padding: 0;
+  border: 0;
+}
+
+fieldset.setup-section {
+  min-width: 0;
+}
+
+.setup-section legend,
+.setup-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.setup-section legend > span,
+.setup-section h3 > span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-size: 12px;
+}
+
+.setup-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.destination-option:first-of-type {
+  border-radius: 12px 12px 0 0;
+}
+
+.destination-option + .destination-option {
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+}
+
+.setup-option:hover {
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
+}
+
+.setup-option > svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary-text);
+}
+
+.setup-option-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.setup-option-copy strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.setup-option input[role="switch"] {
+  position: relative;
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.setup-option input[role="switch"]::before {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  content: "";
+  transition: transform 0.18s ease;
+}
+
+.setup-option input[role="switch"]:checked {
+  background: var(--primary);
+}
+
+.setup-option input[role="switch"]:checked::before {
+  transform: translateX(16px);
+}
+
+.setup-option input[role="switch"]:focus-visible {
+  outline: 3px solid rgba(27, 144, 237, 0.32);
+  outline-offset: 2px;
+}
+
+.sign-in-button,
+.folder-status button,
+.start-batch,
+.cancel-setup,
+.format-picker button {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sign-in-button,
+.folder-status button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--primary-text);
+}
+
+.public-confirmation {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  background: var(--primary-soft);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.public-confirmation p {
+  margin: 0 0 8px;
+}
+
+.public-confirmation label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 650;
+}
+
+.public-confirmation input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.folder-status,
+.format-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+}
+
+.folder-status {
+  border-radius: 12px 12px 0 0;
+}
+
+.folder-status > svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary-text);
+}
+
+.folder-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.folder-copy strong {
+  display: block;
+  overflow: hidden;
+  margin: 4px 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.folder-status .quiet-button {
+  border-color: transparent;
+  background: transparent;
+  color: var(--primary-text);
+}
+
+.format-row {
+  justify-content: space-between;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+}
+
+.format-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  min-width: 240px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+}
+
+.format-picker button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.format-picker button.is-selected {
+  background: var(--surface);
+  color: var(--primary-text);
+}
+
+.sign-in-button:hover:not(:disabled),
+.folder-status button:hover:not(:disabled) {
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
+}
+
+.start-batch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: calc(100% - 56px);
+  margin: 24px 28px 0;
+  padding: 12px 16px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text);
+}
+
+.start-batch:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.sign-in-button:disabled,
+.folder-status button:disabled,
+.start-batch:disabled {
+  border-color: var(--border);
+  background: #e2e8f0;
+  color: var(--muted);
+  cursor: default;
+}
+
+.cancel-setup {
+  display: block;
+  margin: 8px auto 20px;
+  padding: 8px 12px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.cancel-setup:hover:not(:disabled) {
+  background: var(--background);
+  color: var(--text);
+}
+
+@media (max-width: 600px) {
+  .manager {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .setup-heading {
+    padding: 24px 20px 20px;
+  }
+
+  .setup-section {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+
+  .folder-status,
+  .format-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .folder-actions,
+  .format-picker {
+    width: 100%;
+  }
+
+  .start-batch {
+    width: calc(100% - 40px);
+    margin-right: 20px;
+    margin-left: 20px;
+  }
 }
 
 /* Loading / empty states */
@@ -152,9 +537,9 @@ h2 {
 /* Task detail */
 
 .task-detail {
-  padding: 16px;
+  padding: 24px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--surface);
 }
 
@@ -212,7 +597,7 @@ h2 {
 }
 
 .progress {
-  height: 6px;
+  height: 8px;
   border-radius: 999px;
   background: var(--border);
   overflow: hidden;
@@ -244,7 +629,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
+  min-height: 40px;
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;

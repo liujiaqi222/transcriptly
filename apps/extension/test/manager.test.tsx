@@ -8,12 +8,16 @@ import {
 } from "../entrypoints/manager/app";
 import type { ManagerLocalSaveHost } from "../entrypoints/manager/local-save-host";
 import {
+  BATCH_DRAFT_DELETE,
+  BATCH_DRAFT_REQUEST,
   BATCH_PAUSE,
   BATCH_RESUME,
   BATCH_RETRY_ITEM,
+  BATCH_START,
   BATCH_STATUS_REQUEST,
   BATCH_STOP,
   type BatchMutationStatus,
+  CLOUD_SESSION_REQUEST,
 } from "../shared/messages";
 
 function item(
@@ -78,6 +82,7 @@ function createHarness(tasks: BatchTask[]): Harness {
   });
   const deps: ManagerDependencies = {
     sendMessage: sendMessage as unknown as ManagerDependencies["sendMessage"],
+    openCloudSignIn: vi.fn(async () => undefined),
   };
   return {
     tasks,
@@ -119,10 +124,16 @@ function createFakeHost(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    checkAccess: vi.fn(async () => current),
     grantAccess: vi.fn(async (): Promise<"granted"> => {
       current = { ...current, writePermission: true };
       for (const listener of listeners) listener();
       return "granted";
+    }),
+    changeDirectory: vi.fn(async (): Promise<"changed"> => {
+      current = { directoryName: "New Vault", writePermission: true };
+      for (const listener of listeners) listener();
+      return "changed";
     }),
   };
   return host;
@@ -141,6 +152,260 @@ afterEach(() => {
 });
 
 describe("batch manager page (#58)", () => {
+  it("configures a local batch before creating the task", async () => {
+    const harness = createHarness([]);
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, { status: "signed-out" });
+    harness.respond(BATCH_START, { ok: true, taskId: "task-new" });
+    const host = createFakeHost({ writePermission: false });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={host}
+      />,
+    );
+
+    expect(await screen.findByText("1 video selected")).toBeTruthy();
+    expect(screen.getByText("Public archive")).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Sign in to contribute publicly",
+      }),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Start batch" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    screen.getByRole("button", { name: "Choose folder" }).click();
+    await waitFor(() => expect(host.grantAccess).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "Start batch",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    screen.getByRole("button", { name: "Start batch" }).click();
+
+    await waitFor(() =>
+      expect(harness.sent).toContainEqual({
+        type: BATCH_START,
+        draftId: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        destinations: ["local"],
+        markdownFormat: "timeline",
+      }),
+    );
+  });
+
+  it("offers public archive only for a confirmed contributor", async () => {
+    const harness = createHarness([]);
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, {
+      status: "signed-in",
+      email: "user@example.com",
+      publicContributionConfirmed: true,
+    });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={createFakeHost({
+          directoryName: "Vault",
+          writePermission: true,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText("Public archive")).toBeTruthy();
+    expect(
+      screen.getByRole("switch", { name: "Contribute publicly" }),
+    ).toBeTruthy();
+  });
+
+  it("guides a signed-out user through sign-in and first-contribution consent", async () => {
+    const harness = createHarness([]);
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, { status: "signed-out" });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={createFakeHost({
+          directoryName: "Vault",
+          writePermission: true,
+        })}
+      />,
+    );
+
+    const signIn = await screen.findByRole("button", {
+      name: "Sign in to contribute publicly",
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, {
+      status: "signed-in",
+      email: "new@example.com",
+      displayName: "New User",
+      publicContributionConfirmed: false,
+    });
+    signIn.click();
+
+    await waitFor(() =>
+      expect(harness.deps.openCloudSignIn).toHaveBeenCalled(),
+    );
+    const publicToggle = await screen.findByRole("switch", {
+      name: "Contribute publicly",
+    });
+    publicToggle.click();
+    const confirmation = screen.getByRole("checkbox", {
+      name: "I understand these contributions will be public",
+    });
+    confirmation.click();
+    screen.getByRole("button", { name: "Start batch" }).click();
+
+    await waitFor(() =>
+      expect(harness.sent).toContainEqual(
+        expect.objectContaining({
+          type: BATCH_START,
+          destinations: ["local", "cloud"],
+          confirmPublicProfile: true,
+        }),
+      ),
+    );
+  });
+
+  it("changes an already-authorized local folder", async () => {
+    const harness = createHarness([]);
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, { status: "signed-out" });
+    const host = createFakeHost({
+      directoryName: "Vault",
+      writePermission: true,
+    });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={host}
+      />,
+    );
+
+    await screen.findByText("Vault");
+    screen.getByRole("button", { name: "Change" }).click();
+    await waitFor(() => expect(host.changeDirectory).toHaveBeenCalled());
+    expect(await screen.findByText("New Vault")).toBeTruthy();
+  });
+
+  it("requires re-granting an expired folder before starting", async () => {
+    const harness = createHarness([]);
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, { status: "signed-out" });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={createFakeHost({
+          directoryName: "Vault",
+          writePermission: false,
+        })}
+      />,
+    );
+
+    expect(
+      await screen.findByText("Folder access is required before starting."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Grant access" })).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Start batch" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      harness.sent.some(
+        (message) => (message as { type?: string }).type === BATCH_START,
+      ),
+    ).toBe(false);
+  });
+
+  it("cancels setup without starting a task", async () => {
+    const harness = createHarness([]);
+    harness.respond(BATCH_DRAFT_REQUEST, {
+      ok: true,
+      draft: {
+        id: "draft-1",
+        videos: [makeTask().items[0]?.video],
+        createdAt: 1,
+      },
+    });
+    harness.respond(CLOUD_SESSION_REQUEST, { status: "signed-out" });
+    harness.respond(BATCH_DRAFT_DELETE, { ok: true });
+
+    render(
+      <ManagerApp
+        deps={harness.deps}
+        initialDraftId="draft-1"
+        localSaveHost={createFakeHost({ writePermission: false })}
+      />,
+    );
+
+    await screen.findByText("1 video selected");
+    screen.getByRole("button", { name: "Cancel setup" }).click();
+
+    await waitFor(() =>
+      expect(harness.sent).toContainEqual({
+        type: BATCH_DRAFT_DELETE,
+        draftId: "draft-1",
+      }),
+    );
+    expect(
+      harness.sent.some(
+        (message) => (message as { type?: string }).type === BATCH_START,
+      ),
+    ).toBe(false);
+  });
+
   it("shows progress, ETA, state and per-item results for the newest task", async () => {
     await renderManager(
       createHarness([

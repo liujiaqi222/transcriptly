@@ -39,11 +39,15 @@ export interface ManagerLocalSaveHost {
   getStatus(): ManagerLocalSaveHostStatus;
   /** Re-render hook for the UI; returns an unsubscribe. */
   subscribe(listener: () => void): () => void;
+  /** Refresh the remembered folder and current permission for setup UI. */
+  checkAccess(): Promise<ManagerLocalSaveHostStatus>;
   /**
    * Must run inside the grant button's user gesture (Chrome requires it
    * for both the permission prompt and the folder picker).
    */
   grantAccess(): Promise<"granted" | "denied" | "no-directory">;
+  /** Always opens the directory picker, even when the current grant is valid. */
+  changeDirectory(): Promise<"changed" | "cancelled">;
 }
 
 export interface ManagerLocalSaveHostOptions {
@@ -169,6 +173,10 @@ export function mountManagerLocalSaveHost(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    async checkAccess() {
+      await preflight();
+      return status;
+    },
     async grantAccess() {
       const saver = await getSaver();
       const directoryName = await saver.getSavedDirectoryName();
@@ -185,6 +193,16 @@ export function mountManagerLocalSaveHost(
       const granted = await saver.requestWritePermission();
       setStatus(directoryName, granted);
       return granted ? "granted" : "denied";
+    },
+    async changeDirectory() {
+      const saver = await getSaver();
+      try {
+        const directoryName = await saver.changeDirectory();
+        setStatus(directoryName, true);
+        return "changed";
+      } catch {
+        return "cancelled";
+      }
     },
   };
 }
