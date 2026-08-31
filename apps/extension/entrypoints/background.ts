@@ -6,7 +6,7 @@ import { createManagerTabCoordinator } from "@/batch/manager-tabs";
 import { createBatchMessageRouter } from "@/batch/router";
 import { createBatchSessionGate } from "@/batch/session-gate";
 import { createTabVideoCapture } from "@/batch/tab-capture";
-import { cloudClient } from "@/cloud/client";
+import { cloudClient, webOrigin } from "@/cloud/client";
 import { createCloudJobStore } from "@/cloud/jobs";
 import { createCloudUploadQueue } from "@/cloud/queue";
 import {
@@ -41,6 +41,15 @@ const QUEUE_ALARM = "transcriptly:cloud-queue";
  */
 export default defineBackground({
   main() {
+    // Chrome opens this URL after the extension is removed. Keep it on
+    // the same origin as the rest of the extension's web experience, and
+    // carry the version so the feedback page can record it (#104).
+    // runtime.setUninstallURL caps URLs at 255 chars; origin + path +
+    // params stay far below that.
+    void browser.runtime.setUninstallURL(
+      `${webOrigin}/feedback?source=uninstall&version=${encodeURIComponent(browser.runtime.getManifest().version)}`,
+    );
+
     const cloudStore = createCloudJobStore();
     const queue = createCloudUploadQueue({
       store: cloudStore,
