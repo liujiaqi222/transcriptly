@@ -2,8 +2,19 @@ import { getDatabase } from "@/db/client";
 import { extensionFeedback } from "@/db/schema";
 import { errorResponse } from "@/lib/captures/response";
 import { validateFeedbackPayload } from "@/lib/feedback/validation";
+import { feedbackRateLimiter } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * First hop of X-Forwarded-For as the limiter key: the app sits behind a
+ * reverse proxy in production, so the socket peer is not the client.
+ */
+function clientIp(request: Request): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+  );
+}
 
 /**
  * Anonymous, unauthenticated write, so unlike the cookie-authenticated
@@ -52,6 +63,17 @@ export async function POST(request: Request): Promise<Response> {
 
   // Honeypot: accept the request to avoid teaching bots about the filter.
   if (feedback.website) return Response.json({ success: true });
+
+  // Rate limit after the honeypot so scripted bots keep receiving fake
+  // success and never learn this filter exists (#104).
+  if (!feedbackRateLimiter.tryConsume(clientIp(request))) {
+    return errorResponse(429, {
+      code: "rate_limited",
+      message: "Too much feedback from this client. Please try again later.",
+      retryable: true,
+      requestId,
+    });
+  }
 
   try {
     await getDatabase()
