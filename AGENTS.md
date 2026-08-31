@@ -18,6 +18,10 @@ Single-context layout: root `CONTEXT.md` + `docs/adr/`, created lazily by `/doma
 
 When changing batch discovery, selection lifecycle, or tab capture, preserve source and target identity. See `docs/agents/youtube-spa-safety.md`.
 
+### Live YouTube page fixtures
+
+When a capture incident suggests YouTube changed its page structure, capture the real page and pin it as a regression fixture in `packages/capture/test/fixtures/live/`. See `docs/agents/live-fixtures.md`.
+
 ### Extension origin boundary
 
 When adding or changing extension-facing web API routes, or debugging extension reads that silently return nothing while writes succeed, apply the Origin rules: background GETs carry no Origin under host permissions, mutations stay strict. See `docs/agents/extension-origin-boundary.md`.

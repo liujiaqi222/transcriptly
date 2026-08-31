@@ -1,0 +1,3 @@
+# HTML fixtures are single-line blobs; keep them text (diffable, greppable)
+# without whitespace normalization.
+*.html -diff=astyle
