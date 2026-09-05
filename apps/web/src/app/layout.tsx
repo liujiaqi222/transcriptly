@@ -40,6 +40,13 @@ export const metadata: Metadata = {
   title: "Transcriptly — Turn YouTube into a knowledge base",
   description:
     "Capture YouTube transcripts in batch and keep them locally as portable Markdown.",
+  icons: {
+    icon: [
+      { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-180.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -271,7 +271,15 @@ test("serves only active publications through detail, search, and sitemap", asyn
   page,
   request,
 }) => {
+  console.error(
+    "PROBE t270 start consents:",
+    JSON.stringify(await sql`select user_id from public_profile_consents`),
+  );
   await page.goto(`/transcripts/${videoId}`);
+  console.error(
+    "PROBE t270 after detail goto consents:",
+    JSON.stringify(await sql`select user_id from public_profile_consents`),
+  );
   await expect(page).toHaveTitle(/Public archive E2E transcript/);
   await expect(
     page.getByRole("heading", { name: "Public archive E2E transcript" }),
@@ -288,6 +296,10 @@ test("serves only active publications through detail, search, and sitemap", asyn
     1,
   );
 
+  console.error(
+    "PROBE t270 before search goto consents:",
+    JSON.stringify(await sql`select user_id from public_profile_consents`),
+  );
   await page.goto("/transcripts?q=observable");
   await expect(
     page.getByText("Observable behavior makes agent systems reliable."),
