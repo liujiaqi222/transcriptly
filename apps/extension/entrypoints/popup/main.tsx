@@ -5,6 +5,7 @@ import { webOrigin } from "@/cloud/client";
 import type { CloudQueueStatus } from "@/cloud/jobs";
 import { createLocalMarkdownSaver } from "@/local-save";
 import { createSavePreferences } from "@/save-preferences";
+import { ExtensionErrorBoundary } from "@/shared/error-boundary";
 import {
   BATCH_ENTER_SELECTION_REQUEST,
   BATCH_OPEN_MANAGER,
@@ -25,8 +26,11 @@ import {
   type CloudSessionStatus,
   type CloudSignOutStatus,
 } from "@/shared/messages";
+import { initExtensionSentry } from "@/shared/sentry-client";
 import { Popup, type PopupDependencies } from "./app";
 import "./style.css";
+
+initExtensionSentry();
 
 const savePreferences = createSavePreferences({
   get: (keys) => browser.storage.local.get(keys),
@@ -135,4 +139,8 @@ if (!rootElement) {
   throw new Error("Missing #root element");
 }
 
-createRoot(rootElement).render(<Popup deps={dependencies} />);
+createRoot(rootElement).render(
+  <ExtensionErrorBoundary surface="popup">
+    <Popup deps={dependencies} />
+  </ExtensionErrorBoundary>,
+);

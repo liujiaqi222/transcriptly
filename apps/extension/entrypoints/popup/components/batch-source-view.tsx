@@ -21,14 +21,14 @@ export function BatchSourceView({
 }: BatchSourceViewProps) {
   return (
     <section className="batch-source" role="status">
+      <div className="state-icon">
+        <ListVideo />
+      </div>
       <div className="batch-heading">
-        <div className="batch-title">
-          <LibraryBig />
-          <h2>Select videos from this page</h2>
-        </div>
+        <h2>Save many transcripts at once</h2>
         <p className="state-copy">
-          Choose videos here, then configure and start the batch in
-          Transcriptly.
+          Checkboxes appear next to each video on this page — pick the ones you
+          want, then save all their transcripts in one batch.
         </p>
       </div>
       <button
@@ -37,9 +37,7 @@ export function BatchSourceView({
         onClick={onEnterSelection}
         disabled={enteringSelection}
       >
-        {enteringSelection
-          ? "Enabling selection…"
-          : "Select videos on this page"}
+        {enteringSelection ? "Enabling selection…" : "Select videos"}
         {!enteringSelection && <ArrowRight />}
       </button>
       {enterError && (
@@ -67,14 +65,13 @@ export function ChannelRootHint({
 }) {
   return (
     <section className="batch-source" role="status">
+      <div className="state-icon">
+        <LibraryBig />
+      </div>
       <div className="batch-heading">
-        <div className="batch-title">
-          <LibraryBig />
-          <h2>Continue on the Videos tab</h2>
-        </div>
+        <h2>Continue on the Videos tab</h2>
         <p className="state-copy">
-          Transcriptly can add selection controls once the channel's video grid
-          is open.
+          Selection controls can be added once the channel's video grid is open.
         </p>
       </div>
       <button

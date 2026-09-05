@@ -422,7 +422,7 @@ describe("popup capture flow", () => {
       rememberedDirectory: directory,
     });
     render(<Popup deps={harness.deps} />);
-    await screen.findByRole("button", { name: "Select videos on this page" });
+    await screen.findByRole("button", { name: "Select videos" });
     expect(screen.queryByText(/Write access is not active/)).toBeNull();
     expect(screen.queryByText(/Save to:/)).toBeNull();
   });
@@ -433,14 +433,12 @@ describe("popup capture flow", () => {
     });
     const { container } = render(<Popup deps={harness.deps} />);
 
-    await screen.findByRole("button", { name: "Select videos on this page" });
+    await screen.findByRole("button", { name: "Select videos" });
     expect(
       container.querySelector(".popup-content.batch-content"),
     ).toBeTruthy();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Select videos on this page" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Select videos" }));
 
     await waitFor(() =>
       expect(harness.deps.enterBatchSelection).toHaveBeenCalledWith(3),
@@ -460,7 +458,7 @@ describe("popup capture flow", () => {
     render(<Popup deps={harness.deps} />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Select videos on this page" }),
+      await screen.findByRole("button", { name: "Select videos" }),
     );
 
     expect(
@@ -481,7 +479,7 @@ describe("popup capture flow", () => {
     render(<Popup deps={harness.deps} />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Select videos on this page" }),
+      await screen.findByRole("button", { name: "Select videos" }),
     );
 
     expect(
