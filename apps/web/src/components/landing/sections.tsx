@@ -78,41 +78,6 @@ export function HeroSection() {
   );
 }
 
-const marqueeItems = [
-  "Playlists",
-  "Channels",
-  "Timestamped",
-  "Plain Markdown",
-  "Local-first",
-  "Open source",
-  "Resumable",
-  "No account",
-] as const;
-
-export function Marquee() {
-  const half = marqueeItems.map((item) => (
-    <span
-      className={`flex items-center gap-10 ${monoLabel} text-[#64748b]`}
-      key={item}
-    >
-      {item}
-      <span className="h-1.5 w-1.5 rounded-full bg-[#f5c451]" />
-    </span>
-  ));
-
-  return (
-    <div
-      className="overflow-hidden border-y border-[#e2e8f0] bg-[#f7f4ec] py-4"
-      aria-hidden="true"
-    >
-      <div className="marquee-track flex w-max items-center">
-        <div className="flex shrink-0 items-center gap-10 pr-10">{half}</div>
-        <div className="flex shrink-0 items-center gap-10 pr-10">{half}</div>
-      </div>
-    </div>
-  );
-}
-
 export function BatchSection() {
   return (
     <section
