@@ -145,9 +145,29 @@ test("background opens the private manager page for an extension message", async
 
   expect(result).toEqual({ ok: true });
   const managerUrl = `chrome-extension://${extensionId}/manager.html?task=task-e2e`;
-  await expect
-    .poll(() => context.pages().some((page) => page.url() === managerUrl))
-    .toBe(true);
+  try {
+    await expect
+      .poll(() => context.pages().some((page) => page.url() === managerUrl))
+      .toBe(true);
+  } catch (error) {
+    const urls = context.pages().map((page) => page.url());
+    const tabsViaChrome = await popup.evaluate(async () => {
+      const chrome = (
+        globalThis as unknown as {
+          chrome: {
+            tabs: {
+              query(o: unknown): Promise<Array<{ url?: string; id?: number }>>;
+            };
+          };
+        }
+      ).chrome;
+      return chrome.tabs.query({});
+    });
+    console.error(
+      `DEBUG context.pages URLs: ${JSON.stringify(urls)}; chrome.tabs: ${JSON.stringify(tabsViaChrome)}`,
+    );
+    throw error;
+  }
   const manager = context.pages().find((page) => page.url() === managerUrl);
   if (!manager) throw new Error("manager page did not open");
   await expect(
