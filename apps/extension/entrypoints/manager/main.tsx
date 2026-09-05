@@ -2,9 +2,13 @@ import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
 import { webOrigin } from "@/cloud/client";
 import { createSavePreferences } from "@/save-preferences";
+import { ExtensionErrorBoundary } from "@/shared/error-boundary";
+import { initExtensionSentry } from "@/shared/sentry-client";
 import { ManagerApp, type ManagerDependencies } from "./app";
 import { mountManagerLocalSaveHost } from "./local-save-host";
 import "./style.css";
+
+initExtensionSentry();
 
 const savePreferences = createSavePreferences({
   get: (keys) => browser.storage.local.get(keys),
@@ -38,10 +42,12 @@ const initialDraftId =
   new URLSearchParams(location.search).get("setup") ?? undefined;
 
 createRoot(rootElement).render(
-  <ManagerApp
-    deps={dependencies}
-    initialTaskId={initialTaskId}
-    initialDraftId={initialDraftId}
-    localSaveHost={localSaveHost}
-  />,
+  <ExtensionErrorBoundary surface="manager">
+    <ManagerApp
+      deps={dependencies}
+      initialTaskId={initialTaskId}
+      initialDraftId={initialDraftId}
+      localSaveHost={localSaveHost}
+    />
+  </ExtensionErrorBoundary>,
 );

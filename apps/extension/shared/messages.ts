@@ -299,3 +299,16 @@ export type ManagerLocalSaveResponse =
   | { ok: false; reason: "permission-required"; directoryName?: string }
   | { ok: false; reason: "no-directory" }
   | { ok: false; reason: "error"; message: string };
+
+/** Content-script error forwarded to the background worker for Sentry (#monitoring). */
+export const SENTRY_REPORT = "transcriptly:sentry-report" as const;
+
+export interface SentryReportMessage {
+  type: typeof SENTRY_REPORT;
+  /** Structured-clone-safe error fields (Error prototypes do not survive messaging). */
+  error: { name: string; message: string; stack?: string };
+  /** Reportable identifiers only: video/channel ids, never tokens or full URLs. */
+  context?: Record<string, unknown>;
+}
+
+export type SentryReportStatus = { ok: true };

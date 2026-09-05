@@ -19,6 +19,15 @@ import {
   createIndexedDbLocalReceiptStore,
 } from "@/local-save";
 import type { BatchMessage, BatchMessageResult } from "@/shared/messages";
+import {
+  SENTRY_REPORT,
+  type SentryReportMessage,
+  type SentryReportStatus,
+} from "@/shared/messages";
+import {
+  handleSentryReport,
+  initExtensionSentry,
+} from "@/shared/sentry-client";
 
 /** Wakes the worker at least once a minute to drain pending work. */
 const QUEUE_ALARM = "transcriptly:cloud-queue";
@@ -41,6 +50,10 @@ const QUEUE_ALARM = "transcriptly:cloud-queue";
  */
 export default defineBackground({
   main() {
+    // Sentry owns the only extension-side SDK client; popup/manager
+    // pages init their own copy in their entrypoints.
+    initExtensionSentry();
+
     // Chrome opens this URL after the extension is removed. Keep it on
     // the same origin as the rest of the extension's web experience, and
     // carry the version so the feedback page can record it (#104).
@@ -139,8 +152,15 @@ export default defineBackground({
 
     browser.runtime.onMessage.addListener(
       async (
-        message: CloudMessage | BatchMessage,
-      ): Promise<CloudMessageResult | BatchMessageResult | undefined> => {
+        message: CloudMessage | BatchMessage | SentryReportMessage,
+      ): Promise<
+        CloudMessageResult | BatchMessageResult | SentryReportStatus | undefined
+      > => {
+        // Forwarded content-script errors bypass the routers and never
+        // fail the sender: monitoring must not break capture paths.
+        if (message?.type === SENTRY_REPORT) {
+          return handleSentryReport(message);
+        }
         const batchResult = await batchRouter.handle(message as BatchMessage);
         if (batchResult !== undefined) return batchResult;
         return router.handle(message as CloudMessage);

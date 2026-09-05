@@ -288,19 +288,8 @@ h2 {
   margin: 0 auto;
   text-align: center;
 }
-.batch-title {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.batch-title > svg {
-  width: 24px;
-  height: 24px;
-  color: var(--text);
-}
 .batch-heading .state-copy {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
 }
 .state-icon {
   display: grid;
@@ -354,7 +343,7 @@ h2 {
   margin-left: auto;
 }
 .batch-source .batch-primary-button {
-  margin-top: 12px;
+  margin-top: 16px;
   border-color: var(--text);
   color: #fff;
   background: var(--text);
@@ -1000,29 +989,6 @@ h2 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.batch-source .destination-summary {
-  margin-top: 16px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-.batch-source .format-picker {
-  margin-top: 12px;
-}
-.batch-source .destination-summary > svg {
-  color: var(--text);
-}
-.batch-source .destination-summary > span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.batch-source .destination-label,
-.batch-source .directory {
-  display: inline;
-}
-
 /* Status */
 .error-banner,
 .success-banner {
@@ -1247,4 +1213,64 @@ h2 {
 .footer-status .cloud-saving,
 .footer-status .cloud-saved {
   margin: 0;
+}
+
+/* Last-resort error boundary (shared surface styles, manager mirrors this). */
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+}
+.error-boundary h2 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+}
+.error-boundary p {
+  margin: 0;
+  max-width: 280px;
+  color: var(--muted);
+}
+.error-boundary-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.error-boundary-actions button {
+  min-width: 88px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--primary-border);
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+}
+.error-boundary-actions button:hover {
+  background: var(--primary-hover);
+}
+.error-boundary-actions .error-boundary-secondary {
+  background: var(--surface);
+  color: var(--primary-text);
+}
+.error-boundary-actions .error-boundary-secondary:hover {
+  background: var(--primary-soft);
+}
+
+/* Brand mark above the boundary copy, matching the header lockup. */
+.error-boundary-brand {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+.error-boundary-brand svg {
+  width: 24px;
+  height: 24px;
 }

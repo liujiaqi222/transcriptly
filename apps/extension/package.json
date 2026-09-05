@@ -14,6 +14,7 @@
     "release": "node scripts/release.mjs"
   },
   "dependencies": {
+    "@sentry/browser": "^10.73.0",
     "@transcriptly/capture": "workspace:*",
     "@transcriptly/schema": "workspace:*",
     "lucide": "^1.33.0",
