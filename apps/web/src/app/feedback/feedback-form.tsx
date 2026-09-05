@@ -94,45 +94,47 @@ export function FeedbackForm() {
 
   return (
     <form
-      className="border border-[#e2e8f0] bg-white p-6 sm:p-10"
+      className="rounded-2xl border border-[#e2e8f0] bg-white p-6 sm:p-8"
       onSubmit={submit}
     >
       <fieldset>
-        <legend className="text-lg font-bold">
-          How would you rate Transcriptly?
-        </legend>
-        <div className="mt-4 flex gap-2">
-          {[1, 2, 3, 4, 5].map((value) => (
-            <button
-              aria-label={`${value} out of 5`}
-              aria-pressed={rating === value}
-              className={`grid size-11 place-items-center border transition-colors ${focusRing} ${value <= rating ? "border-[#f5c451] bg-[#fff7d8] text-[#b7791f]" : "border-[#e2e8f0] text-[#94a3b8] hover:border-[#147ac9] hover:text-[#1b90ed]"}`}
-              key={value}
-              onClick={() => setRating(value)}
-              type="button"
-            >
-              <Star
-                aria-hidden="true"
-                className="size-5"
-                fill={value <= rating ? "currentColor" : "none"}
-              />
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <legend className="text-base font-bold">
+            How would you rate Transcriptly?
+          </legend>
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((value) => (
+              <button
+                aria-label={`${value} out of 5`}
+                aria-pressed={rating === value}
+                className={`grid size-9 place-items-center rounded-lg border transition-colors ${focusRing} ${value <= rating ? "border-[#f5c451] bg-[#fff7d8] text-[#b7791f]" : "border-[#e2e8f0] text-[#94a3b8] hover:border-[#147ac9] hover:text-[#1b90ed]"}`}
+                key={value}
+                onClick={() => setRating(value)}
+                type="button"
+              >
+                <Star
+                  aria-hidden="true"
+                  className="size-4"
+                  fill={value <= rating ? "currentColor" : "none"}
+                />
+              </button>
+            ))}
+          </div>
         </div>
       </fieldset>
 
-      <fieldset className="mt-8">
-        <legend className="text-lg font-bold">
+      <fieldset className="mt-6">
+        <legend className="text-base font-bold">
           {source === "uninstall"
             ? "What made you uninstall the extension?"
             : "What did not work for you?"}
         </legend>
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-1">
           {feedbackReasons.map((value) => {
             const checked = reasons.includes(value);
             return (
               <div key={value}>
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-[15px] font-medium text-[#202124]">
+                <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm font-medium text-[#202124]">
                   <input
                     checked={checked}
                     className="peer sr-only"
@@ -158,7 +160,7 @@ export function FeedbackForm() {
                 {checked && (
                   <input
                     aria-label={`Tell us more (optional) — ${reasonLabels[value]}`}
-                    className="mb-2 ml-8 mt-1 min-h-11 w-[calc(100%-2rem)] border border-[#cbd5e1] bg-white px-3 text-sm focus:border-[#1b90ed] focus:outline-2 focus:outline-[#1b90ed]/30"
+                    className="mb-1 ml-7 mt-1 h-9 w-[calc(100%-1.75rem)] rounded-lg border border-[#cbd5e1] bg-white px-3 text-sm focus:border-[#1b90ed] focus:outline-2 focus:outline-[#1b90ed]/30"
                     maxLength={2000}
                     onChange={(event) =>
                       setDetailsByReason((current) => ({
@@ -177,14 +179,14 @@ export function FeedbackForm() {
         </div>
       </fieldset>
 
-      <label className="mt-6 block text-sm font-bold" htmlFor="email">
+      <label className="mt-5 block text-sm font-bold" htmlFor="email">
         Email{" "}
         <span className="font-normal text-[#64748b]">
           (optional, if you'd like a follow up)
         </span>
       </label>
       <input
-        className="mt-2 min-h-11 w-full border border-[#cbd5e1] bg-white px-3 text-sm focus:border-[#1b90ed] focus:outline-2 focus:outline-[#1b90ed]/30"
+        className="mt-2 h-10 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-sm focus:border-[#1b90ed] focus:outline-2 focus:outline-[#1b90ed]/30"
         id="email"
         onChange={(event) => setContactEmail(event.target.value)}
         placeholder="you@example.com"
@@ -204,7 +206,7 @@ export function FeedbackForm() {
         </p>
       )}
       <button
-        className={`mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 bg-[#f5c451] px-5 text-sm font-bold text-[#202124] transition-colors hover:bg-[#e7b642] disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
+        className={`mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#f5c451] px-6 text-sm font-bold text-[#202124] transition-colors hover:bg-[#e7b642] disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
         disabled={!rating || status === "sending"}
         type="submit"
       >
