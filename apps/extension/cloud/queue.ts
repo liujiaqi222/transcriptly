@@ -149,6 +149,8 @@ export interface CloudUploadQueue {
   ): Promise<CloudJobRecord>;
   /** Re-queue a failed Job and start draining the queue. */
   retry(jobId: string): Promise<CloudJobRecord | undefined>;
+  /** Delete a failed Job at the user's request (#108). */
+  dismiss(jobId: string): Promise<boolean>;
   getStatus(videoId?: string): Promise<CloudQueueStatus>;
   /** Startup recovery plus a drain. */
   recoverAndDrain(): Promise<void>;
@@ -234,6 +236,10 @@ export function createCloudUploadQueue(
       const record = await store.retry(jobId);
       if (record) void drain();
       return record;
+    },
+
+    dismiss(jobId) {
+      return store.dismiss(jobId);
     },
 
     getStatus(videoId) {

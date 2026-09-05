@@ -154,6 +154,7 @@ function createHarness(
       })),
       getCloudQueueStatus: vi.fn(async () => ({ failed: [] })),
       retryCloudJob: vi.fn(async () => ({ ok: true as const })),
+      dismissCloudJob: vi.fn(async () => ({ ok: true as const })),
       getCloudPreference: vi.fn(async () => false),
       setCloudPreference: vi.fn(async () => undefined),
     },
@@ -1309,6 +1310,110 @@ describe("popup cloud saving", () => {
     const retries = screen.getAllByRole("button", { name: "Retry" });
     expect(retries).toHaveLength(1);
     expect((retries[0] as HTMLButtonElement).disabled).toBe(true);
+
+    // Every row also offers Dismiss (#108), and the title tooltip explains
+    // why the upload failed so Retry vs Dismiss is an informed choice.
+    expect(screen.getByTitle("First failure - Sign in again.")).toBeTruthy();
+    expect(screen.getByTitle("Second failure - Invalid.")).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Dismiss failed contribution: First failure",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Dismiss failed contribution: Second failure",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("dismisses a failed save and drops it from the badge (#108)", async () => {
+    const harness = cloudHarness({
+      session: "signed-in",
+      queueStatus: {
+        failed: [
+          {
+            id: "job-1",
+            videoId: "aaaaaaaaaaa",
+            title: "First failure",
+            state: "failed",
+            failure: {
+              kind: "retryable",
+              code: "interrupted",
+              message: "The upload was interrupted.",
+            },
+          },
+          {
+            id: "job-2",
+            videoId: "bbbbbbbbbbb",
+            title: "Second failure",
+            state: "failed",
+            failure: {
+              kind: "retryable",
+              code: "interrupted",
+              message: "The upload was interrupted.",
+            },
+          },
+        ],
+      },
+    });
+    await captureSuccessfulPopup(harness);
+
+    const badge = await screen.findByRole("button", {
+      name: "2 public contributions failed",
+    });
+    fireEvent.click(badge);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Dismiss failed contribution: First failure",
+      }),
+    );
+    await waitFor(() =>
+      expect(harness.deps.cloud.dismissCloudJob).toHaveBeenCalledWith("job-1"),
+    );
+  });
+
+  it("hides the badge once every failure is dismissed (#108)", async () => {
+    const harness = cloudHarness({
+      session: "signed-in",
+      queueStatus: {
+        failed: [
+          {
+            id: "job-1",
+            videoId: "aaaaaaaaaaa",
+            title: "First failure",
+            state: "failed",
+            failure: {
+              kind: "retryable",
+              code: "interrupted",
+              message: "The upload was interrupted.",
+            },
+          },
+        ],
+      },
+    });
+    await captureSuccessfulPopup(harness);
+
+    const badge = await screen.findByRole("button", {
+      name: "1 public contribution failed",
+    });
+    fireEvent.click(badge);
+
+    // The next poll sees the emptied queue after the dismiss reached the
+    // background store, so the badge disappears without a reopen.
+    harness.deps.cloud.getCloudQueueStatus = vi.fn(async () => ({
+      failed: [],
+    }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Dismiss failed contribution: First failure",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByText(/public contributions? failed/)).toBeNull(),
+    );
   });
 });
 

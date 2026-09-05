@@ -59,11 +59,30 @@ export function useCloudQueue(deps: PopupDependencies, activeVideoId?: string) {
     [deps, refreshQueueStatus],
   );
 
+  /** Give up on a failed Job: delete its record (#108). A failed dismiss
+   *  surfaces in the same banner - the Job may already be gone. */
+  const handleDismiss = useCallback(
+    async (jobId: string) => {
+      try {
+        const result = await deps.cloud.dismissCloudJob(jobId);
+        if (result.ok) {
+          refreshQueueStatus();
+        } else {
+          setCloudError(result.message);
+        }
+      } catch (error) {
+        setCloudError(errorMessage(error));
+      }
+    },
+    [deps, refreshQueueStatus],
+  );
+
   return {
     queueStatus,
     cloudError,
     setCloudError,
     refreshQueueStatus,
     handleRetry,
+    handleDismiss,
   };
 }

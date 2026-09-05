@@ -117,6 +117,13 @@ export interface CloudJobStore {
   /** Move a failed Job back to pending for an explicit user retry. */
   retry(jobId: string): Promise<CloudJobRecord | undefined>;
   /**
+   * Delete a failed Job outright (#108): the user's explicit "give up on
+   * this upload" instead of waiting out the 7-day retention. Only failed
+   * Jobs may be dismissed - pending/uploading/saved keep their own
+   * lifecycle. Resolves false when the Job is missing or not failed.
+   */
+  dismiss(jobId: string): Promise<boolean>;
+  /**
    * Startup recovery: Jobs stuck in `uploading` (the worker died mid-upload)
    * become failed instead of being replayed automatically (#36 AC), and
    * expired failed Jobs are deleted. `skipJobIds` excludes Jobs the caller
@@ -374,6 +381,17 @@ export function createCloudJobStore(
         };
         store.put(updated);
         return updated;
+      });
+    },
+
+    async dismiss(jobId) {
+      return withStore("readwrite", async (store) => {
+        const record = (await request(store.get(jobId))) as
+          | CloudJobRecord
+          | undefined;
+        if (record?.state !== "failed") return false;
+        store.delete(jobId);
+        return true;
       });
     },
 

@@ -2,11 +2,14 @@ import type { CloudClient } from "@/cloud/client";
 import type { CloudQueueStatus } from "@/cloud/jobs";
 import type { CloudUploadQueue } from "@/cloud/queue";
 import {
+  CLOUD_JOB_DISMISS,
   CLOUD_JOB_RETRY,
   CLOUD_QUEUE_STATUS_REQUEST,
   CLOUD_SAVE_ENQUEUE,
   CLOUD_SESSION_REQUEST,
   CLOUD_SIGN_OUT_REQUEST,
+  type CloudJobDismissMessage,
+  type CloudJobDismissStatus,
   type CloudJobRetryMessage,
   type CloudJobRetryStatus,
   type CloudQueueStatusRequestMessage,
@@ -35,14 +38,16 @@ export type CloudMessage =
   | CloudSignOutRequestMessage
   | CloudSaveEnqueueMessage
   | CloudQueueStatusRequestMessage
-  | CloudJobRetryMessage;
+  | CloudJobRetryMessage
+  | CloudJobDismissMessage;
 
 export type CloudMessageResult =
   | CloudSessionStatus
   | CloudSignOutStatus
   | CloudSaveEnqueueStatus
   | CloudQueueStatus
-  | CloudJobRetryStatus;
+  | CloudJobRetryStatus
+  | CloudJobDismissStatus;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -108,6 +113,24 @@ export function createCloudMessageRouter(deps: CloudRouterDependencies) {
             return {
               ok: false,
               message: `Could not retry the public contribution: ${errorMessage(error)}`,
+            };
+          }
+        }
+
+        case CLOUD_JOB_DISMISS: {
+          try {
+            const dismissed = await deps.queue.dismiss(message.jobId);
+            return dismissed
+              ? { ok: true }
+              : {
+                  ok: false,
+                  message:
+                    "Only failed contributions can be dismissed. Refresh the popup and try again.",
+                };
+          } catch (error) {
+            return {
+              ok: false,
+              message: `Could not dismiss the public contribution: ${errorMessage(error)}`,
             };
           }
         }
