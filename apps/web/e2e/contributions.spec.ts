@@ -271,15 +271,7 @@ test("serves only active publications through detail, search, and sitemap", asyn
   page,
   request,
 }) => {
-  console.error(
-    "PROBE t270 start consents:",
-    JSON.stringify(await sql`select user_id from public_profile_consents`),
-  );
   await page.goto(`/transcripts/${videoId}`);
-  console.error(
-    "PROBE t270 after detail goto consents:",
-    JSON.stringify(await sql`select user_id from public_profile_consents`),
-  );
   await expect(page).toHaveTitle(/Public archive E2E transcript/);
   await expect(
     page.getByRole("heading", { name: "Public archive E2E transcript" }),
@@ -288,6 +280,13 @@ test("serves only active publications through detail, search, and sitemap", asyn
     page.getByText("Contributed by Public Contributor"),
   ).toBeVisible();
   await expect(page.getByText(/public-.*@example\.test/)).toHaveCount(0);
+  // The reader defaults to the reflowed Article format, where merged
+  // paragraphs keep only their first timestamp link. Switch to Timeline
+  // so every segment exposes its own deep link into the video.
+  await expect(
+    page.getByRole("button", { name: "Article", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Timeline", exact: true }).click();
   await expect(page.getByRole("link", { name: "0:42" })).toHaveAttribute(
     "href",
     /t=42/,
@@ -296,10 +295,6 @@ test("serves only active publications through detail, search, and sitemap", asyn
     1,
   );
 
-  console.error(
-    "PROBE t270 before search goto consents:",
-    JSON.stringify(await sql`select user_id from public_profile_consents`),
-  );
   await page.goto("/transcripts?q=observable");
   await expect(
     page.getByText("Observable behavior makes agent systems reliable."),
