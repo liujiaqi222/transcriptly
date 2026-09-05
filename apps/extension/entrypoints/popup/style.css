@@ -1210,24 +1210,21 @@ h2 {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  padding: 4px 12px;
-  border: 1px solid var(--primary-border);
+  padding: 4px 8px;
+  border: 0;
   border-radius: 8px;
   color: #0872b9;
-  background: var(--primary-soft);
+  background: transparent;
   font-size: 12px;
   font-weight: 650;
   cursor: pointer;
 }
 .cloud-retry button:hover {
-  border-color: var(--primary);
-  color: var(--primary-hover);
   background: #dcefff;
 }
 .cloud-retry button:disabled {
-  border-color: #cbd5e1;
   color: var(--muted);
-  background: #e2e8f0;
+  background: transparent;
   cursor: default;
 }
 .cloud-failed-title {
