@@ -1311,7 +1311,10 @@ describe("popup cloud saving", () => {
     expect(retries).toHaveLength(1);
     expect((retries[0] as HTMLButtonElement).disabled).toBe(true);
 
-    // Every row also offers Dismiss (#108).
+    // Every row also offers Dismiss (#108), and the title tooltip explains
+    // why the upload failed so Retry vs Dismiss is an informed choice.
+    expect(screen.getByTitle("First failure - Sign in again.")).toBeTruthy();
+    expect(screen.getByTitle("Second failure - Invalid.")).toBeTruthy();
     expect(
       screen.getByRole("button", {
         name: "Dismiss failed contribution: First failure",

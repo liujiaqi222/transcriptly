@@ -48,7 +48,14 @@ export function CloudStatusPanel({
           <ul className="cloud-failed-list">
             {failed.map((job) => (
               <li key={job.id}>
-                <span className="cloud-failed-title" title={job.title}>
+                <span
+                  className="cloud-failed-title"
+                  title={
+                    job.failure
+                      ? `${job.title} - ${job.failure.message}`
+                      : job.title
+                  }
+                >
                   {job.title}
                 </span>
                 <RetryButton job={job} signedIn={signedIn} onRetry={onRetry} />
