@@ -55,6 +55,18 @@ svg {
   color: var(--muted);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Page shell: brand header over the shared 680px column */
 
 .manager-header {
@@ -95,9 +107,9 @@ h1 {
 }
 
 .manager {
-  max-width: 760px;
+  max-width: 620px;
   margin: 0 auto;
-  padding: 32px 16px 64px;
+  padding: 28px 16px 48px;
 }
 
 h2 {
@@ -117,57 +129,51 @@ h2 {
 /* Pre-start setup: selection is complete; Manager owns destinations,
    folder permission, format, sign-in, and the final start action. */
 .batch-setup {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface);
+  border: 0;
+  background: transparent;
 }
 
 .setup-heading {
-  padding: 28px 28px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--primary-soft);
+  margin: 0 0 16px;
+  padding: 4px 0;
+  background: transparent;
 }
 
 .setup-eyebrow {
-  display: block;
-  margin-bottom: 16px;
-  color: var(--primary-text);
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 10px;
   font-weight: 750;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.setup-title-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.setup-icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--primary-border);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--primary);
-}
-
-.setup-icon svg {
-  width: 22px;
-  height: 22px;
+.setup-eyebrow::before {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  content: "";
 }
 
 .setup-heading h2 {
-  margin: 0 0 4px;
+  margin: 0;
   color: var(--text);
   font-size: 24px;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
   text-transform: none;
+}
+
+.setup-form {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
 }
 
 .setup-heading p,
@@ -181,69 +187,54 @@ h2 {
 }
 
 .setup-section {
-  margin: 24px 28px 0;
-  padding: 0;
+  margin: 0;
+  padding: 16px 20px;
   border: 0;
 }
 
-fieldset.setup-section {
-  min-width: 0;
+.setup-section + .setup-section {
+  padding-top: 8px;
 }
 
-.setup-section legend,
-.setup-section h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.setup-section h3,
+.setup-section-title {
   width: 100%;
-  margin: 0 0 12px;
+  margin: 0 0 4px;
   color: var(--text);
-  font-size: 13px;
-  font-weight: 750;
-  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   text-transform: none;
-}
-
-.setup-section legend > span,
-.setup-section h3 > span {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--primary-soft);
-  color: var(--primary-text);
-  font-size: 12px;
 }
 
 .setup-option {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 64px;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  min-height: 52px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--background);
 }
 
 .destination-option:first-of-type {
-  border-radius: 12px 12px 0 0;
+  border: 0;
 }
 
 .destination-option + .destination-option {
-  border-top: 0;
-  border-radius: 0 0 12px 12px;
+  border-radius: 8px;
 }
 
 .setup-option:hover {
-  border-color: var(--primary-border);
   background: var(--primary-soft);
 }
 
 .setup-option > svg {
   width: 20px;
   height: 20px;
-  color: var(--primary-text);
+  color: var(--muted);
 }
 
 .setup-option-copy {
@@ -253,7 +244,7 @@ fieldset.setup-section {
 
 .setup-option-copy strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .setup-option input[role="switch"] {
@@ -301,7 +292,7 @@ fieldset.setup-section {
 .format-picker button {
   min-height: 40px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 6px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -319,10 +310,11 @@ fieldset.setup-section {
 
 .public-confirmation {
   margin-top: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--primary-border);
-  border-radius: 12px;
-  background: var(--primary-soft);
+  padding: 4px 0 4px 16px;
+  border: 0;
+  border-left: 2px solid var(--primary);
+  border-radius: 0;
+  background: var(--surface);
   color: var(--text);
   font-size: 12px;
   line-height: 1.5;
@@ -351,18 +343,21 @@ fieldset.setup-section {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--border);
+  margin-top: 8px;
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--background);
 }
 
 .folder-status {
-  border-radius: 12px 12px 0 0;
+  border: 0;
 }
 
 .folder-status > svg {
   width: 20px;
   height: 20px;
-  color: var(--primary-text);
+  color: var(--muted);
 }
 
 .folder-copy {
@@ -373,7 +368,7 @@ fieldset.setup-section {
 .folder-copy strong {
   display: block;
   overflow: hidden;
-  margin: 4px 0;
+  margin: 2px 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -392,20 +387,18 @@ fieldset.setup-section {
 
 .format-row {
   justify-content: space-between;
-  border-top: 0;
-  border-radius: 0 0 12px 12px;
 }
 
 .format-picker {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
-  min-width: 240px;
+  min-width: 200px;
   margin: 0;
-  padding: 4px;
+  padding: 0;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--background);
+  border-radius: 6px;
+  background: var(--surface);
 }
 
 .format-picker button {
@@ -415,7 +408,7 @@ fieldset.setup-section {
 }
 
 .format-picker button.is-selected {
-  background: var(--surface);
+  background: var(--primary-soft);
   color: var(--primary-text);
 }
 
@@ -425,13 +418,22 @@ fieldset.setup-section {
   background: var(--primary-soft);
 }
 
+.setup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #fbfaf7;
+}
+
 .start-batch {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: calc(100% - 56px);
-  margin: 24px 28px 0;
+  min-width: 152px;
+  order: 2;
   padding: 12px 16px;
   border-color: var(--accent);
   background: var(--accent);
@@ -453,8 +455,7 @@ fieldset.setup-section {
 }
 
 .cancel-setup {
-  display: block;
-  margin: 8px auto 20px;
+  order: 1;
   padding: 8px 12px;
   border-color: transparent;
   background: transparent;
@@ -472,13 +473,23 @@ fieldset.setup-section {
     padding-left: 12px;
   }
 
-  .setup-heading {
-    padding: 24px 20px 20px;
+  .batch-setup {
+    display: block;
   }
 
-  .setup-section {
-    margin-right: 20px;
-    margin-left: 20px;
+  .setup-heading {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .setup-eyebrow {
+    margin-bottom: 8px;
+  }
+
+  .setup-section,
+  .setup-actions {
+    padding-right: 16px;
+    padding-left: 16px;
   }
 
   .folder-status,
@@ -492,10 +503,14 @@ fieldset.setup-section {
     width: 100%;
   }
 
-  .start-batch {
-    width: calc(100% - 40px);
-    margin-right: 20px;
-    margin-left: 20px;
+  .setup-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .start-batch,
+  .cancel-setup {
+    width: 100%;
   }
 }
 

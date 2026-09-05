@@ -1,6 +1,5 @@
 import type { MarkdownFormat } from "@transcriptly/capture";
 import {
-  CheckCircle2,
   FileText,
   FolderOpen,
   Globe2,
@@ -555,258 +554,253 @@ function BatchSetup({
   return (
     <section className="batch-setup">
       <div className="setup-heading">
-        <span className="setup-eyebrow">Batch setup</span>
-        <div className="setup-title-row">
-          <span className="setup-icon" aria-hidden="true">
-            <CheckCircle2 />
-          </span>
-          <span>
-            <h2>{`${draft.videos.length} ${
-              draft.videos.length === 1 ? "video" : "videos"
-            } selected`}</h2>
-            <p>Your selection is ready. Choose where the transcripts go.</p>
-          </span>
-        </div>
+        <span className="setup-eyebrow">New batch</span>
+        <h2>{`${draft.videos.length} ${
+          draft.videos.length === 1 ? "video" : "videos"
+        } selected`}</h2>
       </div>
 
-      <fieldset className="setup-section">
-        <legend>
-          <span>1</span> Save destinations
-        </legend>
-        <label className="setup-option destination-option">
-          <FileText aria-hidden="true" />
-          <span className="setup-option-copy">
-            <strong>Local Markdown</strong>
-            <small>Save one Markdown file per video.</small>
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            aria-label="Local Markdown"
-            aria-checked={localEnabled}
-            checked={localEnabled}
-            onChange={(event) => setLocalEnabled(event.target.checked)}
-          />
-        </label>
-        <div className="setup-option destination-option public-option">
-          <Globe2 aria-hidden="true" />
-          <span className="setup-option-copy">
-            <strong>Public archive</strong>
-            <small>Publish a copy to Transcriptly.</small>
-          </span>
-          {cloudSession?.status === "signed-in" ? (
+      <div className="setup-form">
+        <fieldset className="setup-section">
+          <legend className="sr-only">Save to</legend>
+          <div className="setup-section-title" aria-hidden="true">
+            Save to
+          </div>
+          <label className="setup-option destination-option">
+            <FileText aria-hidden="true" />
+            <span className="setup-option-copy">
+              <strong>Local Markdown</strong>
+              <small>One file per video</small>
+            </span>
             <input
               type="checkbox"
               role="switch"
-              aria-label="Contribute publicly"
-              aria-checked={cloudEnabled}
-              checked={cloudEnabled}
-              onChange={(event) => {
-                const enabled = event.target.checked;
-                setCloudEnabled(enabled);
-                if (!enabled) setPublicConfirmationAccepted(false);
-                void deps.preferences
-                  .setPublicContributionEnabled(enabled)
-                  .catch(() => undefined);
-              }}
+              aria-label="Local Markdown"
+              aria-checked={localEnabled}
+              checked={localEnabled}
+              onChange={(event) => setLocalEnabled(event.target.checked)}
             />
-          ) : (
-            <button
-              type="button"
-              className="sign-in-button"
-              aria-label="Sign in to contribute publicly"
-              disabled={signingIn || !cloudSession}
-              onClick={() => {
-                setSetupError(undefined);
-                setSigningIn(true);
-                void deps.openCloudSignIn().catch((error: unknown) => {
-                  setSigningIn(false);
-                  setSetupError(errorText(error));
-                });
-              }}
-            >
-              <LogIn />
-              {!cloudSession
-                ? "Checking…"
-                : signingIn
-                  ? "Waiting…"
-                  : cloudSession.status === "unavailable"
-                    ? "Try again"
-                    : "Sign in"}
-            </button>
-          )}
-        </div>
-        {cloudEnabled &&
-          cloudSession?.status === "signed-in" &&
-          !cloudSession.publicContributionConfirmed && (
-            <div className="public-confirmation">
-              <p>
-                Before your first contribution: these transcripts, your display
-                name, and optional avatar will be public. Your email is never
-                shown.
-              </p>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={publicConfirmationAccepted}
-                  onChange={(event) =>
-                    setPublicConfirmationAccepted(event.target.checked)
-                  }
-                />
-                <span>I understand these contributions will be public</span>
-              </label>
-            </div>
-          )}
-      </fieldset>
-
-      {localEnabled && (
-        <div className="setup-section">
-          <h3>
-            <span>2</span> Local settings
-          </h3>
-          <div className="folder-status">
-            <FolderOpen aria-hidden="true" />
-            <span className="folder-copy">
-              <small>Folder</small>
-              <strong>
-                {hostStatus.directoryName ?? "No folder selected"}
-              </strong>
-              <small>
-                {hostStatus.writePermission
-                  ? "Folder access is ready."
-                  : hostStatus.directoryName
-                    ? "Folder access is required before starting."
-                    : "Choose where Transcriptly should save the files."}
-              </small>
+          </label>
+          <div className="setup-option destination-option public-option">
+            <Globe2 aria-hidden="true" />
+            <span className="setup-option-copy">
+              <strong>Public archive</strong>
+              <small>Share a copy on Transcriptly</small>
             </span>
-            <span className="folder-actions">
-              {!hostStatus.writePermission && (
-                <button
-                  type="button"
-                  disabled={granting || !localSaveHost}
-                  onClick={() => {
-                    if (!localSaveHost) return;
-                    setGranting(true);
-                    setSetupError(undefined);
-                    void localSaveHost
-                      .grantAccess()
-                      .then((result) => {
-                        if (result === "denied")
-                          setSetupError(
-                            "Folder access was not granted. You can try again or choose another folder.",
-                          );
-                      })
-                      .catch((error: unknown) =>
-                        setSetupError(errorText(error)),
-                      )
-                      .finally(() => setGranting(false));
-                  }}
-                >
-                  <FolderOpen />
-                  {granting
-                    ? "Waiting for Chrome…"
+            {cloudSession?.status === "signed-in" ? (
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Contribute publicly"
+                aria-checked={cloudEnabled}
+                checked={cloudEnabled}
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  setCloudEnabled(enabled);
+                  if (!enabled) setPublicConfirmationAccepted(false);
+                  void deps.preferences
+                    .setPublicContributionEnabled(enabled)
+                    .catch(() => undefined);
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="sign-in-button"
+                aria-label="Sign in to contribute publicly"
+                disabled={signingIn || !cloudSession}
+                onClick={() => {
+                  setSetupError(undefined);
+                  setSigningIn(true);
+                  void deps.openCloudSignIn().catch((error: unknown) => {
+                    setSigningIn(false);
+                    setSetupError(errorText(error));
+                  });
+                }}
+              >
+                <LogIn />
+                {!cloudSession
+                  ? "Checking…"
+                  : signingIn
+                    ? "Waiting…"
+                    : cloudSession.status === "unavailable"
+                      ? "Try again"
+                      : "Sign in"}
+              </button>
+            )}
+          </div>
+          {cloudEnabled &&
+            cloudSession?.status === "signed-in" &&
+            !cloudSession.publicContributionConfirmed && (
+              <div className="public-confirmation">
+                <p>
+                  Before your first contribution: these transcripts, your
+                  display name, and optional avatar will be public. Your email
+                  is never shown.
+                </p>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={publicConfirmationAccepted}
+                    onChange={(event) =>
+                      setPublicConfirmationAccepted(event.target.checked)
+                    }
+                  />
+                  <span>I understand these contributions will be public</span>
+                </label>
+              </div>
+            )}
+        </fieldset>
+
+        {localEnabled && (
+          <div className="setup-section">
+            <h3>Local files</h3>
+            <div className="folder-status">
+              <FolderOpen aria-hidden="true" />
+              <span className="folder-copy">
+                <small>Folder</small>
+                <strong>
+                  {hostStatus.directoryName ?? "No folder selected"}
+                </strong>
+                <small>
+                  {hostStatus.writePermission
+                    ? "Folder access is ready."
                     : hostStatus.directoryName
-                      ? "Grant access"
-                      : "Choose folder"}
-                </button>
-              )}
-              {hostStatus.directoryName && (
-                <button
-                  type="button"
-                  className="quiet-button"
-                  disabled={changingFolder || !localSaveHost}
-                  onClick={chooseFolder}
-                >
-                  {changingFolder ? "Changing…" : "Change"}
-                </button>
-              )}
-            </span>
+                      ? "Folder access is required before starting."
+                      : "Choose where Transcriptly should save the files."}
+                </small>
+              </span>
+              <span className="folder-actions">
+                {!hostStatus.writePermission && (
+                  <button
+                    type="button"
+                    disabled={granting || !localSaveHost}
+                    onClick={() => {
+                      if (!localSaveHost) return;
+                      setGranting(true);
+                      setSetupError(undefined);
+                      void localSaveHost
+                        .grantAccess()
+                        .then((result) => {
+                          if (result === "denied")
+                            setSetupError(
+                              "Folder access was not granted. You can try again or choose another folder.",
+                            );
+                        })
+                        .catch((error: unknown) =>
+                          setSetupError(errorText(error)),
+                        )
+                        .finally(() => setGranting(false));
+                    }}
+                  >
+                    <FolderOpen />
+                    {granting
+                      ? "Waiting for Chrome…"
+                      : hostStatus.directoryName
+                        ? "Grant access"
+                        : "Choose folder"}
+                  </button>
+                )}
+                {hostStatus.directoryName && (
+                  <button
+                    type="button"
+                    className="quiet-button"
+                    disabled={changingFolder || !localSaveHost}
+                    onClick={chooseFolder}
+                  >
+                    {changingFolder ? "Changing…" : "Change"}
+                  </button>
+                )}
+              </span>
+            </div>
+            <div className="format-row">
+              <span>
+                <strong>Markdown format</strong>
+                <small>Applied to every local file in this batch.</small>
+              </span>
+              <fieldset className="format-picker" aria-label="Local format">
+                {(["timeline", "article"] as const).map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    className={markdownFormat === format ? "is-selected" : ""}
+                    aria-pressed={markdownFormat === format}
+                    onClick={() => {
+                      setMarkdownFormat(format);
+                      void deps.preferences
+                        .setMarkdownFormat(format)
+                        .catch(() => undefined);
+                    }}
+                  >
+                    {format === "timeline" ? "Timeline" : "Article"}
+                  </button>
+                ))}
+              </fieldset>
+            </div>
           </div>
-          <div className="format-row">
-            <span>
-              <strong>Markdown format</strong>
-              <small>Applied to every local file in this batch.</small>
-            </span>
-            <fieldset className="format-picker" aria-label="Local format">
-              {(["timeline", "article"] as const).map((format) => (
-                <button
-                  key={format}
-                  type="button"
-                  className={markdownFormat === format ? "is-selected" : ""}
-                  aria-pressed={markdownFormat === format}
-                  onClick={() => {
-                    setMarkdownFormat(format);
-                    void deps.preferences
-                      .setMarkdownFormat(format)
-                      .catch(() => undefined);
-                  }}
-                >
-                  {format === "timeline" ? "Timeline" : "Article"}
-                </button>
-              ))}
-            </fieldset>
-          </div>
-        </div>
-      )}
+        )}
 
-      {setupError && (
-        <p className="error-banner" role="alert">
-          {setupError}
-        </p>
-      )}
-      <button
-        type="button"
-        className="start-batch"
-        disabled={!canStart}
-        onClick={() => {
-          if (!canStart) return;
-          setStarting(true);
-          setSetupError(undefined);
-          void deps
-            .sendMessage<BatchStartStatus>({
-              type: BATCH_START,
-              draftId,
-              videos: draft.videos,
-              destinations,
-              markdownFormat,
-              ...(cloudEnabled &&
-              cloudSession?.status === "signed-in" &&
-              !cloudSession.publicContributionConfirmed &&
-              publicConfirmationAccepted
-                ? { confirmPublicProfile: true }
-                : {}),
-            })
-            .then((result) => {
-              if (result.ok) onStarted(result.taskId);
-              else setSetupError(result.message);
-            })
-            .catch((error: unknown) => setSetupError(errorText(error)))
-            .finally(() => setStarting(false));
-        }}
-      >
-        <Play />
-        {starting ? "Starting batch…" : "Start batch"}
-      </button>
-      <button
-        type="button"
-        className="cancel-setup"
-        disabled={starting}
-        onClick={() => {
-          setSetupError(undefined);
-          void deps
-            .sendMessage<BatchMutationStatus>({
-              type: BATCH_DRAFT_DELETE,
-              draftId,
-            })
-            .then((result) => {
-              if (result.ok) onCancel();
-              else setSetupError(result.message);
-            })
-            .catch((error: unknown) => setSetupError(errorText(error)));
-        }}
-      >
-        Cancel setup
-      </button>
+        {setupError && (
+          <p className="error-banner" role="alert">
+            {setupError}
+          </p>
+        )}
+        <div className="setup-actions">
+          <button
+            type="button"
+            className="start-batch"
+            disabled={!canStart}
+            onClick={() => {
+              if (!canStart) return;
+              setStarting(true);
+              setSetupError(undefined);
+              void deps
+                .sendMessage<BatchStartStatus>({
+                  type: BATCH_START,
+                  draftId,
+                  videos: draft.videos,
+                  destinations,
+                  markdownFormat,
+                  ...(cloudEnabled &&
+                  cloudSession?.status === "signed-in" &&
+                  !cloudSession.publicContributionConfirmed &&
+                  publicConfirmationAccepted
+                    ? { confirmPublicProfile: true }
+                    : {}),
+                })
+                .then((result) => {
+                  if (result.ok) onStarted(result.taskId);
+                  else setSetupError(result.message);
+                })
+                .catch((error: unknown) => setSetupError(errorText(error)))
+                .finally(() => setStarting(false));
+            }}
+          >
+            <Play />
+            {starting ? "Starting batch…" : "Start batch"}
+          </button>
+          <button
+            type="button"
+            className="cancel-setup"
+            disabled={starting}
+            onClick={() => {
+              setSetupError(undefined);
+              void deps
+                .sendMessage<BatchMutationStatus>({
+                  type: BATCH_DRAFT_DELETE,
+                  draftId,
+                })
+                .then((result) => {
+                  if (result.ok) onCancel();
+                  else setSetupError(result.message);
+                })
+                .catch((error: unknown) => setSetupError(errorText(error)));
+            }}
+          >
+            Cancel setup
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
