@@ -16,11 +16,13 @@ import {
   type BatchStatusResult,
   CAPTURE_REQUEST,
   type CaptureResponseMessage,
+  CLOUD_JOB_DISMISS,
   CLOUD_JOB_RETRY,
   CLOUD_QUEUE_STATUS_REQUEST,
   CLOUD_SAVE_ENQUEUE,
   CLOUD_SESSION_REQUEST,
   CLOUD_SIGN_OUT_REQUEST,
+  type CloudJobDismissStatus,
   type CloudJobRetryStatus,
   type CloudSaveEnqueueStatus,
   type CloudSessionStatus,
@@ -127,6 +129,13 @@ const dependencies: PopupDependencies = {
         jobId,
       });
       return response as CloudJobRetryStatus;
+    },
+    async dismissCloudJob(jobId: string): Promise<CloudJobDismissStatus> {
+      const response = await browser.runtime.sendMessage({
+        type: CLOUD_JOB_DISMISS,
+        jobId,
+      });
+      return response as CloudJobDismissStatus;
     },
     getCloudPreference: () => savePreferences.getPublicContributionEnabled(),
     setCloudPreference: (enabled) =>

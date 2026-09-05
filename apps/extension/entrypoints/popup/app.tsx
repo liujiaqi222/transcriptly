@@ -29,6 +29,7 @@ import type {
   BatchMutationStatus,
   BatchStatusResult,
   CaptureResponseMessage,
+  CloudJobDismissStatus,
   CloudJobRetryStatus,
   CloudSaveEnqueueStatus,
 } from "@/shared/messages";
@@ -45,6 +46,8 @@ export interface CloudDependencies {
   ): Promise<CloudSaveEnqueueStatus>;
   getCloudQueueStatus(videoId: string): Promise<CloudQueueStatus>;
   retryCloudJob(jobId: string): Promise<CloudJobRetryStatus>;
+  /** Give up on a failed Job and delete its record (#108). */
+  dismissCloudJob(jobId: string): Promise<CloudJobDismissStatus>;
   /** Remembered Cloud preference, persisted per installation. */
   getCloudPreference(): Promise<boolean>;
   setCloudPreference(enabled: boolean): Promise<void>;
@@ -224,6 +227,7 @@ export function Popup({ deps }: { deps: PopupDependencies }) {
           queueStatus={queue.queueStatus}
           signedIn={session.signedIn}
           onRetry={(jobId) => void queue.handleRetry(jobId)}
+          onDismiss={(jobId) => void queue.handleDismiss(jobId)}
         />
 
         {batchStatus.activeBatchTask && (

@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { useState } from "react";
 import { webOrigin } from "@/cloud/client";
 import type { CloudJobSummary, CloudQueueStatus } from "@/cloud/jobs";
@@ -7,18 +7,23 @@ interface CloudStatusPanelProps {
   queueStatus?: CloudQueueStatus;
   signedIn: boolean;
   onRetry(jobId: string): void;
+  /** Delete a failed Job outright (#108). */
+  onDismiss(jobId: string): void;
 }
 
 /**
  * Popup-side public contribution failure history (#35, #36, #64): an
- * expandable badge listing every failed Job with an explicit Retry. The
- * current video's save feedback lives in the footer's CloudSaveStatus,
- * which stays visible while the transcript preview scrolls.
+ * expandable badge listing every failed Job with an explicit Retry and,
+ * since #108, an explicit Dismiss - giving up on the upload deletes the
+ * record instead of waiting out the 7-day retention. The current video's
+ * save feedback lives in the footer's CloudSaveStatus, which stays visible
+ * while the transcript preview scrolls.
  */
 export function CloudStatusPanel({
   queueStatus,
   signedIn,
   onRetry,
+  onDismiss,
 }: CloudStatusPanelProps) {
   const [failedOpen, setFailedOpen] = useState(false);
   const failed = (queueStatus?.failed ?? []).filter(
@@ -47,6 +52,7 @@ export function CloudStatusPanel({
                   {job.title}
                 </span>
                 <RetryButton job={job} signedIn={signedIn} onRetry={onRetry} />
+                <DismissButton job={job} onDismiss={onDismiss} />
               </li>
             ))}
           </ul>
@@ -137,5 +143,27 @@ function RetryButton({
         <span className="cloud-retry-hint">Sign in first</span>
       )}
     </span>
+  );
+}
+
+/** The per-row give-up control (#108): deletes the failed record instead
+ *  of waiting out the 7-day retention. */
+function DismissButton({
+  job,
+  onDismiss,
+}: {
+  job: CloudJobSummary;
+  onDismiss(jobId: string): void;
+}) {
+  return (
+    <button
+      type="button"
+      className="icon-button cloud-dismiss"
+      aria-label={`Dismiss failed contribution: ${job.title}`}
+      title="Dismiss"
+      onClick={() => onDismiss(job.id)}
+    >
+      <X />
+    </button>
   );
 }

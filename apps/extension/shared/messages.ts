@@ -76,6 +76,18 @@ export interface CloudJobRetryMessage {
 
 export type CloudJobRetryStatus = { ok: true } | { ok: false; message: string };
 
+/** Ask the background worker to delete a failed cloud Job (#108). */
+export const CLOUD_JOB_DISMISS = "transcriptly:cloud-job-dismiss" as const;
+
+export interface CloudJobDismissMessage {
+  type: typeof CLOUD_JOB_DISMISS;
+  jobId: string;
+}
+
+export type CloudJobDismissStatus =
+  | { ok: true }
+  | { ok: false; message: string };
+
 /** Probe whether a tab's content script is loaded and ready to capture. */
 export const CONTENT_PING = "transcriptly:content-ping" as const;
 

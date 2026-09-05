@@ -210,6 +210,34 @@ describe("cloud job store", () => {
     expect(queueStatus.failed).toHaveLength(0);
   });
 
+  it("dismisses a failed job outright and keeps other states intact (#108)", async () => {
+    const failedJob = await store.enqueue(captureFor("abc12345678"));
+    await store.markUploading(failedJob.id);
+    await store.completeFailed(failedJob.id, {
+      kind: "retryable",
+      code: "network_error",
+      message: "offline",
+    });
+    const savedJob = await store.enqueue(captureFor("bbbbbbbbbbb"));
+    await store.markUploading(savedJob.id);
+    await store.completeSaved(savedJob.id, {
+      videoId: "bbbbbbbbbbb",
+      outcome: "contributed",
+      contributedAt: new Date(nowMs).toISOString(),
+    });
+
+    // Dismissing a non-failed job is a no-op.
+    expect(await store.dismiss(savedJob.id)).toBe(false);
+    expect(await store.dismiss("missing")).toBe(false);
+
+    expect(await store.dismiss(failedJob.id)).toBe(true);
+    expect(await store.get(failedJob.id)).toBeUndefined();
+    expect((await store.getStatus()).failed).toHaveLength(0);
+    // The saved receipt keeps its own lifecycle.
+    const status = await store.getStatus("bbbbbbbbbbb");
+    expect(status.current?.state).toBe("saved");
+  });
+
   it("marks jobs stuck in uploading as failed instead of replaying them", async () => {
     const job = await store.enqueue(captureFor("abc12345678"));
     await store.markUploading(job.id);

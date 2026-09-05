@@ -6,6 +6,7 @@ import { createCloudJobStore } from "../cloud/jobs";
 import { createCloudUploadQueue } from "../cloud/queue";
 import { createCloudMessageRouter } from "../cloud/router";
 import {
+  CLOUD_JOB_DISMISS,
   CLOUD_JOB_RETRY,
   CLOUD_QUEUE_STATUS_REQUEST,
   CLOUD_SAVE_ENQUEUE,
@@ -225,6 +226,59 @@ describe("cloud message router", () => {
     const result = await router.handle({
       type: CLOUD_JOB_RETRY,
       jobId: "missing",
+    });
+    expect(result && "ok" in result && result.ok === false).toBe(true);
+  });
+
+  it("dismisses a failed job through the message router (#108)", async () => {
+    uploadCapture.mockImplementationOnce(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: false,
+            error: { code: "network_error", message: "offline" },
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } },
+        ),
+    );
+    const enqueued = await router.handle({
+      type: CLOUD_SAVE_ENQUEUE,
+      capture,
+    });
+    await vi.waitFor(async () => {
+      const queueStatus = await router.handle({
+        type: CLOUD_QUEUE_STATUS_REQUEST,
+      });
+      if (
+        !queueStatus ||
+        !("failed" in queueStatus) ||
+        queueStatus.failed.length === 0
+      ) {
+        throw new Error("not failed yet");
+      }
+    });
+
+    const dismissed = await router.handle({
+      type: CLOUD_JOB_DISMISS,
+      jobId: (enqueued as { jobId: string }).jobId,
+    });
+    expect(dismissed).toEqual({ ok: true });
+
+    const queueStatus = (await router.handle({
+      type: CLOUD_QUEUE_STATUS_REQUEST,
+    })) as { failed: unknown[] };
+    expect(queueStatus.failed).toHaveLength(0);
+  });
+
+  it("rejects dismissing a job that is not failed (#108)", async () => {
+    const enqueued = await router.handle({
+      type: CLOUD_SAVE_ENQUEUE,
+      capture,
+    });
+    // The job is still pending (or already saved) - never dismissible.
+    const result = await router.handle({
+      type: CLOUD_JOB_DISMISS,
+      jobId: (enqueued as { jobId: string }).jobId,
     });
     expect(result && "ok" in result && result.ok === false).toBe(true);
   });

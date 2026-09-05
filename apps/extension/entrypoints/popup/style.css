@@ -216,6 +216,16 @@ h2 {
   width: 15px;
   height: 15px;
 }
+/* The failure list's per-row Dismiss (#108): a quiet ✕ that aligns with
+   the Retry button's 28px height instead of the header icon-button. */
+.cloud-dismiss {
+  margin-left: 0;
+  color: var(--muted);
+}
+.cloud-dismiss:hover {
+  color: var(--danger);
+  background: var(--danger-background);
+}
 .account-unavailable {
   width: 34px;
   padding: 0;
