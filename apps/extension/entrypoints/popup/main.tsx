@@ -4,10 +4,7 @@ import { browser } from "wxt/browser";
 import { webOrigin } from "@/cloud/client";
 import type { CloudQueueStatus } from "@/cloud/jobs";
 import { createLocalMarkdownSaver } from "@/local-save";
-import {
-  MARKDOWN_FORMAT_PREFERENCE_KEY,
-  normalizeMarkdownFormat,
-} from "@/markdown-format";
+import { createSavePreferences } from "@/save-preferences";
 import {
   BATCH_ENTER_SELECTION_REQUEST,
   BATCH_OPEN_MANAGER,
@@ -31,8 +28,10 @@ import {
 import { Popup, type PopupDependencies } from "./app";
 import "./style.css";
 
-/** Remember whether public contribution is selected for single captures. */
-const CLOUD_PREFERENCE_KEY = "cloud-save-enabled";
+const savePreferences = createSavePreferences({
+  get: (keys) => browser.storage.local.get(keys),
+  set: (values) => browser.storage.local.set(values),
+});
 
 const dependencies: PopupDependencies = {
   account: {
@@ -96,17 +95,8 @@ const dependencies: PopupDependencies = {
   createSaver: () => createLocalMarkdownSaver(),
 
   markdown: {
-    async getPreference() {
-      const stored = await browser.storage.local.get(
-        MARKDOWN_FORMAT_PREFERENCE_KEY,
-      );
-      return normalizeMarkdownFormat(stored[MARKDOWN_FORMAT_PREFERENCE_KEY]);
-    },
-    async setPreference(format) {
-      await browser.storage.local.set({
-        [MARKDOWN_FORMAT_PREFERENCE_KEY]: format,
-      });
-    },
+    getPreference: () => savePreferences.getMarkdownFormat(),
+    setPreference: (format) => savePreferences.setMarkdownFormat(format),
   },
   cloud: {
     async enqueueCloudSave(
@@ -134,15 +124,9 @@ const dependencies: PopupDependencies = {
       });
       return response as CloudJobRetryStatus;
     },
-    async getCloudPreference(): Promise<boolean> {
-      const stored = await browser.storage.local.get(CLOUD_PREFERENCE_KEY);
-      return stored[CLOUD_PREFERENCE_KEY] === true;
-    },
-    async setCloudPreference(enabled: boolean): Promise<void> {
-      await browser.storage.local.set({
-        [CLOUD_PREFERENCE_KEY]: enabled,
-      });
-    },
+    getCloudPreference: () => savePreferences.getPublicContributionEnabled(),
+    setCloudPreference: (enabled) =>
+      savePreferences.setPublicContributionEnabled(enabled),
   },
 };
 

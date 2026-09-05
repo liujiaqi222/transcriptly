@@ -127,6 +127,10 @@ test("background opens the private manager page for an extension message", async
   await popup.goto(
     `chrome-extension://${extensionId}/${manifest.action.default_popup}`,
   );
+  // Listen for the manager tab before triggering it: on loaded CI runners
+  // the new background tab can take longer than the default poll timeout
+  // to surface in context.pages(), so wait for the creation event instead.
+  const managerOpened = context.waitForEvent("page", { timeout: 30_000 });
   const result = await popup.evaluate(async () => {
     const runtime = (
       globalThis as unknown as {
@@ -145,11 +149,10 @@ test("background opens the private manager page for an extension message", async
 
   expect(result).toEqual({ ok: true });
   const managerUrl = `chrome-extension://${extensionId}/manager.html?task=task-e2e`;
-  await expect
-    .poll(() => context.pages().some((page) => page.url() === managerUrl))
-    .toBe(true);
-  const manager = context.pages().find((page) => page.url() === managerUrl);
-  if (!manager) throw new Error("manager page did not open");
+  const manager = await managerOpened;
+  // The coordinator creates the tab at manager.html first, then deep-links
+  // it to ?task=…, so wait for the final committed URL.
+  await manager.waitForURL(managerUrl, { timeout: 30_000 });
   await expect(
     manager.getByRole("heading", { name: "Transcriptly batch" }),
   ).toBeVisible();

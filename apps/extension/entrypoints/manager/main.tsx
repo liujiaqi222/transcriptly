@@ -1,9 +1,15 @@
 import { createRoot } from "react-dom/client";
 import { browser } from "wxt/browser";
 import { webOrigin } from "@/cloud/client";
+import { createSavePreferences } from "@/save-preferences";
 import { ManagerApp, type ManagerDependencies } from "./app";
 import { mountManagerLocalSaveHost } from "./local-save-host";
 import "./style.css";
+
+const savePreferences = createSavePreferences({
+  get: (keys) => browser.storage.local.get(keys),
+  set: (values) => browser.storage.local.set(values),
+});
 
 const dependencies: ManagerDependencies = {
   sendMessage: <T,>(message: unknown) =>
@@ -11,6 +17,7 @@ const dependencies: ManagerDependencies = {
   async openCloudSignIn() {
     await browser.tabs.create({ url: `${webOrigin}/sign-in` });
   },
+  preferences: savePreferences,
 };
 
 // The manager page doubles as the Local Save Host (#59): folder

@@ -32,6 +32,7 @@ import type {
   ManagerLocalSaveHost,
   ManagerLocalSaveHostStatus,
 } from "@/entrypoints/manager/local-save-host";
+import type { SavePreferences } from "@/save-preferences";
 import {
   BATCH_DRAFT_DELETE,
   BATCH_DRAFT_REQUEST,
@@ -72,6 +73,7 @@ import {
 export interface ManagerDependencies {
   sendMessage<T = unknown>(message: unknown): Promise<T>;
   openCloudSignIn(): Promise<void>;
+  preferences: SavePreferences;
 }
 
 const STATUS_POLL_MS = 1000;
@@ -441,13 +443,25 @@ function BatchSetup({
         .sendMessage<CloudSessionStatus>({ type: CLOUD_SESSION_REQUEST })
         .catch(() => ({ status: "signed-out" }) as const),
       localSaveHost?.checkAccess().catch(() => NO_LOCAL_HOST),
+      deps.preferences.getMarkdownFormat().catch(() => "timeline" as const),
+      deps.preferences.getPublicContributionEnabled().catch(() => false),
     ])
-      .then(([draftResult, session]) => {
-        if (cancelled) return;
-        if (draftResult.ok) setDraft(draftResult.draft);
-        else setLoadError(draftResult.message);
-        setCloudSession(session);
-      })
+      .then(
+        ([
+          draftResult,
+          session,
+          _hostStatus,
+          savedMarkdownFormat,
+          savedPublicEnabled,
+        ]) => {
+          if (cancelled) return;
+          if (draftResult.ok) setDraft(draftResult.draft);
+          else setLoadError(draftResult.message);
+          setCloudSession(session);
+          setMarkdownFormat(savedMarkdownFormat);
+          setCloudEnabled(session.status === "signed-in" && savedPublicEnabled);
+        },
+      )
       .catch((error: unknown) => {
         if (!cancelled) setLoadError(errorText(error));
       });
@@ -473,7 +487,15 @@ function BatchSetup({
         .then((session) => {
           if (cancelled) return;
           setCloudSession(session);
-          if (session.status === "signed-in") setSigningIn(false);
+          if (session.status === "signed-in") {
+            setSigningIn(false);
+            void deps.preferences
+              .getPublicContributionEnabled()
+              .then((enabled) => {
+                if (!cancelled) setCloudEnabled(enabled);
+              })
+              .catch(() => undefined);
+          }
         })
         .catch(() => undefined);
     };
@@ -579,7 +601,14 @@ function BatchSetup({
               aria-label="Contribute publicly"
               aria-checked={cloudEnabled}
               checked={cloudEnabled}
-              onChange={(event) => setCloudEnabled(event.target.checked)}
+              onChange={(event) => {
+                const enabled = event.target.checked;
+                setCloudEnabled(enabled);
+                if (!enabled) setPublicConfirmationAccepted(false);
+                void deps.preferences
+                  .setPublicContributionEnabled(enabled)
+                  .catch(() => undefined);
+              }}
             />
           ) : (
             <button
@@ -705,7 +734,12 @@ function BatchSetup({
                   type="button"
                   className={markdownFormat === format ? "is-selected" : ""}
                   aria-pressed={markdownFormat === format}
-                  onClick={() => setMarkdownFormat(format)}
+                  onClick={() => {
+                    setMarkdownFormat(format);
+                    void deps.preferences
+                      .setMarkdownFormat(format)
+                      .catch(() => undefined);
+                  }}
                 >
                   {format === "timeline" ? "Timeline" : "Article"}
                 </button>
