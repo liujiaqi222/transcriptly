@@ -126,7 +126,7 @@ h2 {
 .setup-heading {
   padding: 28px 28px 24px;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(135deg, #fff 0%, var(--primary-soft) 100%);
+  background: var(--primary-soft);
 }
 
 .setup-eyebrow {
