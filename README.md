@@ -139,4 +139,4 @@ My Contributions. See the
 
 ## License
 
-No license yet — all rights reserved until one is added.
+Released under the [MIT License](LICENSE).
