@@ -103,7 +103,7 @@ jobs:
           build-args: |
             DATABASE_URL=postgresql://transcriptly:build@postgres:5432/transcriptly
             BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET }}
-            BETTER_AUTH_URL=https://transcript.libmap.cn
+            BETTER_AUTH_URL=https://transcriptly.libmap.cn
             GITHUB_CLIENT_ID=${{ secrets.GH_CLIENT_ID }}
             GITHUB_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }}
             GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}

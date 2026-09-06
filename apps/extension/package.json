@@ -1,6 +1,6 @@
 {
   "name": "@transcriptly/extension",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -31,6 +31,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^30.0.1",
+    "satori": "^0.33.4",
     "sharp": "^0.35.3",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10",
