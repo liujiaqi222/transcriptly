@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeText } from "../src/sanitize";
+import { sanitizeText, stripSoundEventTags } from "../src/sanitize";
 import { parseDuration, parseTimestamp } from "../src/timestamp";
 import { canonicalWatchUrl, parseVideoId } from "../src/video";
 
@@ -72,6 +72,31 @@ describe("sanitizeText", () => {
   it("leaves HTML-looking text inert as plain strings", () => {
     const text = sanitizeText("<script>alert(1)</script>");
     expect(text).toBe("<script>alert(1)</script>");
+  });
+});
+
+describe("stripSoundEventTags", () => {
+  it("removes inline sound tags and collapses the leftover whitespace", () => {
+    expect(stripSoundEventTags("so [Music] anyway, [Applause] thanks")).toBe(
+      "so anyway, thanks",
+    );
+    expect(stripSoundEventTags("[Music] welcome back")).toBe("welcome back");
+    expect(stripSoundEventTags("this song [音乐] hits hard")).toBe(
+      "this song hits hard",
+    );
+    expect(stripSoundEventTags("lead ♪ and ♫ tail")).toBe("lead and tail");
+  });
+
+  it("empties segments that are nothing but tags or note characters", () => {
+    expect(stripSoundEventTags("[Music]")).toBe("");
+    expect(stripSoundEventTags("[Applause] [Laughter]")).toBe("");
+    expect(stripSoundEventTags("♪ ♪")).toBe("");
+  });
+
+  it("keeps brackets that are not sound tags", () => {
+    expect(stripSoundEventTags("array [1] stays")).toBe("array [1] stays");
+    expect(stripSoundEventTags("a dash [-] stays")).toBe("a dash [-] stays");
+    expect(stripSoundEventTags("empty [] stays")).toBe("empty [] stays");
   });
 });
 

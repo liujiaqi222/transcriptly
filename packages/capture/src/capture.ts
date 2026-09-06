@@ -4,7 +4,7 @@ import type {
   CaptureSegment,
 } from "@transcriptly/schema";
 import { CaptureError, type CaptureFailure, toCaptureFailure } from "./errors";
-import { sanitizeText } from "./sanitize";
+import { sanitizeText, stripSoundEventTags } from "./sanitize";
 import {
   type SelectorRule,
   type SiteSelectors,
@@ -602,12 +602,19 @@ function readTranscriptBody(
           );
         }
 
-        const text = sanitizeText(textElement?.textContent ?? "");
-        if (text.length === 0) {
+        const rawText = sanitizeText(textElement?.textContent ?? "");
+        if (rawText.length === 0) {
           throw new CaptureError(
             "malformed-segments",
             "Segment has empty text",
           );
+        }
+
+        const text = stripSoundEventTags(rawText);
+        if (text.length === 0) {
+          // The row was nothing but sound-event tags (e.g. "[Music]"):
+          // drop it instead of emitting a content-free segment.
+          continue;
         }
 
         if (currentChapter !== null) {
