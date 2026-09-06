@@ -18,7 +18,7 @@ export {
   type CaptureFailureKind,
   toCaptureFailure,
 } from "./errors";
-export { sanitizeText } from "./sanitize";
+export { sanitizeText, stripSoundEventTags } from "./sanitize";
 export {
   type SelectorRule,
   type SiteSelectors,

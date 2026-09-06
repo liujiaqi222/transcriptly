@@ -583,6 +583,25 @@ describe("capture", () => {
     expect(result.segments).toHaveLength(6);
   });
 
+  it("strips sound-event tags from segments and drops tag-only rows", async () => {
+    const doc = loadDocument("sound-tags.html");
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.segments).toEqual([
+      { start: 0, text: "welcome back to the show" },
+      { start: 9, text: "thanks for having me" },
+      { start: 15, text: "let's dig in" },
+      { start: 18, text: "indexes like [1] stay too" },
+    ]);
+    // A chapter whose every row was tag-only never registers; a chapter
+    // preceding tag-only rows attaches to its first kept segment.
+    expect(result.chapters).toEqual([
+      { start: 0, title: "Intro" },
+      { start: 15, title: "Deep dive" },
+    ]);
+  });
+
   it("falls back to the description chapters panel when the transcript has no section headers", async () => {
     const doc = loadDocument("watch-markers.html");
 
