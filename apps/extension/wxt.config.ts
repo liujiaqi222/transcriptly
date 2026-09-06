@@ -11,7 +11,7 @@ const extensionRoot = fileURLToPath(new URL(".", import.meta.url));
  */
 const defaultWebOrigin =
   process.env.NODE_ENV === "production"
-    ? "https://transcript.libmap.cn"
+    ? "https://transcriptly.libmap.cn"
     : "http://localhost:3000";
 const webOrigin = (process.env.WEB_ORIGIN ?? defaultWebOrigin).replace(
   /\/+$/,
@@ -39,9 +39,11 @@ export default defineConfig({
   // discovers them automatically and writes manifest.icons. Regenerate
   // them from `assets/logo.svg` with `pnpm icons`.
   manifest: {
-    name: "Transcriptly",
+    // Matches the store listing name (Dashboard allows editing, but the
+    // manifest name seeds it; ≤45 chars per the store name limit).
+    name: "Transcriptly – YouTube Transcript Downloader",
     description:
-      "Capture YouTube transcripts to local Markdown or contribute them to the public archive.",
+      "Free YouTube transcript downloader. Capture a video or batch-capture playlists & channels as timestamped Markdown files.",
     // "tabs" is required for extension pages to read the active tab's
     // URL (watch-page / batch-source detection). WXT only adds it in dev
     // mode, which previously masked a production-only breakage.

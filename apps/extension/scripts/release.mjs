@@ -70,7 +70,7 @@ const TEXT_EXTENSIONS = new Set([".js", ".mjs", ".html", ".css", ".json"]);
 
 /** The reviewed production permission set (manifest v3). */
 const EXPECTED_PERMISSIONS = ["alarms", "storage", "tabs"];
-const EXPECTED_HOST_PERMISSIONS = ["https://transcript.libmap.cn/*"];
+const EXPECTED_HOST_PERMISSIONS = ["https://transcriptly.libmap.cn/*"];
 
 /** HTML pages that ship; anything else is an unused page. */
 const EXPECTED_HTML_PAGES = ["manager.html", "popup.html"];
