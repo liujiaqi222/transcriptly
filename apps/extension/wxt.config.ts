@@ -39,7 +39,9 @@ export default defineConfig({
   // discovers them automatically and writes manifest.icons. Regenerate
   // them from `assets/logo.svg` with `pnpm icons`.
   manifest: {
-    name: "Transcriptly",
+    // Matches the store listing name (Dashboard allows editing, but the
+    // manifest name seeds it; ≤45 chars per the store name limit).
+    name: "Transcriptly – YouTube Transcript Downloader",
     description:
       "Free YouTube transcript downloader. Capture a video or batch-capture playlists & channels as timestamped Markdown files.",
     // "tabs" is required for extension pages to read the active tab's
