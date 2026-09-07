@@ -162,7 +162,8 @@ export default function PrivacyPolicyPage() {
               "We do not sell your data.",
               "We do not use your data for advertising profiling.",
               "We do not use transcripts or user data to train models, and we never will.",
-              "We do not use your data for analytics, credit scoring, or any purpose unrelated to the extension's single purpose of capturing YouTube transcripts.",
+              "The public website uses Google Analytics to measure aggregate traffic (page views, referrers, approximate region). It never receives transcript content or local capture data.",
+              "The extension does not load Google Analytics and we do not use your data for behavioral analytics, credit scoring, or any purpose unrelated to the extension's single purpose of capturing YouTube transcripts.",
             ]}
           />
         </PolicySection>

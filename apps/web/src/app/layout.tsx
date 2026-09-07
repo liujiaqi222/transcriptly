@@ -1,3 +1,4 @@
+import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
@@ -49,6 +50,13 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * GA4 measurement ID (format G-XXXXXXXXXX). Inlined at build time via the
+ * NEXT_PUBLIC_ prefix; absent means no analytics script is rendered at all
+ * (local dev / CI), mirroring the NEXT_PUBLIC_SENTRY_DSN pattern.
+ */
+const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
@@ -59,6 +67,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-screen bg-[#fffdf8] font-sans text-[#202124] antialiased">
         {children}
       </body>
+      {gaMeasurementId && <GoogleAnalytics gaId={gaMeasurementId} />}
     </html>
   );
 }
