@@ -109,6 +109,8 @@ jobs:
             GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
             GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
             EXTENSION_ORIGINS=chrome-extension://jkopejjjgdkkacabdhgdlploehikphai
+            # Public measurement ID (baked into client HTML anyway).
+            NEXT_PUBLIC_GA_MEASUREMENT_ID=G-MDEP40E2P5
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
