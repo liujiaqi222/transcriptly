@@ -12,17 +12,17 @@ import { segmentUrl } from "@/entrypoints/popup/utils";
 import { MarkdownFormatPicker } from "./markdown-format-picker";
 
 function timelineRows(capture: Capture): ReactNode[] {
-  return transcriptBlocks(capture).map((block) => {
+  return transcriptBlocks(capture).map((block, index) => {
     if (block.kind === "chapter") {
       return (
-        <h4 className="chapter" key={`chapter-${block.title}`}>
+        <h4 className="chapter" key={`chapter-${index}-${block.title}`}>
           {block.title}
         </h4>
       );
     }
 
     return (
-      <p className="segment" key={`segment-${block.start}`}>
+      <p className="segment" key={`segment-${index}-${block.start}`}>
         [
         <a href={segmentUrl(capture.source.videoId, block.start)}>
           {formatTimestamp(block.start)}
@@ -36,17 +36,17 @@ function timelineRows(capture: Capture): ReactNode[] {
 /** Article view mirrors the saved file: reflowed paragraphs whose first
  *  timestamp links back into the video. */
 function articleRows(capture: Capture): ReactNode[] {
-  return articleBlocks(capture).map((block) => {
+  return articleBlocks(capture).map((block, index) => {
     if (block.kind === "chapter") {
       return (
-        <h4 className="chapter" key={`chapter-${block.title}`}>
+        <h4 className="chapter" key={`chapter-${index}-${block.title}`}>
           {block.title}
         </h4>
       );
     }
 
     return (
-      <p className="segment" key={`paragraph-${block.start}`}>
+      <p className="segment" key={`paragraph-${index}-${block.start}`}>
         [
         <a href={segmentUrl(capture.source.videoId, block.start)}>
           {formatTimestamp(block.start)}
