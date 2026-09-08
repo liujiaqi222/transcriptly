@@ -56,20 +56,24 @@ export function ChromeIcon({
           <stop offset="1" stopColor="#34a853" />
         </linearGradient>
       </defs>
-      <circle cx="24" cy="24" r="12" fill="#fff" />
-      <path
-        d="M24 12H44.7812a23.9939 23.9939 0 0 0-41.5639.0029L13.6079 30l.0093-.0024A11.9852 11.9852 0 0 1 24 12Z"
-        fill="url(#chrome-red)"
-      />
-      <path
-        d="M34.3913 30.0029 24.0007 48A23.994 23.994 0 0 0 44.78 12.0031H23.9989l-.0025.0093A11.985 11.985 0 0 1 34.3913 30.0029Z"
-        fill="url(#chrome-yellow)"
-      />
-      <path
-        d="M13.6086 30.0031 3.218 12.006A23.994 23.994 0 0 0 24.0025 48L34.3931 30.0029l-.0067-.0068a11.9852 11.9852 0 0 1-20.7778.007Z"
-        fill="url(#chrome-green)"
-      />
-      <circle cx="24" cy="24" r="9.5" fill="#1a73e8" />
+      {/* White badge rim: keeps the yellow wedge readable on the yellow CTA. */}
+      <circle cx="24" cy="24" r="23.5" fill="#fff" />
+      <g transform="translate(24 24) scale(0.875) translate(-24 -24)">
+        <circle cx="24" cy="24" r="12" fill="#fff" />
+        <path
+          d="M24 12H44.7812a23.9939 23.9939 0 0 0-41.5639.0029L13.6079 30l.0093-.0024A11.9852 11.9852 0 0 1 24 12Z"
+          fill="url(#chrome-red)"
+        />
+        <path
+          d="M34.3913 30.0029 24.0007 48A23.994 23.994 0 0 0 44.78 12.0031H23.9989l-.0025.0093A11.985 11.985 0 0 1 34.3913 30.0029Z"
+          fill="url(#chrome-yellow)"
+        />
+        <path
+          d="M13.6086 30.0031 3.218 12.006A23.994 23.994 0 0 0 24.0025 48L34.3931 30.0029l-.0067-.0068a11.9852 11.9852 0 0 1-20.7778.007Z"
+          fill="url(#chrome-green)"
+        />
+        <circle cx="24" cy="24" r="9.5" fill="#1a73e8" />
+      </g>
     </svg>
   );
 }

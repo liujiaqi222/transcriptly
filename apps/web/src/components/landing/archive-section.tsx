@@ -101,14 +101,17 @@ export function ArchiveSection({
         )}
 
         <p className="mt-8 mb-0 text-sm text-[#64748b]">
-          Missing one? Contribute it to the public archive with Transcriptly.
+          Missing one? Contribute it to the public archive with Transcriptly.{" "}
           <a
-            className={`inline-flex items-center gap-1.5 font-bold text-[#0872b9] ${focusRing}`}
+            className={`font-bold text-[#0872b9] ${focusRing}`}
             href={CHROME_INSTALL_URL}
             rel="noreferrer"
             target="_blank"
           >
-            <ChromeIcon size={14} />
+            <ChromeIcon
+              className="mr-1.5 inline-block align-[-2px]"
+              size={14}
+            />
             {"Install the extension ->"}
           </a>
         </p>
