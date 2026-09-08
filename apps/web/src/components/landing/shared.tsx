@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { LogoMark } from "@/components/logo-mark";
 
 export const GITHUB_URL = "https://github.com/liujiaqi222/transcriptly";
-export const CHROME_INSTALL_URL = `${GITHUB_URL}#%E4%BA%BA%E5%B7%A5%E8%BF%90%E8%A1%8C%E4%B8%8E%E9%AA%8C%E8%AF%81`;
+export const CHROME_INSTALL_URL =
+  "https://chromewebstore.google.com/detail/transcriptly/jkopejjjgdkkacabdhgdlploehikphai";
 
 export const pageWidth =
   "mx-auto w-[min(1200px,calc(100%-48px))] max-sm:w-[calc(100%-32px)]";
