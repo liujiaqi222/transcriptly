@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TranscriptSection } from "@/app/transcripts/[videoId]/components/transcript-section";
+import { VideoDescription } from "@/app/transcripts/[videoId]/components/video-description";
 import { SiteHeader } from "@/components/site-header";
 import { getDatabase } from "@/db/client";
 import { getAuthEnv } from "@/env/server";
@@ -140,9 +141,7 @@ export default async function PublicVideoPage({
           <span>Added {dateFormatter.format(item.publicPublishedAt)}</span>
         </div>
         {item.description.trim() ? (
-          <p className="mt-8 mb-0 max-w-[68ch] whitespace-pre-line text-lg leading-[1.7] text-[#64748b]">
-            {item.description}
-          </p>
+          <VideoDescription description={item.description} />
         ) : null}
         <a
           className="mt-7 inline-flex rounded-[10px] border border-[#202124] px-3.5 py-2.5 font-bold no-underline transition-colors hover:bg-[#202124] hover:text-white focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
