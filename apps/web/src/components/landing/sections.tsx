@@ -29,15 +29,7 @@ export function HeroSection() {
       aria-labelledby="hero-title"
     >
       <div className="max-w-160">
-        <p
-          className={`mb-5 inline-flex items-center gap-3 ${monoLabel} text-[#64748b]`}
-        >
-          <span
-            className="h-2 w-2 rounded-full bg-[#f5c451] shadow-[0_0_12px_1px_rgba(245,196,81,0.7)]"
-            aria-hidden="true"
-          />
-          01 · Capture
-        </p>
+        <SectionKicker index="01" label="Capture" />
         <h1
           className={`${displayFace} m-0 text-[clamp(46px,5.4vw,76px)] leading-[0.98]`}
           id="hero-title"
