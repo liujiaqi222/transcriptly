@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChromeIcon } from "@/components/brand-icons";
 import type { PublicTranscriptSummary } from "@/lib/publications/queries";
 import {
   CHROME_INSTALL_URL,
@@ -102,12 +103,12 @@ export function ArchiveSection({
         <p className="mt-8 mb-0 text-sm text-[#64748b]">
           Missing one? Contribute it to the public archive with Transcriptly.
           <a
-            className={`font-bold text-[#0872b9] ${focusRing}`}
+            className={`inline-flex items-center gap-1.5 font-bold text-[#0872b9] ${focusRing}`}
             href={CHROME_INSTALL_URL}
             rel="noreferrer"
             target="_blank"
           >
-            {" "}
+            <ChromeIcon size={14} />
             {"Install the extension ->"}
           </a>
         </p>
