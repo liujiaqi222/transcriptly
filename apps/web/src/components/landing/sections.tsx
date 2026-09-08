@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GitHubIcon } from "@/components/brand-icons";
 import { LogoMark } from "@/components/logo-mark";
 import { LocalKnowledgeDemo } from "./local-knowledge-demo";
 import { MotionReveal } from "./motion-reveal";
@@ -177,11 +178,12 @@ export function OpenSourceStrip() {
         </p>
       </div>
       <a
-        className={`font-bold whitespace-nowrap text-[#0872b9] ${focusRing}`}
+        className={`inline-flex items-center gap-1.5 font-bold whitespace-nowrap text-[#0872b9] ${focusRing}`}
         href={GITHUB_URL}
         rel="noreferrer"
         target="_blank"
       >
+        <GitHubIcon size={16} />
         View on GitHub →
       </a>
     </aside>

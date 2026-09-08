@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ChromeIcon, GitHubIcon } from "@/components/brand-icons";
 import { LogoMark } from "@/components/logo-mark";
 
 export const GITHUB_URL = "https://github.com/liujiaqi222/transcriptly";
@@ -64,7 +65,7 @@ export function CtaPair({
   compact?: boolean;
   mobile?: boolean;
 }) {
-  const button = `inline-flex items-center justify-center rounded-xl border px-5 py-3 text-sm font-bold no-underline transition-colors ${focusRing}`;
+  const button = `inline-flex items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-bold no-underline transition-colors ${focusRing}`;
   return (
     <div
       className={`flex flex-wrap items-center ${compact ? "gap-2" : "gap-3"}`}
@@ -75,6 +76,7 @@ export function CtaPair({
         rel="noreferrer"
         target="_blank"
       >
+        <ChromeIcon size={compact ? 14 : 16} />
         <span className={mobile ? "sm:hidden" : undefined}>
           {mobile ? "Install" : "Add to Chrome"}
         </span>
@@ -89,6 +91,7 @@ export function CtaPair({
           rel="noreferrer"
           target="_blank"
         >
+          <GitHubIcon size={16} />
           View on GitHub
         </a>
       )}
