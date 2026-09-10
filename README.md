@@ -1,5 +1,7 @@
 # Transcriptly
 
+English | [简体中文](README.zh-CN.md)
+
 [Transcriptly](https://transcriptly.libmap.cn) is a free, open-source YouTube
 transcript downloader. A Chrome extension captures the transcript of any
 YouTube video as timestamped Markdown — one video at a time, or a whole
@@ -8,6 +10,23 @@ computer. Optionally, you can publish a copy to the public transcript archive.
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Transcriptly-4285F4?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/transcriptly/jkopejjjgdkkacabdhgdlploehikphai)
 [![Site](https://img.shields.io/badge/Archive-transcriptly.libmap.cn-0872b9)](https://transcriptly.libmap.cn)
+
+## Screenshots
+
+**Capture a single video** — preview the transcript in the popup and save it
+as timestamped Markdown, locally or to the public archive.
+
+![Capture a single video](docs/images/capture-popup.png)
+
+**Batch-select on a channel or playlist** — tick the videos you want right on
+the list page.
+
+![Batch-select on a channel](docs/images/batch-select.png)
+
+**Batch manager** — watch progress, pause, and retry individual videos while
+the batch runs in the background.
+
+![Batch manager](docs/images/batch-manager.png)
 
 ## Why Transcriptly
 
