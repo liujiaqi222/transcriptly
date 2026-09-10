@@ -21,9 +21,7 @@ as timestamped Markdown, locally or to the public archive.
 **Batch workflow** — select videos on a channel or playlist, configure the
 batch, and start capturing.
 
-<video src="docs/images/batch-select.mp4" controls width="100%"></video>
-
-[Download the batch demo](docs/images/batch-select.mp4)
+<video src="https://github.com/user-attachments/assets/43da863d-c8e5-4623-9441-42a7c6e45c27" controls width="100%"></video>
 
 **Batch manager** — watch progress, pause, and retry individual videos while
 the batch runs in the background.
