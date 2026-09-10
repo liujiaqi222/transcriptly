@@ -21,9 +21,7 @@ Markdown —— 既可以逐个保存单个视频，也可以批量抓取整个�
 **批量处理流程** —— 在频道或播放列表页选择视频，配置批量任务，然后开始
 捕获。
 
-<video src="docs/images/batch-select.mp4" controls width="100%"></video>
-
-[下载批量演示视频](docs/images/batch-select.mp4)
+<video src="https://github.com/user-attachments/assets/43da863d-c8e5-4623-9441-42a7c6e45c27" controls width="100%"></video>
 
 **批量管理器** —— 批量任务在后台运行时，可以随时查看进度、暂停或重试
 单个视频。
