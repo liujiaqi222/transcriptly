@@ -31,6 +31,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.7,
     },
+    ...[
+      "/youtube-playlist-transcript-downloader",
+      "/youtube-channel-transcript-downloader",
+      "/youtube-transcript-to-markdown",
+      "/youtube-transcript-for-obsidian",
+    ].map((path) => ({
+      url: `${baseUrl}${path}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
     ...channels.map((channel) => ({
       url: `${baseUrl}/channels/${channel.slug}`,
       lastModified: channel.latestPublicationAt ?? undefined,
