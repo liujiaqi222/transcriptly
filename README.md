@@ -16,7 +16,7 @@ computer. Optionally, you can publish a copy to the public transcript archive.
 **Capture a single video** — preview the transcript in the popup and save it
 as timestamped Markdown, locally or to the public archive.
 
-![Capture a single video](docs/images/capture-popup.png)
+![Capture a single video](docs/images/capture-popup-iphone.png)
 
 **Batch workflow** — select videos on a channel or playlist, configure the
 batch, and start capturing.

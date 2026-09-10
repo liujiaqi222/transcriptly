@@ -16,7 +16,7 @@ Markdown —— 既可以逐个保存单个视频，也可以批量抓取整个�
 **捕获单个视频** —— 在弹窗中预览字幕，保存为带时间戳的 Markdown，可存到
 本地，也可发布到公共档案库。
 
-![捕获单个视频](docs/images/capture-popup.png)
+![捕获单个视频](docs/images/capture-popup-iphone.png)
 
 **批量处理流程** —— 在频道或播放列表页选择视频，配置批量任务，然后开始
 捕获。
