@@ -18,9 +18,12 @@ Markdown —— 既可以逐个保存单个视频，也可以批量抓取整个�
 
 ![捕获单个视频](docs/images/capture-popup.png)
 
-**在频道或播放列表页批量勾选** —— 直接在列表页勾选你想要的视频。
+**批量处理流程** —— 在频道或播放列表页选择视频，配置批量任务，然后开始
+捕获。
 
-![频道页批量勾选](docs/images/batch-select.png)
+<video src="docs/images/batch-select.mp4" controls width="100%"></video>
+
+[下载批量演示视频](docs/images/batch-select.mp4)
 
 **批量管理器** —— 批量任务在后台运行时，可以随时查看进度、暂停或重试
 单个视频。

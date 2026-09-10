@@ -18,10 +18,12 @@ as timestamped Markdown, locally or to the public archive.
 
 ![Capture a single video](docs/images/capture-popup.png)
 
-**Batch-select on a channel or playlist** — tick the videos you want right on
-the list page.
+**Batch workflow** — select videos on a channel or playlist, configure the
+batch, and start capturing.
 
-![Batch-select on a channel](docs/images/batch-select.png)
+<video src="docs/images/batch-select.mp4" controls width="100%"></video>
+
+[Download the batch demo](docs/images/batch-select.mp4)
 
 **Batch manager** — watch progress, pause, and retry individual videos while
 the batch runs in the background.
