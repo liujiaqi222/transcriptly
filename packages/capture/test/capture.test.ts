@@ -96,13 +96,83 @@ describe("capture", () => {
     expect(result.source.durationSeconds).toBe(245);
   });
 
+  it("skips stale ytInitialData and head identity after SPA navigation (#127)", async () => {
+    // Post-SPA state: the script tag and head still describe `oldvid12345`
+    // while the live DOM (and the capture URL) name `newvid12345`.
+    const doc = loadDocument("watch-spa-stale-script.html");
+
+    const result = await capture(
+      doc,
+      "https://www.youtube.com/watch?v=newvid12345",
+      QUICK_OPTIONS,
+    );
+
+    // Channel identity must come from the live DOM, never from the stale
+    // script tag that still carries the previously-opened video's channel.
+    expect(result.source.channelName).toBe("Fresh Channel");
+    expect(result.source.channelName).not.toContain("Old");
+    expect(result.source.channelAvatarUrl).toBe(
+      "https://yt3.ggpht.com/fresh-avatar=s88-c-k-c0x00ffffff-no-rj",
+    );
+    // No href exists on the modern owner link, and the stale dialog handle
+    // must not be invented into a channel URL.
+    expect(result.source.channelHandle).toBe("");
+    // Every head fallback is frozen at the previous video and must be skipped.
+    expect(result.source.title).toBe("Fresh Title from DOM");
+    expect(result.source.description).toBe("Fresh description from DOM.");
+    expect(result.source.publishedAt).toBe("2009-10-24T00:00:00.000Z");
+    expect(result.source.durationSeconds).toBe(245);
+    expect(result.source.videoId).toBe("newvid12345");
+    expect(captureSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("fails with mismatched-page when the page still shows another video", async () => {
+    // The address bar already names `newvid12345`, but the rendered page is
+    // still `oldvid12345` (SPA navigation in flight): capturing would pair
+    // the requested id with the other video's metadata and transcript.
+    const doc = loadDocument("watch-spa-stale-script.html");
+    doc
+      .querySelector("ytd-watch-flexy")
+      ?.setAttribute("video-id", "oldvid12345");
+
+    const outcome = await captureOutcome(
+      doc,
+      "https://www.youtube.com/watch?v=newvid12345",
+      { timeoutMs: 60, pollIntervalMs: 5 },
+    );
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.kind).toBe("mismatched-page");
+      expect(outcome.message).toContain("oldvid");
+    }
+  });
+
+  it("captures when the live DOM identifies the requested video", async () => {
+    const doc = loadDocument("watch-spa-stale-script.html");
+    doc
+      .querySelector("ytd-watch-flexy")
+      ?.setAttribute("video-id", "newvid12345");
+
+    const result = await capture(
+      doc,
+      "https://www.youtube.com/watch?v=newvid12345",
+      QUICK_OPTIONS,
+    );
+
+    expect(result.source.videoId).toBe("newvid12345");
+    expect(result.segments.length).toBeGreaterThan(0);
+  });
+
   it("produces captures accepted by the shared runtime schema", async () => {
-    for (const fixture of ["watch-open.html", "watch-spa-stale-meta.html"]) {
-      const result = await capture(
-        loadDocument(fixture),
-        WATCH_URL,
-        QUICK_OPTIONS,
-      );
+    const fixtureUrls: Record<string, string> = {
+      "watch-open.html": WATCH_URL,
+      "watch-spa-stale-meta.html": WATCH_URL,
+      "watch-spa-stale-script.html":
+        "https://www.youtube.com/watch?v=newvid12345",
+    };
+    for (const [fixture, url] of Object.entries(fixtureUrls)) {
+      const result = await capture(loadDocument(fixture), url, QUICK_OPTIONS);
       expect(captureSchema.safeParse(result).success).toBe(true);
     }
   });
@@ -113,7 +183,9 @@ describe("capture", () => {
     if (!channelUrl) throw new Error("Missing channel URL metadata");
     channelUrl.setAttribute(
       "href",
-      "https://www.youtube.com/watch?v=KCjwU4XYBL8",
+      // A watch-form URL the channel-handle fallback must reject; same video
+      // as the capture request so the head still describes this page.
+      WATCH_URL,
     );
 
     const attributedChannel = doc.createElement("div");

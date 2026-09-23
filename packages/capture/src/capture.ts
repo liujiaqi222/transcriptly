@@ -13,6 +13,13 @@ import {
 import { parseDuration, parseTimestamp } from "./timestamp";
 import { canonicalWatchUrl, parseVideoId } from "./video";
 
+/** Head elements whose url/canonical form carries the head's own videoId. */
+const HEAD_VIDEO_ID_RULES: SelectorRule[] = [
+  { selector: 'link[rel="canonical"]', attribute: "href" },
+  { selector: 'meta[property="og:url"]', attribute: "content" },
+  { selector: 'link[itemprop="url"]', attribute: "href" },
+];
+
 /** YouTube channel URL path shapes accepted for a captured handle. */
 const CHANNEL_HANDLE = /^\/(?:@[^/]+|channel\/[^/]+|user\/[^/]+|c\/[^/]+)\/?$/;
 /** Hosts YouTube serves channel avatars from (#98). */
@@ -65,8 +72,15 @@ function readFirstAttribute(
   return null;
 }
 
-function readMeta(doc: Document, rules: SelectorRule[]): string {
-  return sanitizeText(readFirstAttribute(doc, rules) ?? "");
+function readMeta(
+  doc: Document,
+  rules: SelectorRule[],
+  allowHeadRules = true,
+): string {
+  const usable = allowHeadRules
+    ? rules
+    : rules.filter((rule) => rule.scope !== "head");
+  return sanitizeText(readFirstAttribute(doc, usable) ?? "");
 }
 
 /** An https avatar URL on a YouTube image host, or undefined if unusable. */
@@ -118,6 +132,41 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/**
+ * The video the page's own live DOM reports as currently rendered. YouTube
+ * binds `video-id` on the watch host element and updates it when SPA
+ * navigation commits, unlike the `ytInitialData` script tag and the head,
+ * which stay frozen at the previously-loaded video (verified 2026-09 against
+ * production YouTube while diagnosing #127).
+ *
+ * Returns null on pages that expose no identity marker (older layouts,
+ * non-polymer hosts, synthetic fixtures) — callers must then fall back to
+ * ungated behavior rather than fail.
+ */
+function readPageVideoId(doc: Document): string | null {
+  const id = doc
+    .querySelector("ytd-watch-flexy[video-id]")
+    ?.getAttribute("video-id")
+    ?.trim();
+  return id ? id : null;
+}
+
+/**
+ * The videoId the document head claims for itself, read from the elements
+ * search engines rely on. The head survives SPA navigation untouched, so a
+ * head whose videoId differs from the requested one is describing the
+ * previously-opened video and its fallbacks must be skipped.
+ */
+function readHeadVideoId(doc: Document): string | null {
+  for (const rule of HEAD_VIDEO_ID_RULES) {
+    const raw = readAttribute(doc, rule);
+    if (raw === null) continue;
+    const id = parseVideoId(raw);
+    if (id !== null) return id;
+  }
+  return null;
+}
+
 function findVideoOwnerRenderer(
   value: unknown,
 ): Record<string, unknown> | null {
@@ -143,6 +192,13 @@ interface InitialChannel {
   avatarUrl?: string;
 }
 
+/** The videoId the ytInitialData payload describes, when it carries one. */
+function readInitialDataVideoId(data: Record<string, unknown>): string | null {
+  const endpoint = asRecord(asRecord(data.currentVideoEndpoint)?.watchEndpoint);
+  const id = endpoint?.videoId;
+  return typeof id === "string" && id !== "" ? id : null;
+}
+
 /**
  * Reads channel identity from the page's ytInitialData (#100). The owner
  * renderer's title runs are the primary source for name, handle, and
@@ -153,10 +209,19 @@ interface InitialChannel {
  */
 function readInitialChannel(
   doc: Document,
+  videoId: string,
   base: string,
 ): InitialChannel | null {
   const data = readYtInitialData(doc);
   if (!data) return null;
+  // SPA navigation re-renders the body but never rewrites the ytInitialData
+  // script tag, so after navigating from another video it still describes
+  // the PREVIOUS video (#127). When the payload names its own video, only
+  // trust the channel identity it carries if that video is the requested
+  // one; otherwise the DOM fallbacks (which do track the current video)
+  // take over.
+  const dataVideoId = readInitialDataVideoId(data);
+  if (dataVideoId !== null && dataVideoId !== videoId) return null;
   const owner = findVideoOwnerRenderer(data);
   if (!owner) return null;
 
@@ -481,15 +546,31 @@ function readSource(
   url: string,
   videoId: string,
 ): Capture["source"] {
-  const title = readMeta(doc, selectors.meta.title);
-  const description = readMeta(doc, selectors.meta.description);
-  const initialChannel = readInitialChannel(doc, url);
+  // The head survives SPA navigation frozen at the previously-loaded
+  // video (#127). When the head names a different videoId than the one
+  // being captured, every head fallback would resurface that stale
+  // metadata (channel name/url, title, date, duration), so they are
+  // skipped entirely; live-DOM rules carry the capture instead.
+  const headVideoId = readHeadVideoId(doc);
+  const headDescribesThisVideo =
+    headVideoId === null || headVideoId === videoId;
+  const title = readMeta(doc, selectors.meta.title, headDescribesThisVideo);
+  const description = readMeta(
+    doc,
+    selectors.meta.description,
+    headDescribesThisVideo,
+  );
+  const initialChannel = readInitialChannel(doc, videoId, url);
   // Name priority: the owner's own title runs (full, from every current
   // variant), then the rendered DOM text (joint channels concatenate every
   // member there), then the share-dialog item (older variants) which carries
   // a shortened name. Dialog name must not mask the richer DOM text. An
   // empty name reaches the schema validator, which rejects it (#33).
-  const domChannelName = readMeta(doc, selectors.meta.channelName);
+  const domChannelName = readMeta(
+    doc,
+    selectors.meta.channelName,
+    headDescribesThisVideo,
+  );
   const channelName =
     initialChannel?.titleRunName ??
     (domChannelName !== "" ? domChannelName : null) ??
@@ -511,12 +592,19 @@ function readSource(
       : undefined);
 
   const publishedAt = selectors.meta.publishedAt
-    ? normalizePublishedAt(readMeta(doc, selectors.meta.publishedAt))
+    ? normalizePublishedAt(
+        readMeta(doc, selectors.meta.publishedAt, headDescribesThisVideo),
+      )
     : undefined;
 
   let durationSeconds: number | undefined;
   if (selectors.meta.duration) {
-    const rawDuration = readFirstAttribute(doc, selectors.meta.duration);
+    const rawDuration = readFirstAttribute(
+      doc,
+      (selectors.meta.duration ?? []).filter(
+        (rule) => headDescribesThisVideo || rule.scope !== "head",
+      ),
+    );
     if (rawDuration !== null) {
       const parsed = parseDuration(rawDuration) ?? parseTimestamp(rawDuration);
       if (parsed !== null) durationSeconds = parsed;
@@ -680,11 +768,10 @@ function readChaptersFromMarkers(
 async function readTranscriptFromDom(
   doc: Document,
   selectors: SiteSelectors,
+  deadline: number,
   options: CaptureOptions,
 ): Promise<TranscriptBody | null> {
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-  const deadline = Date.now() + timeoutMs;
   let panelClicked = false;
 
   // The transcript section may not exist yet on a freshly loaded (or
@@ -727,9 +814,27 @@ export async function capture(
     );
   }
 
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+  const deadline = Date.now() + timeoutMs;
+
+  // SPA identity gate (#127). YouTube pushes the new URL to the address bar
+  // the moment navigation starts, then re-renders the body; a capture
+  // request landing in that window would otherwise read the previous
+  // video's channel name/url/avatar and title while saving the new video's
+  // id. Wait until the live DOM identifies itself as the requested video
+  // before reading anything. Pages without an identity marker (older
+  // layouts, synthetic fixtures) skip the gate.
+  await waitForPageIdentity(doc, videoId, deadline, pollIntervalMs);
+
   const url = canonicalWatchUrl(videoId);
   const source = readSource(doc, selectors, url, videoId);
-  const transcript = await readTranscriptFromDom(doc, selectors, options);
+  const transcript = await readTranscriptFromDom(
+    doc,
+    selectors,
+    deadline,
+    options,
+  );
   if (!transcript) {
     throw new CaptureError("no-transcript", "No usable transcript was found");
   }
@@ -739,12 +844,49 @@ export async function capture(
       ? transcriptChapters
       : readChaptersFromMarkers(doc, selectors);
 
+  // The page may have navigated again while the transcript was being read;
+  // writing now would pair the requested videoId with another video's
+  // source metadata and segments (#127).
+  const finalVideoId = readPageVideoId(doc);
+  if (finalVideoId !== null && finalVideoId !== videoId) {
+    throw new CaptureError(
+      "mismatched-page",
+      `The page navigated to video ${finalVideoId} while capturing ${videoId}; refusing to write mixed metadata`,
+    );
+  }
+
   return {
     source,
     capturedAt: now().toISOString(),
     segments,
     ...(chapters.length > 0 ? { chapters } : {}),
   };
+}
+
+/**
+ * Polls until the page's live DOM identifies itself as `videoId`, or the
+ * deadline expires. Fails with `mismatched-page` when the page has settled
+ * on a different video - saving would pair the requested id with another
+ * video's metadata. Pages that never expose an identity marker pass
+ * immediately (unchanged legacy behavior).
+ */
+async function waitForPageIdentity(
+  doc: Document,
+  videoId: string,
+  deadline: number,
+  pollIntervalMs: number,
+): Promise<void> {
+  for (;;) {
+    const pageVideoId = readPageVideoId(doc);
+    if (pageVideoId === null || pageVideoId === videoId) return;
+    if (Date.now() >= deadline) {
+      throw new CaptureError(
+        "mismatched-page",
+        `The page is showing video ${pageVideoId}, not the requested ${videoId}; refusing to capture stale metadata`,
+      );
+    }
+    await sleep(pollIntervalMs);
+  }
 }
 
 export async function captureOutcome(

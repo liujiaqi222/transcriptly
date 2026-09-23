@@ -10,8 +10,9 @@ import type { SiteSelectors } from "../src/selectors";
 
 /**
  * Live-page fixtures: real YouTube watch HTML captured 2026-08-30 while
- * diagnosing #100. YouTube ships multiple watch variants at once (the same
- * batch run hit all three below), so capture must extract the same channel
+ * diagnosing #100 (variants A-C) and 2026-09-23 while diagnosing #127
+ * (variant D). YouTube ships multiple watch variants at once (the same
+ * batch run hit several of the below), so capture must extract the channel
  * identity from each.
  *
  * Adding a fixture: when a capture incident suggests a new page shape,
@@ -28,13 +29,44 @@ import type { SiteSelectors } from "../src/selectors";
 
 const liveDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures/live");
 
-const videoUrls: Record<string, string> = {
-  "watch-variant-a-json-element.html":
-    "https://www.youtube.com/watch?v=rKgtm81yi94",
-  "watch-variant-b-dialog-id-form.html":
-    "https://www.youtube.com/watch?v=wqbFUpnZTDA",
-  "watch-variant-c-title-runs-only.html":
-    "https://www.youtube.com/watch?v=sb34MfJjurc",
+interface LiveVariant {
+  url: string;
+  channelName: string;
+  channelHandle: string;
+  hasAvatar: boolean;
+}
+
+const variants: Record<string, LiveVariant> = {
+  "watch-variant-a-json-element.html": {
+    url: "https://www.youtube.com/watch?v=rKgtm81yi94",
+    channelName: "TED",
+    channelHandle: "/@TED",
+    hasAvatar: true,
+  },
+  "watch-variant-b-dialog-id-form.html": {
+    url: "https://www.youtube.com/watch?v=wqbFUpnZTDA",
+    channelName: "TED",
+    channelHandle: "/@TED",
+    // The thumbnail came back empty in the raw page data.
+    hasAvatar: false,
+  },
+  "watch-variant-c-title-runs-only.html": {
+    url: "https://www.youtube.com/watch?v=sb34MfJjurc",
+    channelName: "TED",
+    channelHandle: "/@TED",
+    hasAvatar: true,
+  },
+  // Captured 2026-09-23 for #127: the owner renderer carries no title runs
+  // and no thumbnail; the name lives in `attributedTitle`/share dialog and
+  // the handle is an ID-form browseEndpoint. Also the first variant whose
+  // ytInitialData `currentVideoEndpoint` gate must accept (same video as
+  // the capture URL).
+  "watch-variant-d-collab-owner.html": {
+    url: "https://www.youtube.com/watch?v=vMyiySyx0AU",
+    channelName: "Big Think Clips",
+    channelHandle: "/@bigthinkclips",
+    hasAvatar: false,
+  },
 };
 
 /** Narrow the transcript selectors to the injected panel. */
@@ -48,25 +80,25 @@ const liveSelectors: SiteSelectors = {
 
 function loadLiveDocument(name: string): Document {
   return new JSDOM(readFileSync(join(liveDir, name), "utf8"), {
-    url: videoUrls[name],
+    url: variants[name].url,
   }).window.document;
 }
 
 describe("capture against live YouTube watch variants", () => {
-  it.each(Object.keys(videoUrls))(
-    "%s yields TED as /@TED with the schema satisfied",
+  it.each(Object.keys(variants))(
+    "%s extracts the variant's channel identity with the schema satisfied",
     async (name) => {
-      const result = await capture(loadLiveDocument(name), videoUrls[name], {
+      const variant = variants[name];
+      const result = await capture(loadLiveDocument(name), variant.url, {
         selectors: liveSelectors,
         timeoutMs: 500,
       });
 
-      // All three variants must agree on the channel identity (#100).
-      expect(result.source.channelName).toBe("TED");
-      expect(result.source.channelHandle).toBe("/@TED");
-      // Variant B's thumbnail came back empty in the raw page data; an
-      // avatar is expected only when the variant carries one.
-      if (name !== "watch-variant-b-dialog-id-form.html") {
+      expect(result.source.videoId).toBe(variant.url.split("v=")[1]);
+      expect(result.source.channelName).toBe(variant.channelName);
+      expect(result.source.channelHandle).toBe(variant.channelHandle);
+      // An avatar is expected only when the variant carries one.
+      if (variant.hasAvatar) {
         expect(result.source.channelAvatarUrl).toBeDefined();
       }
       expect(captureSchema.safeParse(result).success).toBe(true);
