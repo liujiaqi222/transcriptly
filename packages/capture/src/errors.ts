@@ -1,5 +1,6 @@
 export type CaptureFailureKind =
   | "not-a-watch-page"
+  | "mismatched-page"
   | "no-transcript"
   | "malformed-segments"
   | "extraction-failed";

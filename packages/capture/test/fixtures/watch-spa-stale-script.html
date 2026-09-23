@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <base href="https://www.youtube.com/watch?v=newvid12345" />
+    <!--
+      Post-SPA state (#127): the user navigated from video `oldvid12345` to
+      `newvid12345`. YouTube re-rendered the body for `newvid12345` but the head and
+      the ytInitialData script tag stay frozen at `oldvid12345`. Capture must
+      take channel identity from the live DOM and skip every stale source.
+    -->
+    <title>Old Stale Title - YouTube</title>
+    <meta name="title" content="Old Stale Title" />
+    <meta name="description" content="Old stale description." />
+    <meta itemprop="duration" content="PT1M2S" />
+    <meta itemprop="datePublished" content="2020-01-01" />
+    <link itemprop="name" content="Old Stale Channel" />
+    <link itemprop="url" href="https://www.youtube.com/watch?v=oldvid12345" />
+    <link rel="canonical" href="https://www.youtube.com/watch?v=oldvid12345" />
+  </head>
+  <body>
+    <ytd-watch-flexy video-id="newvid12345">
+      <ytd-watch-metadata>
+        <h1 class="ytd-watch-metadata">Fresh Title from DOM</h1>
+        <div id="owner">
+          <ytd-video-owner-renderer watch-metadata-refresh="">
+            <yt-attributed-string id="attributed-channel-name">
+              <a role="button" tabindex="0">Fresh Channel</a>
+            </yt-attributed-string>
+            <avatar-view-model>
+              <yt-avatar-shape>
+                <img
+                  src="https://yt3.ggpht.com/fresh-avatar=s88-c-k-c0x00ffffff-no-rj"
+                  alt=""
+                />
+              </yt-avatar-shape>
+            </avatar-view-model>
+          </ytd-video-owner-renderer>
+        </div>
+        <span id="attributed-snippet-text">Fresh description from DOM.</span>
+      </ytd-watch-metadata>
+    </ytd-watch-flexy>
+
+    <div class="ytp-time-duration">4:05</div>
+
+    <div id="info-strings">
+      <yt-formatted-string>Oct 24, 2009</yt-formatted-string>
+    </div>
+
+    <ytd-video-description-transcript-section-renderer>
+      <div id="title">
+        <h3>Transcript</h3>
+      </div>
+    </ytd-video-description-transcript-section-renderer>
+
+    <ytd-transcript-renderer>
+      <div id="segments-container">
+        <ytd-transcript-segment-renderer>
+          <div class="segment-timestamp">0:00</div>
+          <yt-formatted-string class="segment-text"
+            >first fresh line</yt-formatted-string
+          >
+        </ytd-transcript-segment-renderer>
+      </div>
+    </ytd-transcript-renderer>
+
+    <!-- Stale ytInitialData: still describes the previously-opened video,
+         including the channel identity capture used to prefer. -->
+    <script>
+      var ytInitialData = {
+        currentVideoEndpoint: {
+          watchEndpoint: { videoId: "oldvid12345" },
+        },
+        contents: {
+          videoOwnerRenderer: {
+            title: {
+              runs: [{ text: "Old Stale Channel" }],
+            },
+            navigationEndpoint: {
+              showDialogCommand: {
+                panelLoadingStrategy: {
+                  inlineContent: {
+                    dialogViewModel: {
+                      customContent: {
+                        listViewModel: {
+                          listItems: [
+                            {
+                              listItemViewModel: {
+                                title: {
+                                  content: "Old Stale Channel",
+                                  commandRuns: [
+                                    {
+                                      onTap: {
+                                        innertubeCommand: {
+                                          browseEndpoint: {
+                                            canonicalBaseUrl:
+                                              "/@oldstalechannel",
+                                          },
+                                        },
+                                      },
+                                    },
+                                  ],
+                                },
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            thumbnail: {
+              thumbnails: [
+                {
+                  url: "https://yt3.ggpht.com/stale-avatar=s88-c-k-c0x00ffffff-no-rj",
+                },
+              ],
+            },
+          },
+        },
+      };
+    </script>
+  </body>
+</html>

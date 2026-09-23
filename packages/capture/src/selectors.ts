@@ -1,6 +1,14 @@
 export interface SelectorRule {
   selector: string;
   attribute?: string;
+  /**
+   * `"head"` marks rules that read the document head. YouTube re-renders
+   * the body on SPA navigation without touching the head, so head rules
+   * are only consulted when the head provably describes the requested
+   * video (its own canonical/og:url videoId matches) — otherwise they
+   * would resurface the previously-opened video's metadata.
+   */
+  scope?: "head";
 }
 
 export interface TranscriptSelectors {
@@ -40,13 +48,16 @@ export interface SiteSelectors {
 
 export const youtubeSelectors: SiteSelectors = {
   meta: {
-    // Prefer live page elements; fall back to server-rendered head elements.
-    // YouTube SPA navigation re-renders the body without updating the head.
+    // Prefer live page elements; fall back to server-rendered head elements
+    // only when the head provably describes this video (see
+    // SelectorRule.scope). YouTube SPA navigation re-renders the body
+    // without updating the head.
     title: [
       { selector: "h1.ytd-watch-metadata, ytd-watch-metadata h1" },
       {
         selector: 'meta[name="title"], meta[property="og:title"]',
         attribute: "content",
+        scope: "head",
       },
     ],
     description: [
@@ -54,19 +65,36 @@ export const youtubeSelectors: SiteSelectors = {
       {
         selector: 'meta[name="description"], meta[property="og:description"]',
         attribute: "content",
+        scope: "head",
       },
     ],
     channelName: [
       // Joint channels may expose a text-only attributed link without href.
       { selector: "#attributed-channel-name a" },
       { selector: YOUTUBE_CHANNEL_LINK_SELECTOR },
-      { selector: 'link[itemprop="name"]', attribute: "content" },
+      {
+        selector: 'link[itemprop="name"]',
+        attribute: "content",
+        scope: "head",
+      },
     ],
     channelUrl: [
       { selector: YOUTUBE_CHANNEL_LINK_SELECTOR, attribute: "href" },
-      { selector: 'link[itemprop="url"]', attribute: "href" },
+      {
+        selector: 'link[itemprop="url"]',
+        attribute: "href",
+        scope: "head",
+      },
     ],
     channelAvatar: [
+      // Current view model: the owner renders its avatar(s) as
+      // avatar-view-model > yt-avatar-shape > img (no #avatar wrapper).
+      {
+        selector: "ytd-video-owner-renderer avatar-view-model img",
+        attribute: "src",
+      },
+      { selector: "#owner avatar-view-model img", attribute: "src" },
+      // Older layouts wrapped the avatar in an #avatar element.
       { selector: "ytd-video-owner-renderer #avatar img", attribute: "src" },
       { selector: "#owner #avatar img", attribute: "src" },
     ],
@@ -75,11 +103,16 @@ export const youtubeSelectors: SiteSelectors = {
       {
         selector: 'meta[itemprop="datePublished"]',
         attribute: "content",
+        scope: "head",
       },
     ],
     duration: [
       { selector: ".ytp-time-duration" },
-      { selector: 'meta[itemprop="duration"]', attribute: "content" },
+      {
+        selector: 'meta[itemprop="duration"]',
+        attribute: "content",
+        scope: "head",
+      },
     ],
   },
   transcript: {
