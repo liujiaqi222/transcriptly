@@ -28,34 +28,40 @@ export function VideoDescription({ description }: { description: string }) {
   }, [expanded]);
 
   return (
-    <div className="mt-8 mb-0 max-w-[68ch]">
+    <div className="relative mt-8 mb-0 max-w-[68ch]">
       <p
-        className={`m-0 break-words text-lg leading-[1.7] whitespace-pre-line text-[#64748b] ${expanded ? "" : "line-clamp-3"}`}
+        className={`m-0 break-words text-lg leading-[1.7] whitespace-pre-line text-[#64748b] ${
+          expanded ? "" : "line-clamp-3 pr-8"
+        }`}
         ref={paragraphRef}
       >
         {description}
+        {expanded && overflowing ? (
+          <button
+            aria-expanded={true}
+            aria-label="Show less description"
+            className="ml-2 inline-flex h-5 w-5 translate-y-[-1px] cursor-pointer items-center justify-center rounded-full align-middle text-[#64748b] transition-colors hover:bg-[#edf7ff] hover:text-[#0872b9] focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
+            onClick={() => setExpanded(false)}
+            title="Show less"
+            type="button"
+          >
+            <ChevronDown aria-hidden="true" className="rotate-180" size={15} />
+          </button>
+        ) : null}
       </p>
-      {overflowing ? (
-        <button
-          aria-expanded={expanded}
-          aria-label={
-            expanded ? "Show less description" : "Show more description"
-          }
-          className="mt-1.5 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-[#64748b] transition-colors hover:bg-[#edf7ff] hover:text-[#0872b9] focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
-          onClick={() => setExpanded((value) => !value)}
-          title={expanded ? "Show less" : "Show more"}
-          type="button"
-        >
-          <ChevronDown
-            aria-hidden="true"
-            className={
-              expanded
-                ? "rotate-180 transition-transform duration-200"
-                : "transition-transform duration-200"
-            }
-            size={16}
-          />
-        </button>
+      {!expanded && overflowing ? (
+        <div className="absolute right-0 bottom-0 flex h-7 items-center bg-gradient-to-l from-[#fffdf8] via-[#fffdf8] pl-6 to-transparent">
+          <button
+            aria-expanded={false}
+            aria-label="Show more description"
+            className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-[#64748b] transition-colors hover:bg-[#edf7ff] hover:text-[#0872b9] focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
+            onClick={() => setExpanded(true)}
+            title="Show more"
+            type="button"
+          >
+            <ChevronDown aria-hidden="true" size={15} />
+          </button>
+        </div>
       ) : null}
     </div>
   );
