@@ -277,29 +277,83 @@ function readOwnerIdentity(
   };
 }
 
-/** Reads the avatar the owner renderer carries, across its two shapes. */
+/** Reads the avatar the owner renderer carries, across its shapes. */
 function readOwnerAvatarUrl(
   owner: Record<string, unknown> | null,
 ): string | undefined {
   const thumbnail = asRecord(owner?.thumbnail);
-  if (!thumbnail) return undefined;
+  if (thumbnail) {
+    // Classic renderer: thumbnail.thumbnails[0].url.
+    if (Array.isArray(thumbnail.thumbnails)) {
+      const first = asRecord(thumbnail.thumbnails[0]);
+      if (typeof first?.url === "string") {
+        const normalized = normalizeChannelAvatarUrl(first.url);
+        if (normalized) return normalized;
+      }
+    }
 
-  // Classic renderer: thumbnail.thumbnails[0].url.
-  if (Array.isArray(thumbnail.thumbnails)) {
-    const first = asRecord(thumbnail.thumbnails[0]);
-    if (typeof first?.url === "string") {
-      return normalizeChannelAvatarUrl(first.url);
+    // Current view model: thumbnail.videoRendererThumbnailViewModel.image.sources[0].url.
+    const image = asRecord(
+      asRecord(thumbnail.videoRendererThumbnailViewModel)?.image,
+    );
+    if (Array.isArray(image?.sources)) {
+      const first = asRecord(image.sources[0]);
+      if (typeof first?.url === "string") {
+        const normalized = normalizeChannelAvatarUrl(first.url);
+        if (normalized) return normalized;
+      }
     }
   }
 
-  // Current view model: thumbnail.videoRendererThumbnailViewModel.image.sources[0].url.
-  const image = asRecord(
-    asRecord(thumbnail.videoRendererThumbnailViewModel)?.image,
-  );
-  if (Array.isArray(image?.sources)) {
-    const first = asRecord(image.sources[0]);
-    if (typeof first?.url === "string") {
-      return normalizeChannelAvatarUrl(first.url);
+  // Collab videos: owner.avatarStack.avatarStackViewModel.avatars[0].avatarViewModel.image.sources[0].url
+  const avatarStack = asRecord(owner?.avatarStack);
+  const avatars = asRecord(avatarStack?.avatarStackViewModel)?.avatars;
+  if (Array.isArray(avatars)) {
+    const firstAvatar = asRecord(asRecord(avatars[0])?.avatarViewModel);
+    const image = asRecord(firstAvatar?.image);
+    if (Array.isArray(image?.sources)) {
+      const first = asRecord(image.sources[0]);
+      if (typeof first?.url === "string") {
+        const normalized = normalizeChannelAvatarUrl(first.url);
+        if (normalized) return normalized;
+      }
+    }
+  }
+
+  // Dialog list item fallback (leading accessory avatar):
+  const dialogAvatar = readOwnerDialogAvatarUrl(owner);
+  if (dialogAvatar) return dialogAvatar;
+
+  return undefined;
+}
+
+function readOwnerDialogAvatarUrl(
+  owner: Record<string, unknown> | null,
+): string | undefined {
+  const listItems = asRecord(
+    asRecord(
+      asRecord(
+        asRecord(
+          asRecord(
+            asRecord(asRecord(owner?.navigationEndpoint)?.showDialogCommand)
+              ?.panelLoadingStrategy,
+          )?.inlineContent,
+        )?.dialogViewModel,
+      )?.customContent,
+    )?.listViewModel,
+  )?.listItems;
+  if (!Array.isArray(listItems)) return undefined;
+  for (const item of listItems) {
+    const itemViewModel = asRecord(asRecord(item)?.listItemViewModel);
+    const leadingAccessory = asRecord(itemViewModel?.leadingAccessory);
+    const avatarViewModel = asRecord(leadingAccessory?.avatarViewModel);
+    const image = asRecord(avatarViewModel?.image);
+    if (Array.isArray(image?.sources)) {
+      const first = asRecord(image.sources[0]);
+      if (typeof first?.url === "string") {
+        const normalized = normalizeChannelAvatarUrl(first.url);
+        if (normalized) return normalized;
+      }
     }
   }
   return undefined;
@@ -405,19 +459,41 @@ function readOwnerDialogListItem(
   )?.listItems;
   if (!Array.isArray(listItems)) return null;
   for (const item of listItems) {
-    const title = asRecord(asRecord(asRecord(item)?.listItemViewModel)?.title);
+    const itemViewModel = asRecord(asRecord(item)?.listItemViewModel);
+    const title = asRecord(itemViewModel?.title);
     const commandRuns = title?.commandRuns;
-    if (!Array.isArray(commandRuns)) continue;
     const content = title?.content;
+    const name =
+      typeof content === "string" && content.trim() !== ""
+        ? sanitizeText(content)
+        : null;
+
+    const commandEndpoint = Array.isArray(commandRuns)
+      ? asRecord(
+          asRecord(asRecord(asRecord(commandRuns[0])?.onTap)?.innertubeCommand)
+            ?.browseEndpoint,
+        )
+      : null;
+    const leadingEndpoint = asRecord(
+      asRecord(
+        asRecord(
+          asRecord(asRecord(itemViewModel?.leadingAccessory)?.avatarViewModel)
+            ?.endpoint,
+        )?.innertubeCommand,
+      )?.browseEndpoint,
+    );
+    // Prefer endpoint that already carries @handle form:
+    const endpoint =
+      (typeof leadingEndpoint?.canonicalBaseUrl === "string" &&
+      leadingEndpoint.canonicalBaseUrl.startsWith("/@")
+        ? leadingEndpoint
+        : null) ??
+      commandEndpoint ??
+      leadingEndpoint;
+
     return {
-      name:
-        typeof content === "string" && content.trim() !== ""
-          ? sanitizeText(content)
-          : null,
-      endpoint: asRecord(
-        asRecord(asRecord(asRecord(commandRuns[0])?.onTap)?.innertubeCommand)
-          ?.browseEndpoint,
-      ),
+      name,
+      endpoint,
     };
   }
   return null;
@@ -495,6 +571,21 @@ function collectHandleFormsByBrowseId(
   }
 }
 
+/**
+ * For joint / collaborative channels (e.g. "Lenny's Podcast and Stripe" or
+ * "Open Residency和AI with Remy"), extracts the primary (first) creator's name
+ * so the channel identity stays unified with the primary channel's handle and avatar.
+ */
+function extractPrimaryChannelName(raw: string): string {
+  const trimmed = sanitizeText(raw);
+  if (!trimmed) return "";
+  const match = trimmed.match(/^(.+?)(?:\s+(?:and|&)\s+|\s*和\s*)/i);
+  if (match?.[1]?.trim()) {
+    return match[1].trim();
+  }
+  return trimmed;
+}
+
 function normalizePublishedAt(raw: string): string | undefined {
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
   const displayDate =
@@ -562,22 +653,24 @@ function readSource(
   );
   const initialChannel = readInitialChannel(doc, videoId, url);
   // Name priority: the owner's own title runs (full, from every current
-  // variant), then the rendered DOM text (joint channels concatenate every
-  // member there), then the share-dialog item (older variants) which carries
-  // a shortened name. Dialog name must not mask the richer DOM text. An
-  // empty name reaches the schema validator, which rejects it (#33).
-  const domChannelName = readMeta(
-    doc,
-    selectors.meta.channelName,
-    headDescribesThisVideo,
+  // variant), then the share-dialog item (older variants / collab primary
+  // creator), then the rendered DOM text (cleaned to primary creator if
+  // joint). An empty name reaches the schema validator, which rejects it (#33).
+  const domChannelName = extractPrimaryChannelName(
+    readMeta(doc, selectors.meta.channelName, headDescribesThisVideo),
   );
   const channelName =
     initialChannel?.titleRunName ??
-    (domChannelName !== "" ? domChannelName : null) ??
     initialChannel?.dialogName ??
+    (domChannelName !== "" ? domChannelName : null) ??
     "";
   const rawChannelUrl =
-    readFirstAttribute(doc, selectors.meta.channelUrl) ?? "";
+    readFirstAttribute(
+      doc,
+      selectors.meta.channelUrl.filter(
+        (rule) => headDescribesThisVideo || rule.scope !== "head",
+      ),
+    ) ?? "";
   const channelHandle =
     initialChannel?.handle || normalizeChannelHandle(rawChannelUrl, url);
   // Prefer the avatar embedded in ytInitialData; fall back to the rendered

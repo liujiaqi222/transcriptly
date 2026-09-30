@@ -69,9 +69,15 @@ export const youtubeSelectors: SiteSelectors = {
       },
     ],
     channelName: [
+      { selector: YOUTUBE_CHANNEL_LINK_SELECTOR },
+      {
+        selector: "ytd-video-description-infocards-section-renderer #title",
+      },
+      {
+        selector: "ytd-video-description-header-renderer #channel-name #text",
+      },
       // Joint channels may expose a text-only attributed link without href.
       { selector: "#attributed-channel-name a" },
-      { selector: YOUTUBE_CHANNEL_LINK_SELECTOR },
       {
         selector: 'link[itemprop="name"]',
         attribute: "content",
@@ -80,6 +86,23 @@ export const youtubeSelectors: SiteSelectors = {
     ],
     channelUrl: [
       { selector: YOUTUBE_CHANNEL_LINK_SELECTOR, attribute: "href" },
+      // Modern watch layouts / collab videos render channel link in structured description (#127):
+      {
+        selector: "ytd-video-description-infocards-section-renderer a#header",
+        attribute: "href",
+      },
+      {
+        selector: "ytd-video-description-header-renderer #channel-info a",
+        attribute: "href",
+      },
+      {
+        selector: "#structured-description a#header",
+        attribute: "href",
+      },
+      {
+        selector: "ytd-structured-description-content-renderer #channel-info a",
+        attribute: "href",
+      },
       {
         selector: 'link[itemprop="url"]',
         attribute: "href",
@@ -94,6 +117,23 @@ export const youtubeSelectors: SiteSelectors = {
         attribute: "src",
       },
       { selector: "#owner avatar-view-model img", attribute: "src" },
+      // Collab videos: avatar stack in owner
+      {
+        selector: "ytd-video-owner-renderer yt-avatar-stack-view-model img",
+        attribute: "src",
+      },
+      { selector: "#owner yt-avatar-stack-view-model img", attribute: "src" },
+      { selector: "#owner #avatar-stack img", attribute: "src" },
+      // Description infocards / header avatar fallback
+      {
+        selector:
+          "ytd-video-description-infocards-section-renderer #thumbnail img",
+        attribute: "src",
+      },
+      {
+        selector: "ytd-video-description-header-renderer #avatar img",
+        attribute: "src",
+      },
       // Older layouts wrapped the avatar in an #avatar element.
       { selector: "ytd-video-owner-renderer #avatar img", attribute: "src" },
       { selector: "#owner #avatar img", attribute: "src" },
