@@ -57,15 +57,15 @@ const variants: Record<string, LiveVariant> = {
     hasAvatar: true,
   },
   // Captured 2026-09-23 for #127: the owner renderer carries no title runs
-  // and no thumbnail; the name lives in `attributedTitle`/share dialog and
-  // the handle is an ID-form browseEndpoint. Also the first variant whose
-  // ytInitialData `currentVideoEndpoint` gate must accept (same video as
-  // the capture URL).
+  // and no thumbnail; the name lives in `attributedTitle`/share dialog, the
+  // handle is an ID-form browseEndpoint, and the avatar lives in avatarStack
+  // or the dialog leading accessory. Also the first variant whose ytInitialData
+  // `currentVideoEndpoint` gate must accept (same video as the capture URL).
   "watch-variant-d-collab-owner.html": {
     url: "https://www.youtube.com/watch?v=vMyiySyx0AU",
     channelName: "Big Think Clips",
     channelHandle: "/@bigthinkclips",
-    hasAvatar: false,
+    hasAvatar: true,
   },
 };
 

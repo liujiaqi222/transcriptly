@@ -239,10 +239,139 @@ describe("capture", () => {
 
     const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
 
-    // The dialog carries the handle, but the name follows the rendered
-    // attributed channel text: joint channels concatenate every member.
-    expect(result.source.channelName).toBe("Open Residency和AI with Remy");
+    // For joint channels, the name follows the primary creator to stay
+    // unified with the primary channel handle and avoid polluting the channel name.
+    expect(result.source.channelName).toBe("Open Residency");
     expect(result.source.channelHandle).toBe("/@openresidency");
+    expect(captureSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("extracts channel handle and avatar for collab videos from live DOM after SPA navigation", async () => {
+    const doc = loadDocument("watch-spa-stale-script.html");
+    doc
+      .querySelector("ytd-watch-flexy")
+      ?.setAttribute("video-id", "newvid12345");
+
+    // Replace the owner with a collab owner shape (avatar stack + attributed name link without href)
+    const owner = doc.querySelector("#owner");
+    if (!owner) throw new Error("Missing #owner element");
+    owner.innerHTML = `
+      <ytd-video-owner-renderer watch-metadata-refresh="">
+        <a class="yt-simple-endpoint" tabindex="-1">
+          <div id="avatar-stack">
+            <yt-avatar-stack-view-model aria-label="Collaboration channels">
+              <avatar-view-model>
+                <yt-avatar-shape>
+                  <img src="https://yt3.ggpht.com/avatar1=s88-c-k-c0x00ffffff-no-rj" />
+                </yt-avatar-shape>
+              </avatar-view-model>
+            </yt-avatar-stack-view-model>
+          </div>
+        </a>
+        <yt-attributed-string id="attributed-channel-name">
+          <a role="button" tabindex="0">Lenny's Podcast and Stripe</a>
+        </yt-attributed-string>
+      </ytd-video-owner-renderer>
+    `;
+
+    // Live DOM infocard in structured description carries the primary channel's URL
+    const metadata = doc.querySelector("ytd-watch-metadata");
+    if (!metadata) throw new Error("Missing ytd-watch-metadata element");
+    const infocard = doc.createElement(
+      "ytd-video-description-infocards-section-renderer",
+    );
+    infocard.innerHTML = `
+      <a id="header" class="yt-simple-endpoint" href="/@LennysPodcast">
+        Lenny's Podcast
+        640K subscribers
+      </a>
+    `;
+    metadata.append(infocard);
+
+    const result = await capture(
+      doc,
+      "https://www.youtube.com/watch?v=newvid12345",
+      QUICK_OPTIONS,
+    );
+
+    expect(result.source.channelName).toBe("Lenny's Podcast");
+    expect(result.source.channelHandle).toBe("/@LennysPodcast");
+    expect(result.source.channelAvatarUrl).toBe(
+      "https://yt3.ggpht.com/avatar1=s88-c-k-c0x00ffffff-no-rj",
+    );
+    expect(captureSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("extracts avatar from avatarStack in ytInitialData for collab videos", async () => {
+    const doc = loadDocument("watch-open.html");
+    doc.querySelector('link[itemprop="name"]')?.remove();
+    const initialData = doc.createElement("script");
+    initialData.textContent = `var ytInitialData = ${JSON.stringify({
+      contents: {
+        videoOwnerRenderer: {
+          avatarStack: {
+            avatarStackViewModel: {
+              avatars: [
+                {
+                  avatarViewModel: {
+                    image: {
+                      sources: [
+                        {
+                          url: "https://yt3.ggpht.com/collab-avatar=s88-c-k-c0x00ffffff-no-rj",
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          },
+          navigationEndpoint: {
+            showDialogCommand: {
+              panelLoadingStrategy: {
+                inlineContent: {
+                  dialogViewModel: {
+                    customContent: {
+                      listViewModel: {
+                        listItems: [
+                          {
+                            listItemViewModel: {
+                              title: {
+                                content: "Lenny's Podcast",
+                                commandRuns: [
+                                  {
+                                    onTap: {
+                                      innertubeCommand: {
+                                        browseEndpoint: {
+                                          canonicalBaseUrl: "/@LennysPodcast",
+                                        },
+                                      },
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })}`;
+    doc.body.append(initialData);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.source.channelName).toBe("Lenny's Podcast");
+    expect(result.source.channelHandle).toBe("/@LennysPodcast");
+    expect(result.source.channelAvatarUrl).toBe(
+      "https://yt3.ggpht.com/collab-avatar=s88-c-k-c0x00ffffff-no-rj",
+    );
     expect(captureSchema.safeParse(result).success).toBe(true);
   });
 
