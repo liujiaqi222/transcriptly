@@ -690,18 +690,19 @@ function readTranscriptBody(
           );
         }
 
-        const rawText = sanitizeText(textElement?.textContent ?? "");
-        if (rawText.length === 0) {
+        if (!textElement) {
           throw new CaptureError(
             "malformed-segments",
-            "Segment has empty text",
+            "Segment is missing its text element",
           );
         }
 
+        const rawText = sanitizeText(textElement.textContent ?? "");
         const text = stripSoundEventTags(rawText);
         if (text.length === 0) {
-          // The row was nothing but sound-event tags (e.g. "[Music]"):
-          // drop it instead of emitting a content-free segment.
+          // YouTube can publish explicitly empty timed cues, and some rows
+          // contain nothing but sound-event tags (e.g. "[Music]"). Drop
+          // either instead of invalidating an otherwise usable transcript.
           continue;
         }
 

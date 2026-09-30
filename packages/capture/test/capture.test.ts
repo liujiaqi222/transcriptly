@@ -594,6 +594,41 @@ describe("capture", () => {
     );
   });
 
+  it("skips an explicitly empty transcript cue without discarding valid segments", async () => {
+    const doc = loadDocument("watch-open.html");
+    const container = doc.querySelector("#segments-container");
+    if (!container) throw new Error("Missing #segments-container");
+
+    // YouTube can publish a timed trailing cue whose text element exists but
+    // is explicitly empty (observed at 3:25 on KCK-LlQoKoI). It carries no
+    // content and must not invalidate the preceding transcript.
+    const segment = doc.createElement("ytd-transcript-segment-renderer");
+    segment.innerHTML = `
+      <div class="segment-timestamp">3:25</div>
+      <yt-formatted-string class="segment-text" is-empty></yt-formatted-string>
+    `;
+    container.append(segment);
+
+    const result = await capture(doc, WATCH_URL, QUICK_OPTIONS);
+
+    expect(result.segments).toEqual([
+      { start: 0, text: "ownership is just a borrow checker" },
+      { start: 9, text: "not a garbage collector" },
+      { start: 42, text: "so you can stop fighting the compiler" },
+    ]);
+  });
+
+  it("still rejects a transcript segment whose text element is missing", async () => {
+    const doc = loadDocument("watch-open.html");
+    doc.querySelector(".segment-text")?.remove();
+
+    await expect(capture(doc, WATCH_URL, QUICK_OPTIONS)).rejects.toMatchObject({
+      name: "CaptureError",
+      kind: "malformed-segments",
+      message: "Segment is missing its text element",
+    });
+  });
+
   it("captures rendered Chinese segments from YouTube's current in-video panel", async () => {
     const doc = loadDocument("watch-current-transcript-panel.html");
 
