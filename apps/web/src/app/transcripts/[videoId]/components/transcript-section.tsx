@@ -14,6 +14,7 @@ import {
   timestampUrl,
   transcriptBlocks,
 } from "@/lib/captures/transcript";
+import { useTranscriptPlayer } from "./transcript-player-context";
 
 /** Same two view modes as the extension popup's preview picker. */
 type TranscriptFormat = "timeline" | "article";
@@ -139,9 +140,30 @@ export function TranscriptSection({
   const [activeChapter, setActiveChapter] = useState(0);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<number | undefined>(undefined);
+  const { seekTo, hasPlayer } = useTranscriptPlayer();
   const termPattern = useMemo(
     () => buildTermPattern(queryTerms(query ?? "")),
     [query],
+  );
+
+  const handleTimestampClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>, seconds: number) => {
+      // Let browser handle native link when modified (Cmd/Ctrl/Shift/Alt) or non-primary click
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        event.button !== 0
+      ) {
+        return;
+      }
+      if (hasPlayer) {
+        event.preventDefault();
+        seekTo(seconds);
+      }
+    },
+    [hasPlayer, seekTo],
   );
 
   useEffect(() => {
@@ -257,7 +279,7 @@ export function TranscriptSection({
 
   return (
     <section
-      className="mt-18 border-t border-[#e2e8f0] pt-8"
+      className="mt-12 border-t border-[#e2e8f0] pt-8"
       aria-labelledby="transcript-title"
     >
       <div className="relative">
@@ -385,8 +407,14 @@ export function TranscriptSection({
                   <a
                     className="mr-3 inline-block font-mono text-sm text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40"
                     href={timestampUrl(url, block.start)}
+                    onClick={(event) =>
+                      handleTimestampClick(event, block.start)
+                    }
                     rel="noreferrer"
                     target="_blank"
+                    title={
+                      hasPlayer ? "Play video from this timestamp" : undefined
+                    }
                   >
                     {formatTimestamp(block.start)}
                   </a>
@@ -423,8 +451,14 @@ export function TranscriptSection({
                   <a
                     className="font-mono text-sm leading-7 text-[#0872b9] tabular-nums underline-offset-4 focus-visible:outline-[3px] focus-visible:outline-offset-3 focus-visible:outline-[#1b90ed]/40 max-sm:text-xs"
                     href={timestampUrl(url, block.start)}
+                    onClick={(event) =>
+                      handleTimestampClick(event, block.start)
+                    }
                     rel="noreferrer"
                     target="_blank"
+                    title={
+                      hasPlayer ? "Play video from this timestamp" : undefined
+                    }
                   >
                     {formatTimestamp(block.start)}
                   </a>

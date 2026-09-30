@@ -38,19 +38,22 @@ export function VideoDescription({ description }: { description: string }) {
       {overflowing ? (
         <button
           aria-expanded={expanded}
-          className="mt-2 inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-sm font-bold text-[#0872b9] transition-colors hover:text-[#202124] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
+          aria-label={
+            expanded ? "Show less description" : "Show more description"
+          }
+          className="mt-1.5 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-[#64748b] transition-colors hover:bg-[#edf7ff] hover:text-[#0872b9] focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-[#1b90ed]/40"
           onClick={() => setExpanded((value) => !value)}
+          title={expanded ? "Show less" : "Show more"}
           type="button"
         >
-          {expanded ? "Show less" : "Show more"}
           <ChevronDown
             aria-hidden="true"
             className={
               expanded
-                ? "rotate-180 transition-transform"
-                : "transition-transform"
+                ? "rotate-180 transition-transform duration-200"
+                : "transition-transform duration-200"
             }
-            size={14}
+            size={16}
           />
         </button>
       ) : null}
